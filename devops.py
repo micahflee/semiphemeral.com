@@ -115,8 +115,8 @@ def _write_ansible_inventory(mode):
     # Create the ansible inventory file
     inventory_filename = os.path.join(_get_root_dir(), f"ansible/inventory-{mode}")
     with open(inventory_filename, "w") as f:
-        f.write(f"[eotk]\n")
-        f.write(f"{ip} ssh_private_key_file=~/.ssh/onions-{mode}.pem\n")
+        f.write(f"[app]\n")
+        f.write(f"{ip} ssh_private_key_file=~/.ssh/semiphemeral\n")
 
     return inventory_filename
 

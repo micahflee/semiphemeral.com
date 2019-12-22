@@ -1,0 +1,70 @@
+---
+- name: install and configure semiphemeral server
+  hosts: app
+  remote_user: root
+
+  vars:
+    ansible_ssh_private_key_file: "{{ ssh_private_key_file }}"
+    mode: "{{ mode }}"
+
+  tasks:
+    - name: set hostname
+      hostname:
+        name: "semiphemeral-{{ mode }}"
+
+    - name: update all packages
+      apt:
+        force_apt_get: yes
+        update_cache: yes
+        upgrade: dist
+        autoremove: yes
+
+    - name: ensure unattended-upgrades dependencies are installed
+      apt:
+        force_apt_get: yes
+        name: "{{ packages }}"
+      vars:
+        packages:
+        - unattended-upgrades
+        - apt-listchanges
+
+    - name: ensure unattended-upgrades is configured
+      shell: |
+        echo unattended-upgrades unattended-upgrades/enable_auto_updates boolean true | debconf-set-selections
+        dpkg-reconfigure -f noninteractive unattended-upgrades
+        systemctl enable unattended-upgrades
+        systemctl restart unattended-upgrades
+
+    - name: ensure docker dependencies are installed
+      apt:
+        force_apt_get: yes
+        name: "{{ packages }}"
+      vars:
+        packages:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - gnupg2
+        - software-properties-common
+
+    - name: ensure docker apt key is added
+      apt_key:
+        id: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+
+    - name: ensure docker apt repository is installed
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/debian buster stable
+        state: present
+
+    - name: ensure docker is installed
+      apt:
+        force_apt_get: yes
+        name: "{{ packages }}"
+      vars:
+        packages:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+        - docker-compose
