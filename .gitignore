@@ -113,3 +113,4 @@ terraform.tfstate.backup
 
 # secrets
 .vars
+ansible/inventory-*
