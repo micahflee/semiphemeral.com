@@ -4,7 +4,6 @@
   remote_user: root
 
   vars:
-    ansible_ssh_private_key_file: "{{ ssh_private_key_file }}"
     mode: "{{ mode }}"
 
   tasks:
@@ -71,5 +70,11 @@
 
     - name: copy the app
       copy:
-        src: ../app/
+        src: "{{ app_tgz }}"
+        dest: /tmp/app.tgz
+
+    - name: extract the app
+      unarchive:
+        remote_src: yes
+        src: /tmp/app.tgz
         dest: /opt/
