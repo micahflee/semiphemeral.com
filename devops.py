@@ -3,6 +3,9 @@ import click
 import subprocess
 import os
 import datetime
+import shutil
+import tempfile
+import tarfile
 
 
 def _validate_env(env):
@@ -52,9 +55,28 @@ def _destroy(mode):
 
 
 def _configure(mode):
-    inventory_filename = _write_ansible_inventory(mode)
+    # Move node_modules away
+    tmp_dir = tempfile.TemporaryDirectory()
+    frontend_node_modules_dir = os.path.join(
+        _get_root_dir(), "app/frontend/node_modules"
+    )
+    frontend_node_modules_dir_exists = os.path.exists(frontend_node_modules_dir)
+    if frontend_node_modules_dir_exists:
+        shutil.move(frontend_node_modules_dir, tmp_dir.name)
+
+    # Compress the app folder
+    app_tgz = os.path.join(tmp_dir.name, "app.tgz")
+    with tarfile.TarFile(app_tgz, mode="w") as tar:
+        tar.add(os.path.join(_get_root_dir(), "app"), arcname="app")
+
+    # Move node_modules back
+    if frontend_node_modules_dir_exists:
+        shutil.move(
+            os.path.join(tmp_dir.name, "node_modules"), frontend_node_modules_dir
+        )
 
     # Run ansible playbook
+    inventory_filename = _write_ansible_inventory(mode)
     p = subprocess.run(
         [
             "ansible-playbook",
@@ -62,13 +84,14 @@ def _configure(mode):
             inventory_filename,
             "-e",
             f"mode={mode}",
+            "-e",
+            f"app_tgz={app_tgz}",
             "playbook.yaml",
         ],
         cwd=os.path.join(_get_root_dir(), "ansible"),
     )
     if p.returncode != 0:
         click.echo("Error running ansible playbook")
-        return
 
 
 def _ssh(mode):
@@ -77,7 +100,7 @@ def _ssh(mode):
         return
 
     # SSH into the server
-    p = subprocess.run(["ssh", "-i", f"~/.ssh/semiphemeral", f"root@{ip}"])
+    p = subprocess.run(["ssh", f"root@{ip}"])
     if p.returncode != 0:
         click.echo("Error SSHing")
         return
@@ -116,7 +139,7 @@ def _write_ansible_inventory(mode):
     inventory_filename = os.path.join(_get_root_dir(), f"ansible/inventory-{mode}")
     with open(inventory_filename, "w") as f:
         f.write(f"[app]\n")
-        f.write(f"{ip} ssh_private_key_file=~/.ssh/semiphemeral\n")
+        f.write(f"{ip}\n")
 
     return inventory_filename
 
