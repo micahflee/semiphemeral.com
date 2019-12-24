@@ -1,5 +1,10 @@
 version: '3'
 services:
 
+  frontend:
+    build: "frontend"
+    ports:
+      - "127.0.0.1:3000:3000"
+
   db:
     image: "postgres:12"
