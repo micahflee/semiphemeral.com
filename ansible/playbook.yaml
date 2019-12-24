@@ -68,3 +68,8 @@
         - docker-ce-cli
         - containerd.io
         - docker-compose
+
+    - name: copy the app
+      copy:
+        src: ../app/
+        dest: /opt/
