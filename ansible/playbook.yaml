@@ -5,6 +5,7 @@
 
   vars:
     mode: "{{ mode }}"
+    ansible_python_interpreter: /usr/bin/python3
 
   tasks:
     - name: set hostname
@@ -67,6 +68,10 @@
         - docker-ce-cli
         - containerd.io
         - docker-compose
+        - python3-pip
+
+    - name: ensure docker python module is installed
+      shell: pip3 install --upgrade pyyaml docker docker-compose
 
     - name: copy the app
       copy:
@@ -78,3 +83,10 @@
         remote_src: yes
         src: /tmp/app.tgz
         dest: /opt/
+
+    - name: ensure containers are up
+      docker_compose:
+        state: present
+        pull: yes
+        build: true
+        project_src: /opt/app
