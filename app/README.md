@@ -1,4 +1,12 @@
+# Getting started
+
+Rename `web-sample.env` to `web.env` and edit it (`devops.py` does this for you).
+
 # Containers
+
+## web
+
+This container has nginx, does HTTPS using a Let's Encrypt cert, and forwards traffic to `frontend` and `backend`.
 
 ## frontend
 
