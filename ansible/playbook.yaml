@@ -84,6 +84,18 @@
         src: /tmp/app.tgz
         dest: /opt/
 
+    - name: define staging web environment
+      shell: |
+        echo "FRONTEND_DOMAIN=staging.semiphemeral.com" > /opt/app/web.env
+        echo "BACKEND_DOMAIN=api.staging.semiphemeral.com" >> /opt/app/web.env
+      when: mode == "staging"
+
+    - name: define prod web environment
+      shell: |
+        echo "FRONTEND_DOMAIN=semiphemeral.com" > /opt/app/web.env
+        echo "BACKEND_DOMAIN=api.semiphemeral.com" >> /opt/app/web.env
+      when: mode == "prod"
+
     - name: ensure containers are up
       docker_compose:
         state: present

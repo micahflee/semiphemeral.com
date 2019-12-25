@@ -1,10 +1,22 @@
 version: '3'
 services:
 
+  web:
+    build: "web"
+    ports:
+      - "80"
+      - "443"
+    env_file:
+      - web.env
+    volumes:
+      - /opt/app_data/web/config:/etc/nginx/conf.d
+      - /opt/app_data/web/letsencrypt:/etc/letsencrypt/
+      - /opt/app_data/web/logs:/var/log/nginx
+
   frontend:
     build: "frontend"
     ports:
-      - "127.0.0.1:3000:80"
+      - "3000:3000"
 
   db:
     image: "postgres:12"
