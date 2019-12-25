@@ -8,7 +8,7 @@ The hosted version of [semiphemeral](https://github.com/micahflee/semiphemeral).
 
 Install [terraform](https://www.terraform.io/downloads.html), python 3.7+, and pipenv.
 
-Copy `vars-sample` to `.vars` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean. The SSH private key must be in `~/.ssh/semiphemeral`.
+Copy `vars-sample` to `.vars` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean.
 
 Use `devops.py`. Each command requires passing in either `staging` or `prod`:
 
