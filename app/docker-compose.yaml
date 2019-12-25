@@ -6,12 +6,12 @@ services:
     ports:
       - "80"
       - "443"
-    env_file:
-      - web.env
     volumes:
-      - /opt/app_data/web/config:/etc/nginx/conf.d
-      - /opt/app_data/web/letsencrypt:/etc/letsencrypt/
       - /opt/app_data/web/logs:/var/log/nginx
+      - "/etc/letsencrypt/live/${FRONTEND_DOMAIN}:/etc/letsencrypt/live/${FRONTEND_DOMAIN}"
+    environment:
+      - FRONTEND_DOMAIN=$FRONTEND_DOMAIN
+      - BACKEND_DOMAIN=$BACKEND_DOMAIN
 
   frontend:
     build: "frontend"

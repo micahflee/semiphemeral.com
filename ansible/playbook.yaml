@@ -19,7 +19,7 @@
         upgrade: dist
         autoremove: yes
 
-    - name: ensure unattended-upgrades dependencies are installed
+    - name: ensure dependencies are installed
       apt:
         force_apt_get: yes
         name: "{{ packages }}"
@@ -27,6 +27,7 @@
         packages:
         - unattended-upgrades
         - apt-listchanges
+        - certbot
 
     - name: ensure unattended-upgrades is configured
       shell: |
@@ -86,14 +87,27 @@
 
     - name: define staging web environment
       shell: |
-        echo "FRONTEND_DOMAIN=staging.semiphemeral.com" > /opt/app/web.env
-        echo "BACKEND_DOMAIN=api.staging.semiphemeral.com" >> /opt/app/web.env
+        echo "FRONTEND_DOMAIN=staging.semiphemeral.com" > /opt/app/.env
+        echo "BACKEND_DOMAIN=api.staging.semiphemeral.com" >> /opt/app/.env
       when: mode == "staging"
 
     - name: define prod web environment
       shell: |
-        echo "FRONTEND_DOMAIN=semiphemeral.com" > /opt/app/web.env
-        echo "BACKEND_DOMAIN=api.semiphemeral.com" >> /opt/app/web.env
+        echo "FRONTEND_DOMAIN=semiphemeral.com" > /opt/app/.env
+        echo "BACKEND_DOMAIN=api.semiphemeral.com" >> /opt/app/.env
+      when: mode == "prod"
+
+    - name: ensure containers are down
+      docker_compose:
+        state: absent
+        project_src: /opt/app
+
+    - name: ensure we have a staging Let's Encrypt certificate
+      shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d staging.semiphemeral.com,api.staging.semiphemeral.com
+      when: mode == "staging"
+
+    - name: ensure we have a production Let's Encrypt certificate
+      shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d semiphemeral.com,api.semiphemeral.com
       when: mode == "prod"
 
     - name: ensure containers are up
