@@ -4,19 +4,27 @@ services:
   web:
     build: "web"
     ports:
-      - "80"
-      - "443"
+      - "80:80"
+      - "443:443"
     volumes:
+      - /etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem:/etc/nginx/ssl/fullchain.pem
+      - /etc/letsencrypt/live/{{ frontend_domain }}/privkey.pem:/etc/nginx/ssl/privkey.pem
       - /opt/app_data/web/logs:/var/log/nginx
-      - "/etc/letsencrypt/live/${FRONTEND_DOMAIN}:/etc/letsencrypt/live/${FRONTEND_DOMAIN}"
-    environment:
-      - FRONTEND_DOMAIN=$FRONTEND_DOMAIN
-      - BACKEND_DOMAIN=$BACKEND_DOMAIN
+    networks:
+      - default
 
   frontend:
     build: "frontend"
     ports:
       - "3000:3000"
+    networks:
+      - default
 
   db:
     image: "postgres:12"
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
