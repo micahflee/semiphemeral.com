@@ -4,13 +4,12 @@
   remote_user: root
 
   vars:
-    mode: "{{ mode }}"
     ansible_python_interpreter: /usr/bin/python3
 
   tasks:
     - name: set hostname
       hostname:
-        name: "semiphemeral-{{ mode }}"
+        name: "semiphemeral-{{ deploy_environment }}"
 
     - name: update all packages
       apt:
@@ -85,30 +84,23 @@
         src: /tmp/app.tgz
         dest: /opt/
 
-    - name: define staging web environment
-      shell: |
-        echo "FRONTEND_DOMAIN=staging.semiphemeral.com" > /opt/app/.env
-        echo "BACKEND_DOMAIN=api.staging.semiphemeral.com" >> /opt/app/.env
-      when: mode == "staging"
+    - name: /opt/app/docker-compose.yaml template
+      template:
+        src: ../app/docker-compose.yaml
+        dest: /opt/app/docker-compose.yaml
 
-    - name: define prod web environment
-      shell: |
-        echo "FRONTEND_DOMAIN=semiphemeral.com" > /opt/app/.env
-        echo "BACKEND_DOMAIN=api.semiphemeral.com" >> /opt/app/.env
-      when: mode == "prod"
-
-    - name: ensure containers are down
-      docker_compose:
-        state: absent
-        project_src: /opt/app
+    - name: /opt/app/web/etc/nginx/conf.d/frontend.conf template
+      template:
+        src: ../app/web/etc/nginx/conf.d/frontend.conf
+        dest: /opt/app/web/etc/nginx/conf.d/frontend.conf
 
     - name: ensure we have a staging Let's Encrypt certificate
       shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d staging.semiphemeral.com,api.staging.semiphemeral.com
-      when: mode == "staging"
+      when: deploy_environment == "staging"
 
     - name: ensure we have a production Let's Encrypt certificate
       shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d semiphemeral.com,api.semiphemeral.com
-      when: mode == "prod"
+      when: deploy_environment == "prod"
 
     - name: ensure containers are up
       docker_compose:

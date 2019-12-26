@@ -8,15 +8,15 @@ import tempfile
 import tarfile
 
 
-def _validate_env(env):
-    if env != "staging" and env != "prod":
+def _validate_env(deploy_environment):
+    if deploy_environment != "staging" and deploy_environment != "prod":
         click.echo("The environment must be either 'staging' or 'prod'")
         return False
     return True
 
 
-def _variables(mode):
-    do_vars = ["-var", f"deploy_environment={mode}"]
+def _variables(deploy_environment):
+    do_vars = ["-var", f"deploy_environment={deploy_environment}"]
     with open(os.path.join(_get_root_dir(), ".vars")) as f:
         for line in f.readlines():
             do_vars.append("-var")
@@ -28,8 +28,8 @@ def _get_root_dir():
     return os.path.dirname(os.path.realpath(__file__))
 
 
-def _deploy(mode):
-    cwd = os.path.join(_get_root_dir(), f"terraform/{mode}")
+def _deploy(deploy_environment):
+    cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
 
     # terraform init
     p = subprocess.run(["terraform", "init"], cwd=cwd)
@@ -38,23 +38,25 @@ def _deploy(mode):
         return
 
     # terraform apply
-    p = subprocess.run(["terraform", "apply"] + _variables(mode), cwd=cwd)
+    p = subprocess.run(["terraform", "apply"] + _variables(deploy_environment), cwd=cwd)
     if p.returncode != 0:
         click.echo("Error running terraform apply")
         return
 
 
-def _destroy(mode):
-    cwd = os.path.join(_get_root_dir(), f"terraform/{mode}")
+def _destroy(deploy_environment):
+    cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
 
     # terraform destroy
-    p = subprocess.run(["terraform", "destroy"] + _variables(mode), cwd=cwd)
+    p = subprocess.run(
+        ["terraform", "destroy"] + _variables(deploy_environment), cwd=cwd
+    )
     if p.returncode != 0:
         click.echo("Error running terraform destroy")
         return
 
 
-def _configure(mode):
+def _configure(deploy_environment):
     # Move node_modules away
     tmp_dir = tempfile.TemporaryDirectory()
     frontend_node_modules_dir = os.path.join(
@@ -75,17 +77,29 @@ def _configure(mode):
             os.path.join(tmp_dir.name, "node_modules"), frontend_node_modules_dir
         )
 
+    # Frontend and backend domains
+    if deploy_environment == "staging":
+        frontend_domain = "staging.semiphemeral.com"
+        backend_domain = "api.staging.semiphemeral.com"
+    else:
+        frontend_domain = "semiphemeral.com"
+        backend_domain = "api.semiphemeral.com"
+
     # Run ansible playbook
-    inventory_filename = _write_ansible_inventory(mode)
+    inventory_filename = _write_ansible_inventory(deploy_environment)
     p = subprocess.run(
         [
             "ansible-playbook",
             "-i",
             inventory_filename,
             "-e",
-            f"mode={mode}",
+            f"deploy_environment={deploy_environment}",
             "-e",
             f"app_tgz={app_tgz}",
+            "-e",
+            f"frontend_domain={frontend_domain}",
+            "-e",
+            f"backend_domain={backend_domain}",
             "playbook.yaml",
         ],
         cwd=os.path.join(_get_root_dir(), "ansible"),
@@ -94,8 +108,8 @@ def _configure(mode):
         click.echo("Error running ansible playbook")
 
 
-def _ssh(mode):
-    ip = _get_ip(mode)
+def _ssh(deploy_environment):
+    ip = _get_ip(deploy_environment)
     if not ip:
         return
 
@@ -106,11 +120,11 @@ def _ssh(mode):
         return
 
 
-def _get_ip(mode):
+def _get_ip(deploy_environment):
     # Get the terraform output
     terraform_output = {}
     try:
-        cwd = os.path.join(_get_root_dir(), f"terraform/{mode}")
+        cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
         out = subprocess.check_output(["terraform", "output"], cwd=cwd).decode()
     except subprocess.CalledProcessError:
         print("Did you run `terraform apply` successfully?")
@@ -130,13 +144,15 @@ def _get_ip(mode):
     return terraform_output["app_ip"]
 
 
-def _write_ansible_inventory(mode):
-    ip = _get_ip(mode)
+def _write_ansible_inventory(deploy_environment):
+    ip = _get_ip(deploy_environment)
     if not ip:
         return
 
     # Create the ansible inventory file
-    inventory_filename = os.path.join(_get_root_dir(), f"ansible/inventory-{mode}")
+    inventory_filename = os.path.join(
+        _get_root_dir(), f"ansible/inventory-{deploy_environment}"
+    )
     with open(inventory_filename, "w") as f:
         f.write(f"[app]\n")
         f.write(f"{ip}\n")
@@ -150,39 +166,39 @@ def main():
 
 
 @main.command()
-@click.argument("env", nargs=1)
-def deploy(env):
+@click.argument("deploy_environment", nargs=1)
+def deploy(deploy_environment):
     """Deploy infrastructure"""
-    if not _validate_env(env):
+    if not _validate_env(deploy_environment):
         return
-    _deploy(env)
+    _deploy(deploy_environment)
 
 
 @main.command()
-@click.argument("env", nargs=1)
-def destroy(env):
+@click.argument("deploy_environment", nargs=1)
+def destroy(deploy_environment):
     """Destroy infrastructure"""
-    if not _validate_env(env):
+    if not _validate_env(deploy_environment):
         return
-    _destroy(env)
+    _destroy(deploy_environment)
 
 
 @main.command()
-@click.argument("env", nargs=1)
-def config(env):
+@click.argument("deploy_environment", nargs=1)
+def config(deploy_environment):
     """Configure server"""
-    if not _validate_env(env):
+    if not _validate_env(deploy_environment):
         return
-    _configure(env)
+    _configure(deploy_environment)
 
 
 @main.command()
-@click.argument("env", nargs=1)
-def ssh(env):
+@click.argument("deploy_environment", nargs=1)
+def ssh(deploy_environment):
     """SSH to server"""
-    if not _validate_env(env):
+    if not _validate_env(deploy_environment):
         return
-    _ssh(env)
+    _ssh(deploy_environment)
 
 
 if __name__ == "__main__":
