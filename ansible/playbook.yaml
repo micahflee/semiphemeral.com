@@ -94,13 +94,13 @@
         src: ../app/web/etc/nginx/conf.d/frontend.conf
         dest: /opt/app/web/etc/nginx/conf.d/frontend.conf
 
-    - name: ensure we have a staging Let's Encrypt certificate
-      shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d staging.semiphemeral.com,api.staging.semiphemeral.com
-      when: deploy_environment == "staging"
+    - name: /opt/app/web/etc/nginx/conf.d/backend.conf template
+      template:
+        src: ../app/web/etc/nginx/conf.d/backend.conf
+        dest: /opt/app/web/etc/nginx/conf.d/backend.conf
 
-    - name: ensure we have a production Let's Encrypt certificate
-      shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d semiphemeral.com,api.semiphemeral.com
-      when: deploy_environment == "prod"
+    - name: ensure we have a Let's Encrypt certificate
+      shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ frontend_domain }},{{ backend_domain }}
 
     - name: ensure containers are up
       docker_compose:
