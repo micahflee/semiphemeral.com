@@ -102,6 +102,12 @@
     - name: ensure we have a Let's Encrypt certificate
       shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ frontend_domain }},{{ backend_domain }}
 
+    - name: ensure volume directories have the right permissions
+      file:
+        path: /opt/app_data/backend
+        state: directory
+        owner: "1000"
+
     - name: ensure containers are up
       docker_compose:
         state: present
