@@ -112,7 +112,7 @@ venv.bak/
 terraform.tfstate.backup
 
 # secrets
-.vars
+.vars-*
 ansible/inventory-*
 
 # node.js
