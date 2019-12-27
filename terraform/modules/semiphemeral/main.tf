@@ -5,7 +5,7 @@ resource "digitalocean_droplet" "app" {
   name               = "app-${var.deploy_environment}"
   image              = "debian-10-x64"
   region             = "nyc1"
-  size               = "512mb"
+  size               = "s-1vcpu-2gb"
   private_networking = true
   ssh_keys = [
     var.ssh_fingerprint
