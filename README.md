@@ -6,7 +6,11 @@ The hosted version of [semiphemeral](https://github.com/micahflee/semiphemeral).
 
 ## Staging and production infrastructure
 
-Install [terraform](https://www.terraform.io/downloads.html), python 3.7+, and pipenv.
+Install [terraform](https://www.terraform.io/downloads.html) and python 3.7+, and these pip dependencies:
+
+```sh
+pip3 install --user click ansible black
+```
 
 Copy `vars-sample` to `.vars` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean.
 
