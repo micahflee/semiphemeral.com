@@ -4,6 +4,11 @@ FROM node:8.17-buster
 COPY . /app
 WORKDIR /app
 
+# Switch to unprivileged user
+RUN useradd -u 1000 -o -ms /bin/bash user
+RUN chown -R user:user /app
+USER user:user
+
 # Install dependencies
 RUN npm install
 

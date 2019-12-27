@@ -29,6 +29,8 @@ services:
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
     ports:
       - "8080:8080"
+    volumes:
+      - /opt/app_data/backend:/var/backend
     networks:
       - default
 

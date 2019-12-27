@@ -3,8 +3,8 @@ FROM python:3.7-buster
 # Install pipenv
 RUN pip install pipenv
 
-# Switch to unprivileged user
-RUN useradd -ms /bin/bash user
+# Switch to unprivileged user, and fix permissions for volume
+RUN useradd -u 1000 -o -ms /bin/bash user
 USER user:user
 
 # Copy code

@@ -45,12 +45,11 @@ async def twitter_auth(request):
             text="Error, oauth_token and oauth_verifier are required"
         )
 
-    session = await get_session(request)
-    oauth_token = session["oauth_token"]
+    oauth_token = params["oauth_token"]
     verifier = params["oauth_verifier"]
-    del session["oauth_token"]
 
     # Authenticate with twitter
+    session = await get_session(request)
     session["auth"] = tweepy.OAuthHandler(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
@@ -75,7 +74,7 @@ async def twitter_auth(request):
 
 def main():
     app = web.Application()
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(filename="/var/backend/backend.log", level=logging.DEBUG)
 
     # Enable the debug toolbar in staging
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
