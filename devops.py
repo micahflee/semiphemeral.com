@@ -15,13 +15,39 @@ def _validate_env(deploy_environment):
     return True
 
 
-def _variables(deploy_environment):
-    do_vars = ["-var", f"deploy_environment={deploy_environment}"]
-    with open(os.path.join(_get_root_dir(), ".vars")) as f:
+def _get_variables(filename):
+    variables = {}
+    with open(filename) as f:
         for line in f.readlines():
-            do_vars.append("-var")
-            do_vars.append(line.strip())
-    return do_vars
+            if line.strip() == "" or line.strip().startswith("#"):
+                pass
+            parts = line.strip().split("=")
+            variables[parts[0].strip()] = parts[1].strip()
+    return variables
+
+
+def _terraform_variables(deploy_environment):
+    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-terraform"))
+    variables["deploy_environment"] = deploy_environment
+
+    terraform_vars = []
+    for key in variables:
+        terraform_vars.append("-var")
+        terraform_vars.append(f"{key}={variables[key]}")
+
+    return terraform_vars
+
+
+def _ansible_variables(deploy_environment):
+    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible"))
+    variables["deploy_environment"] = deploy_environment
+
+    ansible_vars = []
+    for key in variables:
+        ansible_vars.append("-e")
+        ansible_vars.append(f"{key}={variables[key]}")
+
+    return ansible_vars
 
 
 def _get_root_dir():
@@ -38,7 +64,9 @@ def _deploy(deploy_environment):
         return
 
     # terraform apply
-    p = subprocess.run(["terraform", "apply"] + _variables(deploy_environment), cwd=cwd)
+    p = subprocess.run(
+        ["terraform", "apply"] + _terraform_variables(deploy_environment), cwd=cwd
+    )
     if p.returncode != 0:
         click.echo("Error running terraform apply")
         return
@@ -49,7 +77,7 @@ def _destroy(deploy_environment):
 
     # terraform destroy
     p = subprocess.run(
-        ["terraform", "destroy"] + _variables(deploy_environment), cwd=cwd
+        ["terraform", "destroy"] + _terraform_variables(deploy_environment), cwd=cwd
     )
     if p.returncode != 0:
         click.echo("Error running terraform destroy")
@@ -93,15 +121,14 @@ def _configure(deploy_environment):
             "-i",
             inventory_filename,
             "-e",
-            f"deploy_environment={deploy_environment}",
-            "-e",
             f"app_tgz={app_tgz}",
             "-e",
             f"frontend_domain={frontend_domain}",
             "-e",
             f"backend_domain={backend_domain}",
-            "playbook.yaml",
-        ],
+        ]
+        + _ansible_variables(deploy_environment)
+        + ["playbook.yaml"],
         cwd=os.path.join(_get_root_dir(), "ansible"),
     )
     if p.returncode != 0:

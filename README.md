@@ -12,7 +12,7 @@ Install [terraform](https://www.terraform.io/downloads.html) and python 3.7+, an
 pip3 install --user click ansible black
 ```
 
-Copy `vars-sample` to `.vars` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean.
+Copy `vars-terraform-sample` to `.vars-terraform` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean. Copy `vars-ansible-sample` to `.vars-ansible` and edit it to add Twitter app credentials.
 
 Use `devops.py`. Each command requires passing in either `staging` or `prod`:
 
