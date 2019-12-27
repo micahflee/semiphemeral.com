@@ -11,14 +11,34 @@ from aiohttp_session.cookie_storage import EncryptedCookieStorage
 
 
 async def login(request):
-    session = await get_session(request)
-    if "api" in session:
+    if (
+        "access_token" in session
+        and "access_token_secret" in session
+        and "user_id" in session
+        and "user_screen_name" in session
+    ):
         # If we're already logged in, redirect
         try:
-            session["api"].me()
-            raise web.HTTPFound(
-                location=f"https://{os.environ.get('FRONTEND_DOMAIN')}/app"
+            auth = tweepy.OAuthHandler(
+                os.environ.get("TWITTER_CONSUMER_TOKEN"),
+                os.environ.get("TWITTER_CONSUMER_KEY"),
             )
+            auth.set_access_token(
+                session["access_token"], session["access_token_secret"]
+            )
+            api = tweepy.API(
+                auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True
+            )
+
+            # Validate user
+            user = api.me()
+            if (
+                session["user_id"] == user.id
+                and session["user_screen_name"] == user.screen_name
+            ):
+                raise web.HTTPFound(
+                    location=f"https://{os.environ.get('FRONTEND_DOMAIN')}/app"
+                )
         except:
             # Not actually logged in
             pass
@@ -50,23 +70,31 @@ async def twitter_auth(request):
 
     # Authenticate with twitter
     session = await get_session(request)
-    session["auth"] = tweepy.OAuthHandler(
+    auth = tweepy.OAuthHandler(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
     )
-    session["auth"].request_token = {
+    auth.request_token = {
         "oauth_token": oauth_token,
         "oauth_token_secret": verifier,
     }
 
     try:
-        session["auth"].get_access_token(verifier)
+        auth.get_access_token(verifier)
     except tweepy.TweepError:
         raise web.HTTPUnauthorized(text="Error, failed to get access token")
 
-    session["api"] = tweepy.API(
-        session["auth"], wait_on_rate_limit=True, wait_on_rate_limit_notify=True
-    )
+    try:
+        api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+        user = api.me()
+    except tweepy.TweepError:
+        raise web.HTTPUnauthorized(text="Error, error using Twitter API")
+
+    # Save values in the session
+    session["user_id"] = user.id
+    session["user_screen_name"] = user.screen_name
+    session["access_token"] = auth.access_token
+    session["access_token_secret"] = auth.access_token_secret
 
     # Redirect to app
     raise web.HTTPFound(location=f"https://{os.environ.get('FRONTEND_DOMAIN')}/app")
