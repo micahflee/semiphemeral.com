@@ -20,6 +20,13 @@ services:
     networks:
       - default
 
+  backend:
+    build: "backend"
+    ports:
+      - "8080:8080"
+    networks:
+      - default
+
   db:
     image: "postgres:12"
     networks:
