@@ -6,6 +6,8 @@ import datetime
 import shutil
 import tempfile
 import tarfile
+import requests
+import json
 
 
 def _validate_env(deploy_environment):
@@ -54,7 +56,7 @@ def _get_root_dir():
     return os.path.dirname(os.path.realpath(__file__))
 
 
-def _deploy(deploy_environment):
+def _terraform_apply(deploy_environment, ssh_ips, inbound_ips):
     cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
 
     # terraform init
@@ -65,22 +67,19 @@ def _deploy(deploy_environment):
 
     # terraform apply
     p = subprocess.run(
-        ["terraform", "apply"] + _terraform_variables(deploy_environment), cwd=cwd
+        [
+            "terraform",
+            "apply",
+            "-var",
+            f"ssh_ips={json.dumps(ssh_ips)}",
+            "-var",
+            f"inbound_ips={json.dumps(inbound_ips)}",
+        ]
+        + _terraform_variables(deploy_environment),
+        cwd=cwd,
     )
     if p.returncode != 0:
         click.echo("Error running terraform apply")
-        return
-
-
-def _destroy(deploy_environment):
-    cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
-
-    # terraform destroy
-    p = subprocess.run(
-        ["terraform", "destroy"] + _terraform_variables(deploy_environment), cwd=cwd
-    )
-    if p.returncode != 0:
-        click.echo("Error running terraform destroy")
         return
 
 
@@ -133,6 +132,38 @@ def _configure(deploy_environment):
     )
     if p.returncode != 0:
         click.echo("Error running ansible playbook")
+
+
+def _deploy(deploy_environment):
+    # get the current IP address
+    r = requests.get("https://ifconfig.co/ip")
+    if r.status_code != 200:
+        click.echo("Error loading https://ifconfig.co/ip")
+        return
+    devops_ip = r.text.strip()
+
+    # deploy with terraform, allowing all IPs for 80 and 443 for Let's Encrypt
+    _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
+
+    # configure the server
+    _configure(deploy_environment)
+
+    # deploy with terraform again, this time only allowing the devops IP to access 80 and 443
+    # (but all all IPs for production)
+    if deploy_environment == "staging":
+        _terraform_apply(deploy_environment, [devops_ip], [devops_ip])
+
+
+def _destroy(deploy_environment):
+    cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
+
+    # terraform destroy
+    p = subprocess.run(
+        ["terraform", "destroy"] + _terraform_variables(deploy_environment), cwd=cwd
+    )
+    if p.returncode != 0:
+        click.echo("Error running terraform destroy")
+        return
 
 
 def _ssh(deploy_environment):
@@ -195,7 +226,7 @@ def main():
 @main.command()
 @click.argument("deploy_environment", nargs=1)
 def deploy(deploy_environment):
-    """Deploy infrastructure"""
+    """Deploy and configure infrastructure"""
     if not _validate_env(deploy_environment):
         return
     _deploy(deploy_environment)
@@ -208,15 +239,6 @@ def destroy(deploy_environment):
     if not _validate_env(deploy_environment):
         return
     _destroy(deploy_environment)
-
-
-@main.command()
-@click.argument("deploy_environment", nargs=1)
-def config(deploy_environment):
-    """Configure server"""
-    if not _validate_env(deploy_environment):
-        return
-    _configure(deploy_environment)
 
 
 @main.command()
