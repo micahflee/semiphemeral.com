@@ -6,8 +6,13 @@ import datetime
 import shutil
 import tempfile
 import tarfile
-import requests
 import json
+
+import warnings
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    import requests
 
 
 def _validate_env(deploy_environment):

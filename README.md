@@ -9,7 +9,10 @@ The hosted version of [semiphemeral](https://github.com/micahflee/semiphemeral).
 Install [terraform](https://www.terraform.io/downloads.html) and python 3.7+, and these pip dependencies:
 
 ```sh
-pip3 install --user click ansible requests black
+# from pip
+pip3 install --user ansible black click requests
+# or from apt
+sudo apt install ansible black python3-click python3-requests
 ```
 
 Copy `vars-terraform-sample` to `.vars-terraform` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean. Copy `vars-ansible-sample` to `.vars-ansible` and edit it to add Twitter app credentials.
