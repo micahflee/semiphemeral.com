@@ -14,7 +14,11 @@ services:
       - default
 
   frontend:
-    build: "frontend"
+    build:
+      context: "frontend"
+      args:
+        - FRONTEND_DOMAIN={{ frontend_domain }}
+        - BACKEND_DOMAIN={{ backend_domain }}
     environment:
       - FRONTEND_DOMAIN={{ frontend_domain }}
       - BACKEND_DOMAIN={{ backend_domain }}
