@@ -1,5 +1,5 @@
 import getConfig from 'next/config'
-const { _, publicRuntimeConfig } = getConfig();
+const { publicRuntimeConfig } = getConfig();
 
 function Index() {
     let sign_in_url = "https://" + publicRuntimeConfig.backendDomain + "/login";

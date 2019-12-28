@@ -13,6 +13,8 @@ USER user:user
 RUN npm install
 
 # Build
+ARG FRONTEND_DOMAIN
+ARG BACKEND_DOMAIN
 RUN npm run build
 
 EXPOSE 3000
