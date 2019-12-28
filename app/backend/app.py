@@ -11,6 +11,7 @@ from aiohttp_session.cookie_storage import EncryptedCookieStorage
 
 
 async def login(request):
+    session = await get_session(request)
     if (
         "access_token" in session
         and "access_token_secret" in session
