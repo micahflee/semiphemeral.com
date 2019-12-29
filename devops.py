@@ -171,18 +171,6 @@ def _deploy(deploy_environment):
         _terraform_apply(deploy_environment, [devops_ip], [devops_ip])
 
 
-def _destroy(deploy_environment):
-    cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
-
-    # terraform destroy
-    p = subprocess.run(
-        ["terraform", "destroy"] + _terraform_variables(deploy_environment), cwd=cwd
-    )
-    if p.returncode != 0:
-        click.echo("Error running terraform destroy")
-        return
-
-
 def _ssh(deploy_environment):
     ip = _get_ip(deploy_environment)
     if not ip:
@@ -270,7 +258,33 @@ def destroy(deploy_environment):
     """Destroy infrastructure"""
     if not _validate_env(deploy_environment):
         return
-    _destroy(deploy_environment)
+
+    cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
+    devops_ip = _get_devops_ip()
+
+    if deploy_environment == "staging":
+        ip_vars = [
+            "-var",
+            f"ssh_ips={json.dumps([devops_ip])}",
+            "-var",
+            f"inbound_ips={json.dumps([devops_ip])}",
+        ]
+    else:
+        ip_vars = [
+            "-var",
+            f"ssh_ips={json.dumps([devops_ip])}",
+            "-var",
+            f'inbound_ips=["0.0.0.0/0","::/0"]',
+        ]
+
+    # terraform destroy
+    p = subprocess.run(
+        ["terraform", "destroy"] + _terraform_variables(deploy_environment) + ip_vars,
+        cwd=cwd,
+    )
+    if p.returncode != 0:
+        click.echo("Error running terraform destroy")
+        return
 
 
 @main.command()
