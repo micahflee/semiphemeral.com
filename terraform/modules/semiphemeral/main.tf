@@ -1,7 +1,16 @@
+# staging or prod
 variable "deploy_environment" {}
+
+# fingerprint of SSH key to add to new droplet
 variable "ssh_fingerprint" {}
+
+# for firewall rules
 variable "ssh_ips" {}
 variable "inbound_ips" {}
+
+# for DNS records
+variable "frontend_domain" {}
+variable "backend_domain" {}
 
 resource "digitalocean_droplet" "app" {
   name               = "app-${var.deploy_environment}"
@@ -69,6 +78,16 @@ resource "digitalocean_firewall" "app" {
     protocol              = "icmp"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
+}
+
+resource "digitalocean_domain" "frontend" {
+  name       = var.frontend_domain
+  ip_address = digitalocean_droplet.app.ipv4_address
+}
+
+resource "digitalocean_domain" "backend" {
+  name       = var.backend_domain
+  ip_address = digitalocean_droplet.app.ipv4_address
 }
 
 output "app_ip" {
