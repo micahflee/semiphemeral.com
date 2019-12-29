@@ -61,6 +61,16 @@ def _get_root_dir():
     return os.path.dirname(os.path.realpath(__file__))
 
 
+def _get_devops_ip():
+    # get the current IP address
+    r = requests.get("https://ifconfig.co/ip")
+    if r.status_code != 200:
+        click.echo("Error loading https://ifconfig.co/ip")
+        return
+    devops_ip = r.text.strip()
+    return devops_ip
+
+
 def _terraform_apply(deploy_environment, ssh_ips, inbound_ips):
     cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
 
@@ -88,7 +98,7 @@ def _terraform_apply(deploy_environment, ssh_ips, inbound_ips):
         return
 
 
-def _configure(deploy_environment):
+def _ansible_apply(deploy_environment):
     # Move node_modules away
     tmp_dir = tempfile.TemporaryDirectory()
     frontend_node_modules_dir = os.path.join(
@@ -140,18 +150,13 @@ def _configure(deploy_environment):
 
 
 def _deploy(deploy_environment):
-    # get the current IP address
-    r = requests.get("https://ifconfig.co/ip")
-    if r.status_code != 200:
-        click.echo("Error loading https://ifconfig.co/ip")
-        return
-    devops_ip = r.text.strip()
+    devops_ip = _get_devops_ip()
 
     # deploy with terraform, allowing all IPs for 80 and 443 for Let's Encrypt
     _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
 
     # configure the server
-    _configure(deploy_environment)
+    _ansible_apply(deploy_environment)
 
     # deploy with terraform again, this time only allowing the devops IP to access 80 and 443
     # (but all all IPs for production)
@@ -235,6 +240,21 @@ def deploy(deploy_environment):
     if not _validate_env(deploy_environment):
         return
     _deploy(deploy_environment)
+
+
+@main.command()
+@click.argument("deploy_environment", nargs=1)
+def terraform(deploy_environment):
+    """Re-apply terraform (uses current IP for devops IP)"""
+    if not _validate_env(deploy_environment):
+        return
+
+    devops_ip = _get_devops_ip()
+
+    if deploy_environment == "staging":
+        _terraform_apply(deploy_environment, [devops_ip], [devops_ip])
+    else:
+        _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
 
 
 @main.command()
