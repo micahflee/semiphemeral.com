@@ -37,6 +37,13 @@ def _terraform_variables(deploy_environment):
     variables = _get_variables(os.path.join(_get_root_dir(), ".vars-terraform"))
     variables["deploy_environment"] = deploy_environment
 
+    if deploy_environment == "prod":
+        variables["frontend_domain"] = "semiphemeral.com"
+        variables["backend_domain"] = "api.semiphemeral.com"
+    else:
+        variables["frontend_domain"] = "staging.semiphemeral.com"
+        variables["backend_domain"] = "api.staging.semiphemeral.com"
+
     terraform_vars = []
     for key in variables:
         terraform_vars.append("-var")
