@@ -42,7 +42,11 @@ services:
       - default
 
   db:
-    image: "postgres:12"
+    build: "db"
+    environment:
+      - POSTGRES_PASSWORD={{ postgres_password }}
+    volumes:
+      - /opt/app_data/db:/var/lib/postgresql
     networks:
       - default
 
