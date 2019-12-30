@@ -99,9 +99,15 @@
         src: ../app/web/etc/nginx/conf.d/backend.conf
         dest: /opt/app/web/etc/nginx/conf.d/backend.conf
 
-    - name: ensure volume directories have the right permissions
+    - name: ensure backend volume directory has the right permissions
       file:
         path: /opt/app_data/backend
+        state: directory
+        owner: "1000"
+
+    - name: ensure db volume directory has the right permissions
+      file:
+        path: /opt/app_data/db
         state: directory
         owner: "1000"
 
