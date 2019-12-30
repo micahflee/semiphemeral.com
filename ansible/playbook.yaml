@@ -78,12 +78,6 @@
         src: "{{ app_tgz }}"
         dest: /tmp/app.tgz
 
-    # containers must go down for Let's Encrypt renewal to work
-    - name: ensure containers are down
-      docker_compose:
-        state: absent
-        project_src: /opt/app
-
     - name: extract the app
       unarchive:
         remote_src: yes
@@ -110,6 +104,12 @@
         path: /opt/app_data/backend
         state: directory
         owner: "1000"
+
+    # containers must go down for Let's Encrypt renewal to work
+    - name: ensure containers are down
+      docker_compose:
+        state: absent
+        project_src: /opt/app
 
     - name: ensure we have a Let's Encrypt certificate
       shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ frontend_domain }},{{ backend_domain }}

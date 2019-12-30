@@ -102,7 +102,9 @@ def _terraform_apply(deploy_environment, ssh_ips, inbound_ips):
     )
     if p.returncode != 0:
         click.echo("Error running terraform apply")
-        return
+        return False
+
+    return True
 
 
 def _ansible_apply(deploy_environment):
@@ -154,21 +156,27 @@ def _ansible_apply(deploy_environment):
     )
     if p.returncode != 0:
         click.echo("Error running ansible playbook")
+        return False
+
+    return True
 
 
 def _deploy(deploy_environment):
     devops_ip = _get_devops_ip()
 
     # deploy with terraform, allowing all IPs for 80 and 443 for Let's Encrypt
-    _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
+    if not _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"]):
+        return
 
     # configure the server
-    _ansible_apply(deploy_environment)
+    if not _ansible_apply(deploy_environment):
+        return
 
     # deploy with terraform again, this time only allowing the devops IP to access 80 and 443
     # (but all all IPs for production)
     if deploy_environment == "staging":
-        _terraform_apply(deploy_environment, [devops_ip], [devops_ip])
+        if not _terraform_apply(deploy_environment, [devops_ip], [devops_ip]):
+            return
 
 
 def _ssh(deploy_environment):
