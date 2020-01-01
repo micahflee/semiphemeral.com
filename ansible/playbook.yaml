@@ -105,12 +105,6 @@
         state: directory
         owner: "1000"
 
-    - name: ensure db volume directory has the right permissions
-      file:
-        path: /opt/app_data/db
-        state: directory
-        owner: "1000"
-
     # containers must go down for Let's Encrypt renewal to work
     - name: ensure containers are down
       docker_compose:
