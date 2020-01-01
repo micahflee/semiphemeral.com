@@ -23,18 +23,13 @@ def _validate_env(deploy_environment):
 
 
 def _get_variables(filename):
-    variables = {}
     with open(filename) as f:
-        for line in f.readlines():
-            if line.strip() == "" or line.strip().startswith("#"):
-                pass
-            parts = line.strip().split("=")
-            variables[parts[0].strip()] = parts[1].strip()
+        variables = json.loads(f.read())
     return variables
 
 
 def _terraform_variables(deploy_environment):
-    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-terraform"))
+    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-terraform.json"))
     variables["deploy_environment"] = deploy_environment
 
     if deploy_environment == "prod":
@@ -53,7 +48,7 @@ def _terraform_variables(deploy_environment):
 
 
 def _ansible_variables(deploy_environment):
-    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible"))
+    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible.json"))
     variables["deploy_environment"] = deploy_environment
 
     ansible_vars = []

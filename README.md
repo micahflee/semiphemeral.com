@@ -15,7 +15,7 @@ pip3 install --user ansible black click requests
 sudo apt install ansible black python3-click python3-requests
 ```
 
-Copy `vars-terraform-sample` to `.vars-terraform` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean. Copy `vars-ansible-sample` to `.vars-ansible` and edit it to add Twitter app credentials.
+Copy `vars-terraform-sample.json` to `.vars-terraform.json` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean. Copy `vars-ansible-sample.json` to `.vars-ansible.json` and edit it to add Twitter app credentials.
 
 Use `devops.py`. Each command requires passing in either `staging` or `prod`:
 
