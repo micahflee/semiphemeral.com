@@ -2,6 +2,7 @@ version: '3'
 services:
 
   web:
+    restart: always
     build: "web"
     ports:
       - "80:80"
@@ -14,6 +15,7 @@ services:
       - default
 
   frontend:
+    restart: always
     build:
       context: "frontend"
       args:
@@ -28,6 +30,7 @@ services:
       - default
 
   backend:
+    restart: always
     build: "backend"
     environment:
       - FRONTEND_DOMAIN={{ frontend_domain }}
@@ -42,7 +45,8 @@ services:
       - default
 
   db:
-    build: "db"
+    restart: always
+    image: "postgres"
     environment:
       - POSTGRES_PASSWORD={{ postgres_password }}
     volumes:
