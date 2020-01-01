@@ -37,6 +37,10 @@ services:
       - BACKEND_DOMAIN={{ backend_domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - POSTGRES_USER={{ postgres_user }}
+      - POSTGRES_PASSWORD={{ postgres_password }}
+      - POSTGRES_DB={{ postgres_db }}
+
     ports:
       - "8080:8080"
     volumes:
@@ -48,9 +52,11 @@ services:
     restart: always
     image: "postgres"
     environment:
+      - POSTGRES_USER={{ postgres_user }}
       - POSTGRES_PASSWORD={{ postgres_password }}
+      - POSTGRES_DB={{ postgres_db }}
     volumes:
-      - /opt/app_data/db:/var/lib/postgresql
+      - /opt/app_data/db:/var/lib/postgresql/data
     networks:
       - default
 

@@ -8,6 +8,7 @@ from cryptography import fernet
 from aiohttp import web
 from aiohttp_session import setup, get_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
+import aiopg
 
 
 async def login(request):
