@@ -6,7 +6,6 @@ name = "pypi"
 [packages]
 aiohttp = "*"
 tweepy = "*"
-aiohttp_debugtoolbar = "*"
 SQLAlchemy = "*"
 aiopg = "*"
 

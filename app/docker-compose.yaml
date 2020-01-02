@@ -26,6 +26,8 @@ services:
       - BACKEND_DOMAIN={{ backend_domain }}
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
     networks:
       - default
 
@@ -45,6 +47,8 @@ services:
       - "8080:8080"
     volumes:
       - /opt/app_data/backend:/var/backend
+    depends_on:
+      - db
     networks:
       - default
 
