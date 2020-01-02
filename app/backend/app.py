@@ -2,13 +2,27 @@
 import os
 import base64
 import tweepy
-import asyncio
 import logging
+import asyncio
+
 from cryptography import fernet
 from aiohttp import web
 from aiohttp_session import setup, get_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
-import aiopg
+
+from aiopg.sa import create_engine
+
+
+async def connect_db():
+    database = os.environ.get("POSTGRES_DB")
+    user = os.environ.get("POSTGRES_USER")
+    password = os.environ.get("POSTGRES_PASSWORD")
+
+    async with create_engine(
+        user=user, database=database, host="db", password=password
+    ) as engine:
+        async with engine.acquire() as conn:
+            return conn
 
 
 async def login(request):
@@ -102,16 +116,11 @@ async def twitter_auth(request):
     raise web.HTTPFound(location=f"https://{os.environ.get('FRONTEND_DOMAIN')}/app")
 
 
-def main():
+async def app_factory():
+    conn = await connect_db()
+
     app = web.Application()
     logging.basicConfig(filename="/var/backend/backend.log", level=logging.DEBUG)
-
-    # Enable the debug toolbar in staging
-    if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
-        import aiohttp_debugtoolbar
-        from aiohttp_debugtoolbar import toolbar_middleware_factory
-
-        aiohttp_debugtoolbar.setup(app)
 
     # secret_key must be 32 url-safe base64-encoded bytes
     fernet_key = fernet.Fernet.generate_key()
@@ -122,8 +131,10 @@ def main():
     app.add_routes(
         [web.get("/login", login), web.get("/twitter_auth", twitter_auth),]
     )
-    web.run_app(app)
+
+    return app
 
 
 if __name__ == "__main__":
-    main()
+    web.run_app(app_factory())
+
