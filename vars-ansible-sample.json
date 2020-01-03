@@ -1,7 +1,5 @@
 {
     "twitter_consumer_token": "put_consumer_token_here",
     "twitter_consumer_secret": "put_consumer_token_secret_here",
-    "postgres_user": "semiphemeral",
     "postgres_password": "put_a_unique_password_here",
-    "postgres_db": "semiphemeral"
 }
