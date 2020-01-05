@@ -10,7 +10,7 @@ services:
     volumes:
       - /etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem:/etc/nginx/ssl/fullchain.pem
       - /etc/letsencrypt/live/{{ frontend_domain }}/privkey.pem:/etc/nginx/ssl/privkey.pem
-      - /opt/app_data/web/logs:/var/log/nginx
+      - /usr/var/semiphemeral/data/web/logs:/var/log/nginx
     networks:
       - default
 
@@ -40,11 +40,10 @@ services:
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
       - POSTGRES_PASSWORD={{ postgres_password }}
-
     ports:
       - "8080:8080"
     volumes:
-      - /opt/app_data/backend:/var/backend
+      - /usr/var/semiphemeral/data/backend:/var/backend
     depends_on:
       - db
     networks:
@@ -52,13 +51,13 @@ services:
 
   db:
     restart: always
-    image: "postgres"
+    image: "postgres:12"
     environment:
       - POSTGRES_USER=semiphemeral
       - POSTGRES_PASSWORD={{ postgres_password }}
       - POSTGRES_DB=semiphemeral
     volumes:
-      - /opt/app_data/db:/var/lib/postgresql/data
+      - /usr/var/semiphemeral/data/db:/var/lib/postgresql/data
     networks:
       - default
 
