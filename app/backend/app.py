@@ -13,16 +13,7 @@ from aiohttp_session.cookie_storage import EncryptedCookieStorage
 from aiopg.sa import create_engine
 
 
-async def connect_db():
-    database = os.environ.get("POSTGRES_DB")
-    user = os.environ.get("POSTGRES_USER")
-    password = os.environ.get("POSTGRES_PASSWORD")
-
-    async with create_engine(
-        user=user, database=database, host="db", password=password
-    ) as engine:
-        async with engine.acquire() as conn:
-            return conn
+from db import connect as connect_db
 
 
 async def login(request):
@@ -117,8 +108,10 @@ async def twitter_auth(request):
 
 
 async def app_factory():
-    conn = await connect_db()
+    # connect to the database
+    db = connect_db()
 
+    # create the web app
     app = web.Application()
     logging.basicConfig(filename="/var/backend/backend.log", level=logging.DEBUG)
 
@@ -137,4 +130,3 @@ async def app_factory():
 
 if __name__ == "__main__":
     web.run_app(app_factory())
-
