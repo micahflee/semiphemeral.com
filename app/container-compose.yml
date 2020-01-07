@@ -10,7 +10,7 @@ services:
     volumes:
       - /etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem:/etc/nginx/ssl/fullchain.pem
       - /etc/letsencrypt/live/{{ frontend_domain }}/privkey.pem:/etc/nginx/ssl/privkey.pem
-      - /usr/var/semiphemeral/data/web/logs:/var/log/nginx
+      - /opt/semiphemeral/data/web:/var/log/nginx
     networks:
       - default
 
@@ -43,7 +43,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /usr/var/semiphemeral/data/backend:/var/backend
+      - /opt/semiphemeral/data/backend:/var/backend
     depends_on:
       - db
     networks:
@@ -57,7 +57,7 @@ services:
       - POSTGRES_PASSWORD={{ postgres_password }}
       - POSTGRES_DB=semiphemeral
     volumes:
-      - /usr/var/semiphemeral/data/db:/var/lib/postgresql/data
+      - /opt/semiphemeral/data/db:/var/lib/postgresql/data
     networks:
       - default
 
