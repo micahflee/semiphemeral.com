@@ -32,7 +32,7 @@
 
     - name: ensure semiphemeral directory exists
       file:
-        path: /usr/var/semiphemeral
+        path: /opt/semiphemeral
         state: directory
 
     - name: copy the app
@@ -44,46 +44,55 @@
       unarchive:
         remote_src: yes
         src: /tmp/app.tgz
-        dest: /usr/var/semiphemeral
+        dest: /opt/semiphemeral
 
-    - name: /usr/var/semiphemeral/app/container-compose.yml template
+    - name: /opt/semiphemeral/app/container-compose.yml template
       template:
         src: ../app/container-compose.yml
-        dest: /usr/var/semiphemeral/app/container-compose.yml
+        dest: /opt/semiphemeral/app/container-compose.yml
 
-    - name: /usr/var/semiphemeral/app/web/etc/nginx/conf.d/frontend.conf template
+    - name: /opt/semiphemeral/app/web/etc/nginx/conf.d/frontend.conf template
       template:
         src: ../app/web/etc/nginx/conf.d/frontend.conf
-        dest: /usr/var/semiphemeral/app/web/etc/nginx/conf.d/frontend.conf
+        dest: /opt/semiphemeral/app/web/etc/nginx/conf.d/frontend.conf
 
-    - name: /usr/var/semiphemeral/app/web/etc/nginx/conf.d/backend.conf template
+    - name: /opt/semiphemeral/app/web/etc/nginx/conf.d/backend.conf template
       template:
         src: ../app/web/etc/nginx/conf.d/backend.conf
-        dest: /usr/var/semiphemeral/app/web/etc/nginx/conf.d/backend.conf
+        dest: /opt/semiphemeral/app/web/etc/nginx/conf.d/backend.conf
 
     - name: ensure backend volume directory has the right permissions
       file:
-        path: /usr/var/semiphemeral/data/backend
+        path: /opt/semiphemeral/data/backend
         state: directory
         owner: "1000"
         mode: 0700
 
     - name: ensure db volume data directory has the right permissions
       file:
-        path: /usr/var/semiphemeral/data/db
+        path: /opt/semiphemeral/data/db
         state: directory
         owner: "999" # postgres user
         mode: 0700
 
+    - name: ensure web volume data directory has the right permissions
+      file:
+        path: /opt/semiphemeral/data/web
+        state: directory
+        owner: "101" # nginx user
+        mode: 0700
+
     - name: ensure selinux lets podman use volumes
       shell: |
-        chcon -Rt svirt_sandbox_file_t /usr/var/semiphemeral/data/db
-        chcon -Rt svirt_sandbox_file_t /usr/var/semiphemeral/data/backend
+        chcon -Rt svirt_sandbox_file_t /opt/semiphemeral/data/db
+        chcon -Rt svirt_sandbox_file_t /opt/semiphemeral/data/backend
+        chcon -Rt svirt_sandbox_file_t /opt/semiphemeral/data/web
+        chcon -Rt svirt_sandbox_file_t /etc/letsencrypt/live/{{ frontend_domain }}
 
     # containers must go down for Let's Encrypt renewal to work
     - name: ensure containers are down
       shell: |
-        cd /usr/var/semiphemeral/app
+        cd /opt/semiphemeral/app
         podman-compose down
 
     - name: ensure we have a Let's Encrypt certificate
@@ -91,7 +100,7 @@
 
     - name: ensure containers are up
       shell: |
-        cd /usr/var/semiphemeral/app
+        cd /opt/semiphemeral/app
         podman-compose pull
         podman-compose build
         podman-compose up -d
