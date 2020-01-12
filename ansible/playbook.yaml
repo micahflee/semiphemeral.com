@@ -9,24 +9,58 @@
         name: "semiphemeral-{{ deploy_environment }}"
 
     - name: update all packages
-      dnf:
-        state: latest
-        name: "*"
+      apt:
+        update_cache: yes
+        upgrade: dist
+        autoremove: yes
 
     - name: ensure dependencies are installed
-      dnf:
-        state: latest
+      apt:
         name: "{{ packages }}"
       vars:
         packages:
-        - dnf-automatic
+        - unattended-upgrades
         - certbot
-        - podman
-        - podman-compose
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - gnupg2
+        - software-properties-common
 
-    - name: enable dnf-automatic to install updates automatically
+    - name: ensure docker apt key is added
+      apt_key:
+        id: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: ensure docker apt repository is installed
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
+        state: present
+
+    - name: ensure docker is installed
+      apt:
+        force_apt_get: yes
+        name: "{{ packages }}"
+      vars:
+        packages:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+        - docker-compose
+        - python3-pip
+
+    - name: ensure docker python module is installed
+      shell: pip3 install --upgrade pyyaml docker docker-compose
+
+    - name: ensure unattended-upgrades is configured
+      shell: |
+        echo unattended-upgrades unattended-upgrades/enable_auto_updates boolean true | debconf-set-selections
+        dpkg-reconfigure -f noninteractive unattended-upgrades
+
+    - name: ensure unattended-upgrades is enabled
       systemd:
-        name: dnf-automatic-install.timer
+        name: unattended-upgrades
         state: started
         enabled: yes
 
@@ -46,10 +80,10 @@
         src: /tmp/app.tgz
         dest: /opt/semiphemeral
 
-    - name: /opt/semiphemeral/app/container-compose.yml template
+    - name: /opt/semiphemeral/app/docker-compose.yml template
       template:
-        src: ../app/container-compose.yml
-        dest: /opt/semiphemeral/app/container-compose.yml
+        src: ../app/docker-compose.yml
+        dest: /opt/semiphemeral/app/docker-compose.yml
 
     - name: /opt/semiphemeral/app/web/etc/nginx/conf.d/frontend.conf template
       template:
@@ -82,25 +116,18 @@
         owner: "101" # nginx user
         mode: 0700
 
-    - name: ensure selinux lets podman use volumes
-      shell: |
-        chcon -Rt svirt_sandbox_file_t /opt/semiphemeral/data/db
-        chcon -Rt svirt_sandbox_file_t /opt/semiphemeral/data/backend
-        chcon -Rt svirt_sandbox_file_t /opt/semiphemeral/data/web
-        chcon -Rt svirt_sandbox_file_t /etc/letsencrypt/live/{{ frontend_domain }}
-
-    # containers must go down for Let's Encrypt renewal to work
+    # dockers must go down for Let's Encrypt renewal to work
     - name: ensure containers are down
-      shell: |
-        cd /opt/semiphemeral/app
-        podman-compose down
+      docker_compose:
+        state: absent
+        project_src: /opt/semiphemeral/app
 
     - name: ensure we have a Let's Encrypt certificate
       shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ frontend_domain }},{{ backend_domain }}
 
     - name: ensure containers are up
-      shell: |
-        cd /opt/semiphemeral/app
-        podman-compose pull
-        podman-compose build
-        podman-compose up -d
+      docker_compose:
+        state: present
+        pull: yes
+        build: true
+        project_src: /opt/semiphemeral/app
