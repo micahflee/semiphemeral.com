@@ -24,8 +24,8 @@ services:
     environment:
       - FRONTEND_DOMAIN={{ frontend_domain }}
       - BACKEND_DOMAIN={{ backend_domain }}
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     depends_on:
       - backend
     networks:
@@ -40,8 +40,8 @@ services:
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
       - POSTGRES_PASSWORD={{ postgres_password }}
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     volumes:
       - /opt/semiphemeral/data/backend:/var/backend
     depends_on:
@@ -52,6 +52,11 @@ services:
   db:
     restart: always
     image: "postgres:12"
+    expose:
+      - "5432"
+    # so I can ssh forward postgres port locally
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_USER=semiphemeral
       - POSTGRES_PASSWORD={{ postgres_password }}
