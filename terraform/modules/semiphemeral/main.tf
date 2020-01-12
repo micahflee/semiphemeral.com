@@ -14,7 +14,7 @@ variable "backend_domain" {}
 
 resource "digitalocean_droplet" "app" {
   name               = "app-${var.deploy_environment}"
-  image              = "fedora-31-x64"
+  image              = "ubuntu-18-04-x64"
   region             = "nyc1"
   size               = "s-1vcpu-2gb"
   private_networking = true
