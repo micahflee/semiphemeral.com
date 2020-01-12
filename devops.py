@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import tarfile
 import json
+import pipes
 
 import warnings
 
@@ -174,13 +175,19 @@ def _deploy(deploy_environment):
             return
 
 
-def _ssh(deploy_environment):
+def _ssh(deploy_environment, args=None):
     ip = _get_ip(deploy_environment)
     if not ip:
         return
 
+    if not args:
+        args = []
+    args = ["ssh"] + args + [f"root@{ip}"]
+
     # SSH into the server
-    p = subprocess.run(["ssh", f"root@{ip}"])
+    args_str = " ".join(pipes.quote(s) for s in args)
+    print(f"Executing: {args_str}")
+    p = subprocess.run(args)
     if p.returncode != 0:
         click.echo("Error SSHing")
         return
@@ -297,6 +304,15 @@ def ssh(deploy_environment):
     if not _validate_env(deploy_environment):
         return
     _ssh(deploy_environment)
+
+
+@main.command()
+@click.argument("deploy_environment", nargs=1)
+def forward_postgres(deploy_environment):
+    """Forward the postgres port to localhost, using SSH"""
+    if not _validate_env(deploy_environment):
+        return
+    _ssh(deploy_environment, ["-N", "-L", "5432:localhost:5432"])
 
 
 if __name__ == "__main__":
