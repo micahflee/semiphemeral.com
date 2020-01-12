@@ -4,6 +4,7 @@ import base64
 import tweepy
 import logging
 import asyncio
+import subprocess
 
 from cryptography import fernet
 from aiohttp import web
@@ -129,4 +130,7 @@ async def app_factory():
 
 
 if __name__ == "__main__":
+    # Start with database migrations
+    subprocess.run(["alembic", "upgrade", "head"])
+
     web.run_app(app_factory())

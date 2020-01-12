@@ -9,6 +9,7 @@ tweepy = "*"
 gino = "*"
 aiopg = "*"
 sqlalchemy = "*"
+alembic = "*"
 
 [dev-packages]
 
