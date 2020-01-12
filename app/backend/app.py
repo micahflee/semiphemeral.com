@@ -109,7 +109,7 @@ async def twitter_auth(request):
 
 async def app_factory():
     # connect to the database
-    db = connect_db()
+    db = await connect_db()
 
     # create the web app
     app = web.Application()
