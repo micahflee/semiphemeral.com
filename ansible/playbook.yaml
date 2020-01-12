@@ -95,6 +95,11 @@
         src: ../app/web/etc/nginx/conf.d/backend.conf
         dest: /opt/semiphemeral/app/web/etc/nginx/conf.d/backend.conf
 
+    - name: /opt/semiphemeral/backend/alembic.ini template
+      template:
+        src: ../app/backend/alembic.ini
+        dest: /opt/semiphemeral/app/backend/alembic.ini
+
     - name: ensure backend volume directory has the right permissions
       file:
         path: /opt/semiphemeral/data/backend

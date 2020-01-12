@@ -17,5 +17,4 @@ class User(db.Model):
 async def connect():
     password = os.environ.get("POSTGRES_PASSWORD")
     await db.set_bind(f"postgresql://semiphemeral:{password}@db/semiphemeral")
-    await db.gino.create_all()
     return db
