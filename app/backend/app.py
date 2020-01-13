@@ -14,7 +14,7 @@ from aiohttp_session.cookie_storage import EncryptedCookieStorage
 from aiopg.sa import create_engine
 
 
-from db import connect as connect_db
+from db import connect_db, db, User
 
 
 async def login(request):
@@ -94,15 +94,26 @@ async def twitter_auth(request):
 
     try:
         api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-        user = api.me()
+        twitter_user = api.me()
     except tweepy.TweepError:
         raise web.HTTPUnauthorized(text="Error, error using Twitter API")
 
     # Save values in the session
-    session["user_id"] = user.id
-    session["user_screen_name"] = user.screen_name
+    session["user_id"] = twitter_user.id
+    session["user_screen_name"] = twitter_user.screen_name
     session["access_token"] = auth.access_token
     session["access_token_secret"] = auth.access_token_secret
+
+    # Does this user already exist?
+    user = await User.query.where(User.twitter_id == twitter_user.id).gino.first()
+    if user is None:
+        # Create a new user
+        user = await User.create(
+            twitter_id=twitter_user.id,
+            twitter_screen_name=twitter_user.screen_name,
+            twitter_access_token=auth.access_token,
+            twitter_access_token_secret=auth.access_token_secret,
+        )
 
     # Redirect to app
     raise web.HTTPFound(location=f"https://{os.environ.get('FRONTEND_DOMAIN')}/app")
@@ -110,7 +121,7 @@ async def twitter_auth(request):
 
 async def app_factory():
     # connect to the database
-    db = await connect_db()
+    await connect_db()
 
     # create the web app
     app = web.Application()
