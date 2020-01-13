@@ -69,37 +69,6 @@
         path: /opt/semiphemeral
         state: directory
 
-    - name: copy the app
-      copy:
-        src: "{{ app_tgz }}"
-        dest: /tmp/app.tgz
-
-    - name: extract the app
-      unarchive:
-        remote_src: yes
-        src: /tmp/app.tgz
-        dest: /opt/semiphemeral
-
-    - name: /opt/semiphemeral/app/docker-compose.yml template
-      template:
-        src: ../app/docker-compose.yml
-        dest: /opt/semiphemeral/app/docker-compose.yml
-
-    - name: /opt/semiphemeral/app/web/etc/nginx/conf.d/frontend.conf template
-      template:
-        src: ../app/web/etc/nginx/conf.d/frontend.conf
-        dest: /opt/semiphemeral/app/web/etc/nginx/conf.d/frontend.conf
-
-    - name: /opt/semiphemeral/app/web/etc/nginx/conf.d/backend.conf template
-      template:
-        src: ../app/web/etc/nginx/conf.d/backend.conf
-        dest: /opt/semiphemeral/app/web/etc/nginx/conf.d/backend.conf
-
-    - name: /opt/semiphemeral/backend/alembic.ini template
-      template:
-        src: ../app/backend/alembic.ini
-        dest: /opt/semiphemeral/app/backend/alembic.ini
-
     - name: ensure backend volume directory has the right permissions
       file:
         path: /opt/semiphemeral/data/backend
@@ -121,18 +90,5 @@
         owner: "101" # nginx user
         mode: 0700
 
-    # dockers must go down for Let's Encrypt renewal to work
-    - name: ensure containers are down
-      docker_compose:
-        state: absent
-        project_src: /opt/semiphemeral/app
-
     - name: ensure we have a Let's Encrypt certificate
       shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ frontend_domain }},{{ backend_domain }}
-
-    - name: ensure containers are up
-      docker_compose:
-        state: present
-        pull: yes
-        build: true
-        project_src: /opt/semiphemeral/app

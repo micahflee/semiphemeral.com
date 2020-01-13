@@ -19,37 +19,28 @@ from db import connect_db, db, User
 
 async def login(request):
     session = await get_session(request)
-    if (
-        "access_token" in session
-        and "access_token_secret" in session
-        and "user_id" in session
-        and "user_screen_name" in session
-    ):
-        # If we're already logged in, redirect
-        try:
+    if "twitter_id" in session:
+        # Get the user
+        user = await User.query.where(User.twitter_id == session["twitter_id"].gino.first()\
+        if user is not None:
+            # If we're already logged in, redirect
             auth = tweepy.OAuthHandler(
                 os.environ.get("TWITTER_CONSUMER_TOKEN"),
                 os.environ.get("TWITTER_CONSUMER_KEY"),
             )
             auth.set_access_token(
-                session["access_token"], session["access_token_secret"]
+                user.twitter_access_token, user.twitter_access_token_secret
             )
             api = tweepy.API(
                 auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True
             )
 
             # Validate user
-            user = api.me()
-            if (
-                session["user_id"] == user.id
-                and session["user_screen_name"] == user.screen_name
-            ):
+            twitter_user = api.me()
+            if session["twitter_id"] == twitter_user.id:
                 raise web.HTTPFound(
                     location=f"https://{os.environ.get('FRONTEND_DOMAIN')}/app"
                 )
-        except:
-            # Not actually logged in
-            pass
 
     # Otherwise, authorize with Twitter
     try:
@@ -99,10 +90,7 @@ async def twitter_auth(request):
         raise web.HTTPUnauthorized(text="Error, error using Twitter API")
 
     # Save values in the session
-    session["user_id"] = twitter_user.id
-    session["user_screen_name"] = twitter_user.screen_name
-    session["access_token"] = auth.access_token
-    session["access_token_secret"] = auth.access_token_secret
+    session["twitter_id"] = twitter_user.id
 
     # Does this user already exist?
     user = await User.query.where(User.twitter_id == twitter_user.id).gino.first()

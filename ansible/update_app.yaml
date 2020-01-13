@@ -1,0 +1,43 @@
+---
+- name: copy the latest app code, rebuild containers, and start the server
+  hosts: app
+  remote_user: root
+
+  tasks:
+    - name: copy the app
+      copy:
+        src: "{{ app_tgz }}"
+        dest: /tmp/app.tgz
+
+    - name: extract the app
+      unarchive:
+        remote_src: yes
+        src: /tmp/app.tgz
+        dest: /opt/semiphemeral
+
+    - name: /opt/semiphemeral/app/docker-compose.yml template
+      template:
+        src: ../app/docker-compose.yml
+        dest: /opt/semiphemeral/app/docker-compose.yml
+
+    - name: /opt/semiphemeral/app/web/etc/nginx/conf.d/frontend.conf template
+      template:
+        src: ../app/web/etc/nginx/conf.d/frontend.conf
+        dest: /opt/semiphemeral/app/web/etc/nginx/conf.d/frontend.conf
+
+    - name: /opt/semiphemeral/app/web/etc/nginx/conf.d/backend.conf template
+      template:
+        src: ../app/web/etc/nginx/conf.d/backend.conf
+        dest: /opt/semiphemeral/app/web/etc/nginx/conf.d/backend.conf
+
+    - name: /opt/semiphemeral/backend/alembic.ini template
+      template:
+        src: ../app/backend/alembic.ini
+        dest: /opt/semiphemeral/app/backend/alembic.ini
+
+    - name: ensure containers are up
+      docker_compose:
+        state: present
+        pull: yes
+        build: true
+        project_src: /opt/semiphemeral/app
