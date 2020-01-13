@@ -103,7 +103,7 @@ def _terraform_apply(deploy_environment, ssh_ips, inbound_ips):
     return True
 
 
-def _ansible_apply(deploy_environment):
+def _ansible_apply(deploy_environment, update_only=False):
     # Move node_modules away
     tmp_dir = tempfile.TemporaryDirectory()
     frontend_node_modules_dir = os.path.join(
@@ -132,8 +132,30 @@ def _ansible_apply(deploy_environment):
         frontend_domain = "semiphemeral.com"
         backend_domain = "api.semiphemeral.com"
 
-    # Run ansible playbook
+    # Write the inventory file
     inventory_filename = _write_ansible_inventory(deploy_environment)
+
+    # Run deploy playbook
+    if not update_only:
+        p = subprocess.run(
+            [
+                "ansible-playbook",
+                "-i",
+                inventory_filename,
+                "-e",
+                f"frontend_domain={frontend_domain}",
+                "-e",
+                f"backend_domain={backend_domain}",
+            ]
+            + _ansible_variables(deploy_environment)
+            + ["depploy.yaml"],
+            cwd=os.path.join(_get_root_dir(), "ansible"),
+        )
+        if p.returncode != 0:
+            click.echo("Error running deploy ansible playbook")
+            return False
+
+    # Run update app playbook
     p = subprocess.run(
         [
             "ansible-playbook",
@@ -147,32 +169,14 @@ def _ansible_apply(deploy_environment):
             f"backend_domain={backend_domain}",
         ]
         + _ansible_variables(deploy_environment)
-        + ["playbook.yaml"],
+        + ["update_app.yaml"],
         cwd=os.path.join(_get_root_dir(), "ansible"),
     )
     if p.returncode != 0:
-        click.echo("Error running ansible playbook")
+        click.echo("Error running deploy ansible playbook")
         return False
 
     return True
-
-
-def _deploy(deploy_environment):
-    devops_ip = _get_devops_ip()
-
-    # deploy with terraform, allowing all IPs for 80 and 443 for Let's Encrypt
-    if not _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"]):
-        return
-
-    # configure the server
-    if not _ansible_apply(deploy_environment):
-        return
-
-    # deploy with terraform again, this time only allowing the devops IP to access 80 and 443
-    # (but all all IPs for production)
-    if deploy_environment == "staging":
-        if not _terraform_apply(deploy_environment, [devops_ip], [devops_ip]):
-            return
 
 
 def _ssh(deploy_environment, args=None):
@@ -244,7 +248,33 @@ def deploy(deploy_environment):
     """Deploy and configure infrastructure"""
     if not _validate_env(deploy_environment):
         return
-    _deploy(deploy_environment)
+
+    devops_ip = _get_devops_ip()
+
+    # deploy with terraform, allowing all IPs for 80 and 443 for Let's Encrypt
+    if not _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"]):
+        return
+
+    # configure the server
+    if not _ansible_apply(deploy_environment):
+        return
+
+    # deploy with terraform again, this time only allowing the devops IP to access 80 and 443
+    # (but all all IPs for production)
+    if deploy_environment == "staging":
+        if not _terraform_apply(deploy_environment, [devops_ip], [devops_ip]):
+            return
+
+
+@main.command()
+@click.argument("deploy_environment", nargs=1)
+def update_app(deploy_environment):
+    """Just update the app on already-deployed infrastructure"""
+    if not _validate_env(deploy_environment):
+        return
+
+    # configure the server
+    _ansible_apply(deploy_environment, update_only=True)
 
 
 @main.command()
