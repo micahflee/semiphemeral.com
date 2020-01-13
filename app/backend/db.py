@@ -14,7 +14,6 @@ class User(db.Model):
     twitter_access_token_secret = db.Column(db.String())
 
 
-async def connect():
+async def connect_db():
     password = os.environ.get("POSTGRES_PASSWORD")
     await db.set_bind(f"postgresql://semiphemeral:{password}@db/semiphemeral")
-    return db
