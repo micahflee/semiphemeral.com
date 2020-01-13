@@ -21,8 +21,10 @@ async def login(request):
     session = await get_session(request)
     if "twitter_id" in session:
         # Get the user
-        user = await User.query.where(User.twitter_id == session["twitter_id"].gino.first()\
-        if user is not None:
+        user = await User.query.where(
+            User.twitter_id == session["twitter_id"]
+        ).gino.first()
+        if user:
             # If we're already logged in, redirect
             auth = tweepy.OAuthHandler(
                 os.environ.get("TWITTER_CONSUMER_TOKEN"),
