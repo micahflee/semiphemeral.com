@@ -1,7 +1,7 @@
 version: '3'
 services:
 
-  web:
+  proxy:
     restart: always
     build: "web"
     ports:
@@ -10,7 +10,7 @@ services:
     volumes:
       - /etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem:/etc/nginx/ssl/fullchain.pem
       - /etc/letsencrypt/live/{{ frontend_domain }}/privkey.pem:/etc/nginx/ssl/privkey.pem
-      - /opt/semiphemeral/data/web:/var/log/nginx
+      - /opt/semiphemeral/data/proxy:/var/log/nginx
     networks:
       - default
 
