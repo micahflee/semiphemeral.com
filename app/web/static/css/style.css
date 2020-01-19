@@ -1,0 +1,11 @@
+body {
+    font-family: sans;
+}
+
+.staging {
+    background-color: #990000;
+    color: #ffffff;
+    text-align: center;
+    font-weight: bold;
+    margin-top: 1em;
+}

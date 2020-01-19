@@ -8,13 +8,17 @@
 </head>
 
 <body>
-    <div class="app"></div>
+    <div class="app">
+        <h1>Semiphemeral</h1>
+    </div>
 
     {% if deploy_environment == "staging" %}
+    <p class="staging">staging environment</p>
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
     {% else %}
     <script src="https://cdn.jsdelivr.net/npm/vue"></script>
     {% endif %}
+    <script src="/static/js/main.js"></script>
 </body>
 
 </html>
