@@ -9,21 +9,19 @@
 
 <body>
     <div id="app">
-        <app-nav></app-nav>
+        <nav-bar v-on:select-page="selectPage" v-bind="{ currentPageComponent: currentPageComponent }"></nav-bar>
         <component v-bind:is="currentPageComponent"></component>
     </div>
 
     {% if deploy_environment == "staging" %}
-    <p class="staging">staging environment</p>
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
     {% else %}
     <script src="https://cdn.jsdelivr.net/npm/vue"></script>
     {% endif %}
-    <script src="/static/js/components/app-nav.js"></script>
     <script src="/static/js/components/dashboard.js"></script>
     <script src="/static/js/components/tweets.js"></script>
     <script src="/static/js/components/settings.js"></script>
-    <script src="/static/js/components/tips.js"></script>
+    <script src="/static/js/components/tip.js"></script>
     <script src="/static/js/main.js"></script>
 </body>
 
