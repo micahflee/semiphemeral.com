@@ -18,6 +18,7 @@ services:
     restart: always
     build: "web"
     environment:
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
       - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}

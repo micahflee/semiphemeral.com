@@ -1,0 +1,9 @@
+#index {
+    text-align: center;
+    font-family: sans;
+}
+
+a:link, a:visited {
+    text-decoration: none;
+    color: #517cfa;
+}
