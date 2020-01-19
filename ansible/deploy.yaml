@@ -85,7 +85,7 @@
 
     - name: ensure web volume data directory has the right permissions
       file:
-        path: /opt/semiphemeral/data/web
+        path: /opt/semiphemeral/data/proxy
         state: directory
         owner: "101" # nginx user
         mode: 0700
