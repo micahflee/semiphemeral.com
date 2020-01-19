@@ -17,32 +17,40 @@ from aiopg.sa import create_engine
 from db import connect_db, db, User
 
 
-async def login(request):
-    session = await get_session(request)
+async def _logged_in_user(session):
+    """
+    Return the currently logged in user
+    """
     if "twitter_id" in session:
         # Get the user
         user = await User.query.where(
             User.twitter_id == session["twitter_id"]
         ).gino.first()
-        if user:
-            # If we're already logged in, redirect
-            auth = tweepy.OAuthHandler(
-                os.environ.get("TWITTER_CONSUMER_TOKEN"),
-                os.environ.get("TWITTER_CONSUMER_KEY"),
-            )
-            auth.set_access_token(
-                user.twitter_access_token, user.twitter_access_token_secret
-            )
-            api = tweepy.API(
-                auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True
-            )
+        return user
 
-            # Validate user
-            twitter_user = api.me()
-            if session["twitter_id"] == twitter_user.id:
-                raise web.HTTPFound(
-                    location=f"https://{os.environ.get('FRONTEND_DOMAIN')}/app"
-                )
+    return None
+
+
+async def login(request):
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+    if user:
+        # If we're already logged in, redirect
+        auth = tweepy.OAuthHandler(
+            os.environ.get("TWITTER_CONSUMER_TOKEN"),
+            os.environ.get("TWITTER_CONSUMER_KEY"),
+        )
+        auth.set_access_token(
+            user.twitter_access_token, user.twitter_access_token_secret
+        )
+        api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+
+        # Validate user
+        twitter_user = api.me()
+        if session["twitter_id"] == twitter_user.id:
+            raise web.HTTPFound(
+                location=f"https://{os.environ.get('FRONTEND_DOMAIN')}/app"
+            )
 
     # Otherwise, authorize with Twitter
     try:
@@ -109,6 +117,27 @@ async def twitter_auth(request):
     raise web.HTTPFound(location=f"https://{os.environ.get('FRONTEND_DOMAIN')}/app")
 
 
+async def current_user(request):
+    """
+    If there's a currently logged in user, respond with information about it
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+    print(user)
+
+    if user:
+        return web.json_response(
+            {
+                "current_user": {
+                    "twitter_id": user.twitter_id,
+                    "twitter_screen_name": user.twitter_screen_name,
+                }
+            }
+        )
+    else:
+        return web.json_response({"current_user": None})
+
+
 async def app_factory():
     # connect to the database
     await connect_db()
@@ -124,7 +153,11 @@ async def app_factory():
 
     # Define routes
     app.add_routes(
-        [web.get("/login", login), web.get("/twitter_auth", twitter_auth),]
+        [
+            web.get("/login", login),
+            web.get("/twitter_auth", twitter_auth),
+            web.get("/current_user", current_user),
+        ]
     )
 
     return app
