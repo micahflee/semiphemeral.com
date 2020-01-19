@@ -2,6 +2,34 @@ body {
     font-family: sans;
 }
 
+.nav {
+    display: block;
+}
+
+.nav span.logo img {
+    vertical-align: middle;
+    border: 0;
+    padding-right: 20px;
+}
+
+.nav ul {
+    display: inline-block;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    vertical-align: middle;
+}
+
+.nav ul li {
+    display: inline-block;
+    padding: 3px 10px;
+}
+
+.nav span.user {
+    display: block;
+    float: right;
+}
+
 .staging {
     background-color: #990000;
     color: #ffffff;
