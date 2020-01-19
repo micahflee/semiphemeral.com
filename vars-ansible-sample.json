@@ -1,5 +1,14 @@
 {
-    "twitter_consumer_token": "put_consumer_token_here",
-    "twitter_consumer_secret": "put_consumer_token_secret_here",
-    "postgres_password": "put_a_unique_password_here"
+    "staging": {
+        "domain": "staging.semiphemeral.com",
+        "twitter_consumer_token": "put_consumer_token_here",
+        "twitter_consumer_secret": "put_consumer_token_secret_here",
+        "postgres_password": "put_a_unique_password_here"
+    },
+    "production": {
+        "domain": "semiphemeral.com",
+        "twitter_consumer_token": "put_consumer_token_here",
+        "twitter_consumer_secret": "put_consumer_token_secret_here",
+        "postgres_password": "put_a_unique_password_here"
+    }
 }
