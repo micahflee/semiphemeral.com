@@ -8,7 +8,7 @@ import subprocess
 
 from cryptography import fernet
 from aiohttp import web
-from aiohttp_session import setup, get_session
+from aiohttp_session import setup, get_session, new_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 
 import jinja2
@@ -34,6 +34,16 @@ async def _logged_in_user(session):
     return None
 
 
+async def _twitter_api(user):
+    auth = tweepy.OAuthHandler(
+        os.environ.get("TWITTER_CONSUMER_TOKEN"),
+        os.environ.get("TWITTER_CONSUMER_KEY"),
+    )
+    auth.set_access_token(user.twitter_access_token, user.twitter_access_token_secret)
+    api = tweepy.API(auth)
+    return api
+
+
 def authentication_required_401(func):
     async def wrapper(request):
         session = await get_session(request)
@@ -57,7 +67,7 @@ def authentication_required_302(func):
 
 
 async def auth_login(request):
-    session = await get_session(request)
+    session = await new_session(request)
     user = await _logged_in_user(session)
     if user:
         # If we're already logged in, redirect
@@ -82,12 +92,17 @@ async def auth_login(request):
             os.environ.get("TWITTER_CONSUMER_KEY"),
         )
         redirect_url = auth.get_authorization_url()
-        session["oauth_token"] = auth.request_token["oauth_token"]
         raise web.HTTPFound(location=redirect_url)
     except tweepy.TweepError:
         raise web.HTTPUnauthorized(
             text="Error, failed to get request token from Twitter"
         )
+
+
+async def auth_logout(request):
+    session = await get_session(request)
+    del session["twitter_id"]
+    raise web.HTTPFound(location="/")
 
 
 async def auth_twitter_callback(request):
@@ -151,11 +166,15 @@ async def auth_current_user(request):
     user = await _logged_in_user(session)
 
     if user:
+        api = await _twitter_api(user)
+        twitter_user = api.me()
+
         return web.json_response(
             {
                 "current_user": {
                     "twitter_id": user.twitter_id,
                     "twitter_screen_name": user.twitter_screen_name,
+                    "profile_image_url": twitter_user.profile_image_url_https,
                 }
             }
         )
@@ -198,6 +217,7 @@ async def app_factory():
             web.static("/static", "static"),
             # Authentication
             web.get("/auth/login", auth_login),
+            web.get("/auth/logout", auth_logout),
             web.get("/auth/twitter_callback", auth_twitter_callback),
             web.get("/auth/current_user", auth_current_user),
             # Web
