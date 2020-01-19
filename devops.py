@@ -29,17 +29,14 @@ def _get_variables(filename):
     return variables
 
 
-def _get_domain(deploy_environment):
-    if deploy_environment == "prod":
-        return "semiphemeral.com"
-    else:
-        return "staging.semiphemeral.com"
-
-
 def _terraform_variables(deploy_environment):
     variables = _get_variables(os.path.join(_get_root_dir(), ".vars-terraform.json"))
     variables["deploy_environment"] = deploy_environment
-    variables["domain"] = _get_domain(deploy_environment)
+
+    ansible_variables = _get_variables(
+        os.path.join(_get_root_dir(), ".vars-ansible.json")
+    )
+    variables["domain"] = ansible_variables[deploy_environment]["domain"]
 
     terraform_vars = []
     for key in variables:
@@ -50,7 +47,8 @@ def _terraform_variables(deploy_environment):
 
 
 def _ansible_variables(deploy_environment):
-    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible.json"))
+    all_variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible.json"))
+    variables = all_variables[deploy_environment]
     variables["deploy_environment"] = deploy_environment
 
     ansible_vars = []
@@ -125,16 +123,13 @@ def _ansible_apply(deploy_environment, update_only=False):
             os.path.join(tmp_dir.name, "node_modules"), frontend_node_modules_dir
         )
 
-    # Domains
-    domain = _get_domain(deploy_environment)
-
     # Write the inventory file
     inventory_filename = _write_ansible_inventory(deploy_environment)
 
     # Run deploy playbook
     if not update_only:
         p = subprocess.run(
-            ["ansible-playbook", "-i", inventory_filename, "-e", f"domain={domain}",]
+            ["ansible-playbook", "-i", inventory_filename]
             + _ansible_variables(deploy_environment)
             + ["deploy.yaml"],
             cwd=os.path.join(_get_root_dir(), "ansible"),
@@ -145,15 +140,7 @@ def _ansible_apply(deploy_environment, update_only=False):
 
     # Run update app playbook
     p = subprocess.run(
-        [
-            "ansible-playbook",
-            "-i",
-            inventory_filename,
-            "-e",
-            f"app_tgz={app_tgz}",
-            "-e",
-            f"domain={domain}",
-        ]
+        ["ansible-playbook", "-i", inventory_filename, "-e", f"app_tgz={app_tgz}",]
         + _ansible_variables(deploy_environment)
         + ["update_app.yaml"],
         cwd=os.path.join(_get_root_dir(), "ansible"),
