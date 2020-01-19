@@ -11,6 +11,9 @@ from aiohttp import web
 from aiohttp_session import setup, get_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 
+import jinja2
+import aiohttp_jinja2
+
 from aiopg.sa import create_engine
 
 
@@ -31,7 +34,7 @@ async def _logged_in_user(session):
     return None
 
 
-async def login(request):
+async def auth_login(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
     if user:
@@ -48,9 +51,7 @@ async def login(request):
         # Validate user
         twitter_user = api.me()
         if session["twitter_id"] == twitter_user.id:
-            raise web.HTTPFound(
-                location=f"https://{os.environ.get('FRONTEND_DOMAIN')}/app"
-            )
+            raise web.HTTPFound(location=f"https://{os.environ.get('DOMAIN')}/app")
 
     # Otherwise, authorize with Twitter
     try:
@@ -67,7 +68,7 @@ async def login(request):
         )
 
 
-async def twitter_auth(request):
+async def auth_twitter_auth(request):
     params = request.rel_url.query
     if "oauth_token" not in params or "oauth_verifier" not in params:
         raise web.HTTPUnauthorized(
@@ -114,10 +115,10 @@ async def twitter_auth(request):
         )
 
     # Redirect to app
-    raise web.HTTPFound(location=f"https://{os.environ.get('FRONTEND_DOMAIN')}/app")
+    raise web.HTTPFound(location=f"https://{os.environ.get('DOMAIN')}/app")
 
 
-async def current_user(request):
+async def auth_current_user(request):
     """
     If there's a currently logged in user, respond with information about it
     """
@@ -138,12 +139,21 @@ async def current_user(request):
         return web.json_response({"current_user": None})
 
 
+@aiohttp_jinja2.template("index.jinja2")
+async def index(request):
+    """
+    Homepage
+    """
+    return {}
+
+
 async def app_factory():
     # connect to the database
     await connect_db()
 
     # create the web app
     app = web.Application()
+    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader("templates"))
     logging.basicConfig(filename="/var/web/web.log", level=logging.DEBUG)
 
     # secret_key must be 32 url-safe base64-encoded bytes
@@ -154,9 +164,14 @@ async def app_factory():
     # Define routes
     app.add_routes(
         [
-            web.get("/login", login),
-            web.get("/twitter_auth", twitter_auth),
-            web.get("/current_user", current_user),
+            # Static files
+            web.static("/static", "static"),
+            # Authentication
+            web.get("/auth/login", auth_login),
+            web.get("/auth/twitter_auth", auth_twitter_auth),
+            web.get("/auth/current_user", auth_current_user),
+            # Index
+            web.get("/", index),
         ]
     )
 
