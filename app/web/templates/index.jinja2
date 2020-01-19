@@ -10,7 +10,11 @@
 <body>
     <div id="index">
         <p><img src="/static/img/semiphemeral.png" alt="Semiphemeral" /></p>
+        {% if logged_in %}
+        <p><a href="/app">Go to dashboard</a></p>
+        {% else %}
         <p><a href="/auth/login">Login with Twitter</a></p>
+        {% endif %}
     </div>
 </body>
 
