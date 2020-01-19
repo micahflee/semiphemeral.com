@@ -1,6 +1,6 @@
 Vue.component('settings', {
     template: `
-        <div class="page" class="settings">
+        <div class="page settings">
             <h1>Settings</h1>
         </div>
     `
