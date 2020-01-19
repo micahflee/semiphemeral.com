@@ -29,16 +29,17 @@ def _get_variables(filename):
     return variables
 
 
+def _get_domain(deploy_environment):
+    if deploy_environment == "prod":
+        return "semiphemeral.com"
+    else:
+        return "staging.semiphemeral.com"
+
+
 def _terraform_variables(deploy_environment):
     variables = _get_variables(os.path.join(_get_root_dir(), ".vars-terraform.json"))
     variables["deploy_environment"] = deploy_environment
-
-    if deploy_environment == "prod":
-        variables["frontend_domain"] = "semiphemeral.com"
-        variables["backend_domain"] = "api.semiphemeral.com"
-    else:
-        variables["frontend_domain"] = "staging.semiphemeral.com"
-        variables["backend_domain"] = "api.staging.semiphemeral.com"
+    variables["domain"] = _get_domain(deploy_environment)
 
     terraform_vars = []
     for key in variables:
@@ -124,13 +125,8 @@ def _ansible_apply(deploy_environment, update_only=False):
             os.path.join(tmp_dir.name, "node_modules"), frontend_node_modules_dir
         )
 
-    # Frontend and backend domains
-    if deploy_environment == "staging":
-        frontend_domain = "staging.semiphemeral.com"
-        backend_domain = "api.staging.semiphemeral.com"
-    else:
-        frontend_domain = "semiphemeral.com"
-        backend_domain = "api.semiphemeral.com"
+    # Domains
+    domain = _get_domain(deploy_environment)
 
     # Write the inventory file
     inventory_filename = _write_ansible_inventory(deploy_environment)
@@ -138,17 +134,9 @@ def _ansible_apply(deploy_environment, update_only=False):
     # Run deploy playbook
     if not update_only:
         p = subprocess.run(
-            [
-                "ansible-playbook",
-                "-i",
-                inventory_filename,
-                "-e",
-                f"frontend_domain={frontend_domain}",
-                "-e",
-                f"backend_domain={backend_domain}",
-            ]
+            ["ansible-playbook", "-i", inventory_filename, "-e", f"domain={domain}",]
             + _ansible_variables(deploy_environment)
-            + ["depploy.yaml"],
+            + ["deploy.yaml"],
             cwd=os.path.join(_get_root_dir(), "ansible"),
         )
         if p.returncode != 0:
@@ -164,9 +152,7 @@ def _ansible_apply(deploy_environment, update_only=False):
             "-e",
             f"app_tgz={app_tgz}",
             "-e",
-            f"frontend_domain={frontend_domain}",
-            "-e",
-            f"backend_domain={backend_domain}",
+            f"domain={domain}",
         ]
         + _ansible_variables(deploy_environment)
         + ["update_app.yaml"],

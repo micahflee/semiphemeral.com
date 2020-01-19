@@ -69,9 +69,9 @@
         path: /opt/semiphemeral
         state: directory
 
-    - name: ensure backend volume directory has the right permissions
+    - name: ensure web volume directory has the right permissions
       file:
-        path: /opt/semiphemeral/data/backend
+        path: /opt/semiphemeral/data/web
         state: directory
         owner: "1000"
         mode: 0700
@@ -83,7 +83,7 @@
         owner: "999" # postgres user
         mode: 0700
 
-    - name: ensure web volume data directory has the right permissions
+    - name: ensure proxy volume data directory has the right permissions
       file:
         path: /opt/semiphemeral/data/proxy
         state: directory
@@ -91,4 +91,4 @@
         mode: 0700
 
     - name: ensure we have a Let's Encrypt certificate
-      shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ frontend_domain }},{{ backend_domain }}
+      shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ domain }}

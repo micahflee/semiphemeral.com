@@ -9,8 +9,7 @@ variable "ssh_ips" {}
 variable "inbound_ips" {}
 
 # for DNS records
-variable "frontend_domain" {}
-variable "backend_domain" {}
+variable "domain" {}
 
 resource "digitalocean_droplet" "app" {
   name               = "app-${var.deploy_environment}"
@@ -80,13 +79,8 @@ resource "digitalocean_firewall" "app" {
   }
 }
 
-resource "digitalocean_domain" "frontend" {
-  name       = var.frontend_domain
-  ip_address = digitalocean_droplet.app.ipv4_address
-}
-
-resource "digitalocean_domain" "backend" {
-  name       = var.backend_domain
+resource "digitalocean_domain" "domain" {
+  name       = var.domain
   ip_address = digitalocean_droplet.app.ipv4_address
 }
 
