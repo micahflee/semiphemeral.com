@@ -5,11 +5,13 @@ name = "pypi"
 
 [packages]
 aiohttp = "*"
+aiohttp-jinja2 = "*"
 tweepy = "*"
 gino = "*"
 aiopg = "*"
 sqlalchemy = "*"
 alembic = "*"
+jinja2 = "*"
 
 [dev-packages]
 
