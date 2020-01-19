@@ -34,13 +34,24 @@ async def _logged_in_user(session):
     return None
 
 
-async def authentication_required(func):
-    def wrapper(*args, **kwargs):
+def authentication_required_401(func):
+    async def wrapper(request):
+        session = await get_session(request)
+        user = await _logged_in_user(session)
+        if not user:
+            raise web.HTTPUnauthorized(text="Authentication required")
+        return await func(request)
+
+    return wrapper
+
+
+def authentication_required_302(func):
+    async def wrapper(request):
         session = await get_session(request)
         user = await _logged_in_user(session)
         if not user:
             raise web.HTTPFound(location="/")
-        return await func(*args, **kwargs)
+        return await func(request)
 
     return wrapper
 
@@ -115,14 +126,14 @@ async def auth_twitter_callback(request):
         raise web.HTTPUnauthorized(text="Error, error using Twitter API")
 
     # Save values in the session
-    session["twitter_id"] = twitter_user.id
+    session["twitter_id"] = twitter_user.id_str
 
     # Does this user already exist?
-    user = await User.query.where(User.twitter_id == twitter_user.id).gino.first()
+    user = await User.query.where(User.twitter_id == twitter_user.id_str).gino.first()
     if user is None:
         # Create a new user
         user = await User.create(
-            twitter_id=twitter_user.id,
+            twitter_id=twitter_user.id_str,
             twitter_screen_name=twitter_user.screen_name,
             twitter_access_token=auth.access_token,
             twitter_access_token_secret=auth.access_token_secret,
@@ -158,7 +169,7 @@ async def index(request):
 
 
 @aiohttp_jinja2.template("app.jinja2")
-@authentication_required
+@authentication_required_302
 async def app_main(request):
     return {"deploy_environment": os.environ.get("DEPLOY_ENVIRONMENT")}
 
