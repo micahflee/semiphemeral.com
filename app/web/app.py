@@ -34,6 +34,17 @@ async def _logged_in_user(session):
     return None
 
 
+async def authentication_required(func):
+    def wrapper(*args, **kwargs):
+        session = await get_session(request)
+        user = await _logged_in_user(session)
+        if not user:
+            raise web.HTTPFound(location="/")
+        return await func(*args, **kwargs)
+
+    return wrapper
+
+
 async def auth_login(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
@@ -51,7 +62,7 @@ async def auth_login(request):
         # Validate user
         twitter_user = api.me()
         if session["twitter_id"] == twitter_user.id:
-            raise web.HTTPFound(location=f"https://{os.environ.get('DOMAIN')}/app")
+            raise web.HTTPFound("/app")
 
     # Otherwise, authorize with Twitter
     try:
@@ -68,8 +79,11 @@ async def auth_login(request):
         )
 
 
-async def auth_twitter_auth(request):
+async def auth_twitter_callback(request):
     params = request.rel_url.query
+    if "denied" in params:
+        raise web.HTTPFound(location="/")
+
     if "oauth_token" not in params or "oauth_verifier" not in params:
         raise web.HTTPUnauthorized(
             text="Error, oauth_token and oauth_verifier are required"
@@ -115,7 +129,7 @@ async def auth_twitter_auth(request):
         )
 
     # Redirect to app
-    raise web.HTTPFound(location=f"https://{os.environ.get('DOMAIN')}/app")
+    raise web.HTTPFound(location="/app")
 
 
 async def auth_current_user(request):
@@ -124,7 +138,6 @@ async def auth_current_user(request):
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
-    print(user)
 
     if user:
         return web.json_response(
@@ -141,10 +154,13 @@ async def auth_current_user(request):
 
 @aiohttp_jinja2.template("index.jinja2")
 async def index(request):
-    """
-    Homepage
-    """
     return {}
+
+
+@aiohttp_jinja2.template("app.jinja2")
+@authentication_required
+async def app_main(request):
+    return {"deploy_environment": os.environ.get("DEPLOY_ENVIRONMENT")}
 
 
 async def app_factory():
@@ -168,10 +184,11 @@ async def app_factory():
             web.static("/static", "static"),
             # Authentication
             web.get("/auth/login", auth_login),
-            web.get("/auth/twitter_auth", auth_twitter_auth),
+            web.get("/auth/twitter_callback", auth_twitter_callback),
             web.get("/auth/current_user", auth_current_user),
-            # Index
+            # Web
             web.get("/", index),
+            web.get("/app", app_main),
         ]
     )
 
