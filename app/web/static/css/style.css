@@ -29,6 +29,7 @@ body {
     border: 0;
     background-color: transparent;
     padding: 5px;
+    cursor: pointer;
 }
 
 .nav ul li button.active {
@@ -39,4 +40,20 @@ body {
 .nav span.user {
     display: block;
     float: right;
+}
+
+.nav span.user img {
+    width: 30px;
+    border-radius: 50%;
+    vertical-align: middle;
+}
+
+.nav span.user span {
+    vertical-align: middle;
+    font-size: 0.8em;
+}
+
+.nav span.user span a {
+    color: #42465d;
+    text-decoration: none;
 }

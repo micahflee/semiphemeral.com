@@ -9,7 +9,9 @@
 
 <body>
     <div id="app">
-        <nav-bar v-on:select-page="selectPage" v-bind="{ currentPageComponent: currentPageComponent }"></nav-bar>
+        <nav-bar v-on:select-page="selectPage"
+            v-bind="{ currentPageComponent: currentPageComponent, userScreenName: userScreenName, userProfileUrl: userProfileUrl }">
+        </nav-bar>
         <component v-bind:is="currentPageComponent"></component>
     </div>
 
