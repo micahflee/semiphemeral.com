@@ -20,20 +20,15 @@
         src: ../app/docker-compose.yml
         dest: /opt/semiphemeral/app/docker-compose.yml
 
-    - name: /opt/semiphemeral/app/web/etc/nginx/conf.d/frontend.conf template
+    - name: /opt/semiphemeral/app/proxy/etc/nginx/conf.d/semiphemeral.conf template
       template:
-        src: ../app/web/etc/nginx/conf.d/frontend.conf
-        dest: /opt/semiphemeral/app/web/etc/nginx/conf.d/frontend.conf
+        src: ../app/proxy/etc/nginx/conf.d/semiphemeral.conf
+        dest: /opt/semiphemeral/app/proxy/etc/nginx/conf.d/semiphemeral.conf
 
-    - name: /opt/semiphemeral/app/web/etc/nginx/conf.d/backend.conf template
+    - name: /opt/semiphemeral/web/alembic.ini template
       template:
-        src: ../app/web/etc/nginx/conf.d/backend.conf
-        dest: /opt/semiphemeral/app/web/etc/nginx/conf.d/backend.conf
-
-    - name: /opt/semiphemeral/backend/alembic.ini template
-      template:
-        src: ../app/backend/alembic.ini
-        dest: /opt/semiphemeral/app/backend/alembic.ini
+        src: ../app/web/alembic.ini
+        dest: /opt/semiphemeral/app/web/alembic.ini
 
     - name: ensure containers are up
       docker_compose:

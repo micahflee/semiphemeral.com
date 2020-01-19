@@ -144,7 +144,7 @@ async def app_factory():
 
     # create the web app
     app = web.Application()
-    logging.basicConfig(filename="/var/backend/backend.log", level=logging.DEBUG)
+    logging.basicConfig(filename="/var/web/web.log", level=logging.DEBUG)
 
     # secret_key must be 32 url-safe base64-encoded bytes
     fernet_key = fernet.Fernet.generate_key()

@@ -3,47 +3,29 @@ services:
 
   proxy:
     restart: always
-    build: "web"
+    build: "proxy"
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - /etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem:/etc/nginx/ssl/fullchain.pem
-      - /etc/letsencrypt/live/{{ frontend_domain }}/privkey.pem:/etc/nginx/ssl/privkey.pem
+      - /etc/letsencrypt/live/{{ domain }}/fullchain.pem:/etc/nginx/ssl/fullchain.pem
+      - /etc/letsencrypt/live/{{ domain }}/privkey.pem:/etc/nginx/ssl/privkey.pem
       - /opt/semiphemeral/data/proxy:/var/log/nginx
     networks:
       - default
 
-  frontend:
+  web:
     restart: always
-    build:
-      context: "frontend"
-      args:
-        - FRONTEND_DOMAIN={{ frontend_domain }}
-        - BACKEND_DOMAIN={{ backend_domain }}
+    build: "web"
     environment:
-      - FRONTEND_DOMAIN={{ frontend_domain }}
-      - BACKEND_DOMAIN={{ backend_domain }}
-    expose:
-      - "3000"
-    depends_on:
-      - backend
-    networks:
-      - default
-
-  backend:
-    restart: always
-    build: "backend"
-    environment:
-      - FRONTEND_DOMAIN={{ frontend_domain }}
-      - BACKEND_DOMAIN={{ backend_domain }}
+      - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
       - POSTGRES_PASSWORD={{ postgres_password }}
     expose:
       - "8080"
     volumes:
-      - /opt/semiphemeral/data/backend:/var/backend
+      - /opt/semiphemeral/data/web:/var/web
     depends_on:
       - db
     networks:
