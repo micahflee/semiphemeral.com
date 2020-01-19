@@ -165,7 +165,10 @@ async def auth_current_user(request):
 
 @aiohttp_jinja2.template("index.jinja2")
 async def index(request):
-    return {}
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+    logged_in = user is not None
+    return {"logged_in": logged_in}
 
 
 @aiohttp_jinja2.template("app.jinja2")
