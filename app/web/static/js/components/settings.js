@@ -29,8 +29,8 @@ Vue.component('settings', {
                     retweets_likes: this.retweetsLikes,
                     retweets_likes_delete_retweets: this.retweetsLikesDeleteRetweets,
                     retweets_likes_retweets_threshold: this.retweetsLikesRetweetsThreshold,
-                    retweets_likes_delete_likes: this.retweets_likes_delete_likes,
-                    retweets_likes_likes_threshold: this.retweets_likes_likes_threshold
+                    retweets_likes_delete_likes: this.retweetsLikesDeleteLikes,
+                    retweets_likes_likes_threshold: this.retweetsLikesLikesThreshold
                 })
             })
                 .then(function (response) {
@@ -46,7 +46,7 @@ Vue.component('settings', {
     template: `
         <div class="page settings">
             <h1>Choose what you'd like Semiphemeral to automatically delete</h1>
-            <form v-on:submit.prevents="onSubmit">
+            <form v-on:submit.prevent="onSubmit">
             <p>
                 <label class="checkbox">
                     <input type="checkbox" v-model="deleteTweets" />
