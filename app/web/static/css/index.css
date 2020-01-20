@@ -3,6 +3,10 @@
     font-family: sans;
 }
 
+#index img {
+    width: 200px;
+}
+
 a:link, a:visited {
     text-decoration: none;
     color: #517cfa;
