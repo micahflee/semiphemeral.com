@@ -13,6 +13,20 @@ class User(db.Model):
     twitter_access_token = db.Column(db.String())
     twitter_access_token_secret = db.Column(db.String())
 
+    delete_tweets = db.Column(db.Boolean, default=False)
+    tweets_days_threshold = db.Column(db.Integer, default=30)
+    tweets_retweet_threshold = db.Column(db.Integer, default=20)
+    tweets_like_threshold = db.Column(db.Integer, default=20)
+
+    retweets_likes = db.Column(db.Boolean, default=False)
+    retweets_likes_delete_retweets = db.Column(db.Boolean, default=True)
+    retweets_likes_retweets_threshold = db.Column(db.Integer, default=30)
+    retweets_likes_delete_likes = db.Column(db.Boolean, default=True)
+    retweets_likes_likes_threshold = db.Column(db.Integer, default=60)
+
+    since_id = db.Column(db.String())
+    last_fetch = db.Column(db.DateTime())
+
 
 async def connect_db():
     password = os.environ.get("POSTGRES_PASSWORD")
