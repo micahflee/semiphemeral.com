@@ -7,9 +7,9 @@ Vue.component('settings', {
             tweetsLikeThreshold: this.$root.settingsTweetsLikeThreshold,
             tweetsThreadsThreshold: this.$root.settingsTweetsThreadsThreshold,
             retweetsLikes: this.$root.settingsRetweetsLikes,
-            retweetsLikesDeleteRetweets: this.$root.settingsDeleteTweets,
-            retweetsLikesRetweetsThreshold: this.$root.settingsRetweetsLikesDeleteRetweets,
-            retweetsLikesDeleteLikes: this.$root.settsettingsRetweetsLikesDeleteLikesingsDeleteTweets,
+            retweetsLikesDeleteRetweets: this.$root.settingsRetweetsLikesDeleteRetweets,
+            retweetsLikesRetweetsThreshold: this.$root.settingsRetweetsLikesRetweetsThreshold,
+            retweetsLikesDeleteLikes: this.$root.settsettingsRetweetsLikesDeleteLikes,
             retweetsLikesLikesThreshold: this.$root.settingsRetweetsLikesLikesThreshold,
         }
     },
