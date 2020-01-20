@@ -9,7 +9,6 @@ body {
 .nav span.logo img {
     vertical-align: middle;
     border: 0;
-    padding-right: 20px;
 }
 
 .nav ul {
@@ -56,4 +55,8 @@ body {
 .nav span.user span a {
     color: #42465d;
     text-decoration: none;
+}
+
+.page h1 {
+    font-size: 1.2em;
 }
