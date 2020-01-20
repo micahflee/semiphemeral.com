@@ -62,6 +62,10 @@ body {
     text-decoration: none;
 }
 
+.page {
+    font-size: 0.9em;
+}
+
 .page h1 {
     font-size: 1.2em;
 }
