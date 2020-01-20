@@ -1,6 +1,7 @@
 Vue.component('settings', {
     data: function () {
         return {
+            loading: false,
             deleteTweets: this.$root.settingsDeleteTweets,
             tweetsDaysThreshold: this.$root.settingsTweetsDaysThreshold,
             tweetsRetweetThreshold: this.$root.settingsTweetsRetweetThreshold,
@@ -13,74 +14,106 @@ Vue.component('settings', {
             retweetsLikesLikesThreshold: this.$root.settingsRetweetsLikesLikesThreshold,
         }
     },
+    methods: {
+        "onSubmit": function () {
+            this.loading = true
+            fetch("/api/settings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    delete_tweets: this.deleteTweets,
+                    tweets_days_threshold: this.tweetsDaysThreshold,
+                    tweets_retweet_threshold: this.tweetsRetweetThreshold,
+                    tweets_like_threshold: this.tweetsLikeThreshold,
+                    tweets_threads_threshold: this.tweetsThreadsThreshold,
+                    retweets_likes: this.retweetsLikes,
+                    retweets_likes_delete_retweets: this.retweetsLikesDeleteRetweets,
+                    retweets_likes_retweets_threshold: this.retweetsLikesRetweetsThreshold,
+                    retweets_likes_delete_likes: this.retweets_likes_delete_likes,
+                    retweets_likes_likes_threshold: this.retweets_likes_likes_threshold
+                })
+            })
+                .then(function (response) {
+                    this.loading = false
+                    // TODO: Force the root component to re-fetch
+                })
+                .catch(function (err) {
+                    console.log("Error updating settings", err)
+                    this.loading = false
+                })
+        }
+    },
     template: `
         <div class="page settings">
             <h1>Choose what you'd like Semiphemeral to automatically delete</h1>
-            <form method="post" action="/settings">
+            <form v-on:submit.prevents="onSubmit">
             <p>
                 <label class="checkbox">
-                    <input type="checkbox" class="delete-tweets-checkbox" name="delete_tweets" v-model="deleteTweets" />
+                    <input type="checkbox" v-model="deleteTweets" />
                     Delete old tweets
                 </label>
             </p>
-            <fieldset class="delete-tweets-fieldset">
+            <fieldset v-if="deleteTweets">
                 <legend>Tweets</legend>
                 <p>
                     Delete tweets older than
-                    <input class="small" type="number" min="0"  name="tweets_days_threshold" v-model="tweetsDaysThreshold" \>
+                    <input type="number" min="0" v-model="tweetsDaysThreshold" \>
                     days
                 </p>
                 <p>
                     Unless they have at least
-                    <input class="small" type="number" min="0"  name="tweets_retweet_threshold" v-model="tweetsRetweetThreshold" \>
+                    <input type="number" min="0" v-model="tweetsRetweetThreshold" \>
                     retweets
                 </p>
                 <p>
                     Or at least
-                    <input class="small" type="number" min="0"  name="tweets_like_threshold" v-model="tweetsLikeThreshold" \>
+                    <input type="number" min="0" v-model="tweetsLikeThreshold" \>
                     likes
                 </p>
                 <p>
-                    <label class="checkbox">
-                        <input type="checkbox" name="tweets_threads_threshold" v-model="tweetsThreadsThreshold" />
+                    <label>
+                        <input type="checkbox" v-model="tweetsThreadsThreshold" />
                         Don't delete tweets that are part of a thread that contains at least one tweet that meets these thresholds
                     </label>
                 </p>
             </fieldset>
 
             <p>
-                <label class="checkbox">
-                <input type="checkbox" class="retweets-likes-checkbox" name="retweets_likes" v-model="retweetsLikes" />
-                Unretweet and unlike old tweets
+                <label>
+                    <input type="checkbox" v-model="retweetsLikes" />
+                    Unretweet and unlike old tweets
                 </label>
             </p>
 
-            <fieldset class="retweets-likes-fieldset">
+            <fieldset v-if="retweetsLikes">
                 <legend>Retweets and likes</legend>
 
                 <p>
-                    <label class="checkbox">
-                        <input type="checkbox" name="retweets_likes_delete_retweets" v-model="retweetsLikesDeleteRetweets" />
+                    <label>
+                        <input type="checkbox" v-model="retweetsLikesDeleteRetweets" />
                         Unretweet tweets
                     </label>
                     older than
-                    <input class="small" type="number" min="0"  name="retweets_likes_retweets_threshold" v-model="retweetsLikesRetweetsThreshold" \>
+                    <input type="number" min="0" v-model="retweetsLikesRetweetsThreshold" \>
                     days
                 </p>
 
                 <p>
-                    <label class="checkbox">
-                        <input type="checkbox" name="retweets_likes_delete_likes" v-model="retweetsLikesDeleteLikes" />
+                    <label>
+                        <input type="checkbox" v-model="retweetsLikesDeleteLikes" />
                         Unlike tweets
                     </label>
                     older than
-                    <input class="small" type="number" min="0"  name="retweets_likes_likes_threshold" v-model="retweetsLikesLikesThreshold" \>
+                    <input type="number" min="0" v-model="retweetsLikesLikesThreshold" \>
                     days
                 </p>
 
             </fieldset>
 
-            <p><input type="submit" value="Save" /></p>
+            <p>
+                <input v-bind:disabled="loading" type="submit" value="Save" />
+                <img v-if="loading" src="/static/img/loading.gif" alt="Loading" />
+            </p>
             </form>
         </div>
     `

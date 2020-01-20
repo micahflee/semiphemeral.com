@@ -171,9 +171,6 @@ async def api_get_user(request):
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
-    if not user:
-        raise web.HTTPUnauthorized(text="Authentication required")
-
     api = await _twitter_api(user)
     twitter_user = api.me()
 
@@ -208,10 +205,44 @@ async def api_settings(request):
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
-    if not user:
-        raise web.HTTPUnauthorized(text="Authentication required")
+    data = await request.json()
 
-    # TODO: update settings
+    # Validate
+    expected_fields = {
+        "delete_tweets": bool,
+        "tweets_days_threshold": int,
+        "tweets_retweet_threshold": int,
+        "tweets_like_threshold": int,
+        "tweets_threads_threshold": bool,
+        "retweets_likes": bool,
+        "retweets_likes_delete_retweets": bool,
+        "retweets_likes_retweets_threshold": int,
+        "retweets_likes_delete_likes": bool,
+        "retweets_likes_likes_threshold": int,
+    }
+    for field in expected_fields:
+        if field not in data:
+            raise web.HTTPBadRequest(text=f"Missing field: {field}")
+        if type(data[field]) != expected_fields[field]:
+            raise web.HTTPBadRequest(
+                text=f"Invalid type: {field} should be {expected_fields[field]}, not {type(data[field])}"
+            )
+
+    # Update settings in the database
+    await user.update(
+        delete_tweets=data["delete_tweets"],
+        tweets_days_threshold=data["tweets_days_threshold"],
+        tweets_retweet_threshold=data["tweets_retweet_threshold"],
+        tweets_like_threshold=data["tweets_like_threshold"],
+        tweets_threads_threshold=data["tweets_threads_threshold"],
+        retweets_likes=data["retweets_likes"],
+        retweets_likes_delete_retweets=data["retweets_likes_delete_retweets"],
+        retweets_likes_retweets_threshold=data["retweets_likes_retweets_threshold"],
+        retweets_likes_delete_likes=data["retweets_likes_delete_likes"],
+        retweets_likes_likes_threshold=data["retweets_likes_likes_threshold"],
+    ).apply()
+
+    return web.json_response(True)
 
 
 @aiohttp_jinja2.template("index.jinja2")
