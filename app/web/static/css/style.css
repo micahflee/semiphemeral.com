@@ -2,6 +2,11 @@ body {
     font-family: sans;
 }
 
+#app {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
 .nav {
     display: block;
 }

@@ -59,7 +59,18 @@ var app = new Vue({
     data: {
         currentPageComponent: "dashboard",
         userScreenName: false,
-        userProfileUrl: false
+        userProfileUrl: false,
+        settingsDeleteTweets: false,
+        settingsTweetsDaysThreshold: false,
+        settingsTweetsRetweetThreshold: false,
+        settingsTweetsLikeThreshold: false,
+        settingsTweetsThreadsThreshold: false,
+        settingsRetweetsLikes: false,
+        settingsRetweetsLikesDeleteRetweets: false,
+        settingsRetweetsLikesRetweetsThreshold: false,
+        settingsRetweetsLikesDeleteLikes: false,
+        settingsRetweetsLikesLikesThreshold: false,
+        lastFetch: false
     },
     methods: {
         selectPage: function (pageComponent) {
@@ -69,16 +80,26 @@ var app = new Vue({
 })
 
 // Fetch the logged in user
-fetch("/auth/current_user")
+fetch("/auth/get_user")
     .then(function (response) {
         if (response.status !== 200) {
             console.log('Error fetching user, status code: ' + response.status);
             return;
         }
         response.json().then(function (data) {
-            console.log(data);
-            app.userScreenName = data['current_user']['twitter_screen_name'];
-            app.userProfileUrl = data['current_user']['profile_image_url'];
+            app.userScreenName = data['user']['twitter_screen_name'];
+            app.userProfileUrl = data['user']['profile_image_url'];
+            app.settingsDeleteTweets = data['settings']['delete_tweets'];
+            app.settingsTweetsDaysThreshold = data['settings']['tweets_days_threshold'];
+            app.settingsTweetsRetweetThreshold = data['settings']['tweets_retweet_threshold'];
+            app.settingsTweetsLikeThreshold = data['settings']['tweets_like_threshold'];
+            app.settingsTweetsThreadsThreshold = data['settings']['tweets_threads_threshold'];
+            app.settingsRetweetsLikes = data['settings']['retweets_likes'];
+            app.settingsRetweetsLikesDeleteRetweets = data['settings']['retweets_likes_delete_retweets'];
+            app.settingsRetweetsLikesRetweetsThreshold = data['settings']['retweets_likes_retweets_threshold'];
+            app.settingsRetweetsLikesDeleteLikes = data['settings']['retweets_likes_delete_likes'];
+            app.settingsRetweetsLikesLikesThreshold = data['settings']['retweets_likes_likes_threshold'];
+            app.lastFetch = data['last_fetch'];
         })
     })
     .catch(function (err) {

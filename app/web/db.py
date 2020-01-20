@@ -17,6 +17,7 @@ class User(db.Model):
     tweets_days_threshold = db.Column(db.Integer, default=30)
     tweets_retweet_threshold = db.Column(db.Integer, default=20)
     tweets_like_threshold = db.Column(db.Integer, default=20)
+    tweets_threads_threshold = db.Column(db.Boolean, default=True)
 
     retweets_likes = db.Column(db.Boolean, default=False)
     retweets_likes_delete_retweets = db.Column(db.Boolean, default=True)
