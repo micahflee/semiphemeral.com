@@ -9,7 +9,7 @@ Vue.component('settings', {
             retweetsLikes: this.$root.settingsRetweetsLikes,
             retweetsLikesDeleteRetweets: this.$root.settingsRetweetsLikesDeleteRetweets,
             retweetsLikesRetweetsThreshold: this.$root.settingsRetweetsLikesRetweetsThreshold,
-            retweetsLikesDeleteLikes: this.$root.settsettingsRetweetsLikesDeleteLikes,
+            retweetsLikesDeleteLikes: this.$root.settingsRetweetsLikesDeleteLikes,
             retweetsLikesLikesThreshold: this.$root.settingsRetweetsLikesLikesThreshold,
         }
     },
