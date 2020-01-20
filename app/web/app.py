@@ -20,6 +20,16 @@ from aiopg.sa import create_engine
 from db import connect_db, db, User
 
 
+async def _twitter_api(user):
+    auth = tweepy.OAuthHandler(
+        os.environ.get("TWITTER_CONSUMER_TOKEN"),
+        os.environ.get("TWITTER_CONSUMER_KEY"),
+    )
+    auth.set_access_token(user.twitter_access_token, user.twitter_access_token_secret)
+    api = tweepy.API(auth)
+    return api
+
+
 async def _logged_in_user(session):
     """
     Return the currently logged in user
@@ -29,19 +39,15 @@ async def _logged_in_user(session):
         user = await User.query.where(
             User.twitter_id == session["twitter_id"]
         ).gino.first()
-        return user
 
+        # Get the twitter API for the user, and make sure it works
+        try:
+            api = await _twitter_api(user)
+            api.me()
+            return user
+        except:
+            return None
     return None
-
-
-async def _twitter_api(user):
-    auth = tweepy.OAuthHandler(
-        os.environ.get("TWITTER_CONSUMER_TOKEN"),
-        os.environ.get("TWITTER_CONSUMER_KEY"),
-    )
-    auth.set_access_token(user.twitter_access_token, user.twitter_access_token_secret)
-    api = tweepy.API(auth)
-    return api
 
 
 def authentication_required_401(func):
@@ -158,41 +164,54 @@ async def auth_twitter_callback(request):
     raise web.HTTPFound(location="/app")
 
 
-async def auth_get_user(request):
+@authentication_required_401
+async def api_get_user(request):
     """
     If there's a currently logged in user, respond with information about it
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
+    if not user:
+        raise web.HTTPUnauthorized(text="Authentication required")
 
-    if user:
-        api = await _twitter_api(user)
-        twitter_user = api.me()
+    api = await _twitter_api(user)
+    twitter_user = api.me()
 
-        return web.json_response(
-            {
-                "user": {
-                    "twitter_id": user.twitter_id,
-                    "twitter_screen_name": user.twitter_screen_name,
-                    "profile_image_url": twitter_user.profile_image_url_https,
-                },
-                "settings": {
-                    "delete_tweets": user.delete_tweets,
-                    "tweets_days_threshold": user.tweets_days_threshold,
-                    "tweets_retweet_threshold": user.tweets_retweet_threshold,
-                    "tweets_like_threshold": user.tweets_like_threshold,
-                    "tweets_threads_threshold": user.tweets_threads_threshold,
-                    "retweets_likes": user.retweets_likes,
-                    "retweets_likes_delete_retweets": user.retweets_likes_delete_retweets,
-                    "retweets_likes_retweets_threshold": user.retweets_likes_retweets_threshold,
-                    "retweets_likes_delete_likes": user.retweets_likes_delete_likes,
-                    "retweets_likes_likes_threshold": user.retweets_likes_likes_threshold,
-                },
-                "last_fetch": user.last_fetch,
-            }
-        )
-    else:
-        return web.json_response({"user": None})
+    return web.json_response(
+        {
+            "user": {
+                "twitter_id": user.twitter_id,
+                "twitter_screen_name": user.twitter_screen_name,
+                "profile_image_url": twitter_user.profile_image_url_https,
+            },
+            "settings": {
+                "delete_tweets": user.delete_tweets,
+                "tweets_days_threshold": user.tweets_days_threshold,
+                "tweets_retweet_threshold": user.tweets_retweet_threshold,
+                "tweets_like_threshold": user.tweets_like_threshold,
+                "tweets_threads_threshold": user.tweets_threads_threshold,
+                "retweets_likes": user.retweets_likes,
+                "retweets_likes_delete_retweets": user.retweets_likes_delete_retweets,
+                "retweets_likes_retweets_threshold": user.retweets_likes_retweets_threshold,
+                "retweets_likes_delete_likes": user.retweets_likes_delete_likes,
+                "retweets_likes_likes_threshold": user.retweets_likes_likes_threshold,
+            },
+            "last_fetch": user.last_fetch,
+        }
+    )
+
+
+@authentication_required_401
+async def api_settings(request):
+    """
+    Update the settings for the currently-logged in user
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+    if not user:
+        raise web.HTTPUnauthorized(text="Authentication required")
+
+    # TODO: update settings
 
 
 @aiohttp_jinja2.template("index.jinja2")
@@ -232,7 +251,9 @@ async def app_factory():
             web.get("/auth/login", auth_login),
             web.get("/auth/logout", auth_logout),
             web.get("/auth/twitter_callback", auth_twitter_callback),
-            web.get("/auth/get_user", auth_get_user),
+            # API
+            web.get("/api/get_user", api_get_user),
+            web.post("/api/settings", api_settings),
             # Web
             web.get("/", index),
             web.get("/app", app_main),

@@ -80,7 +80,7 @@ var app = new Vue({
 })
 
 // Fetch the logged in user
-fetch("/auth/get_user")
+fetch("/api/get_user")
     .then(function (response) {
         if (response.status !== 200) {
             console.log('Error fetching user, status code: ' + response.status);
