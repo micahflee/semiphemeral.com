@@ -158,7 +158,7 @@ async def auth_twitter_callback(request):
     raise web.HTTPFound(location="/app")
 
 
-async def auth_current_user(request):
+async def auth_get_user(request):
     """
     If there's a currently logged in user, respond with information about it
     """
@@ -171,15 +171,28 @@ async def auth_current_user(request):
 
         return web.json_response(
             {
-                "current_user": {
+                "user": {
                     "twitter_id": user.twitter_id,
                     "twitter_screen_name": user.twitter_screen_name,
                     "profile_image_url": twitter_user.profile_image_url_https,
-                }
+                },
+                "settings": {
+                    "delete_tweets": user.delete_tweets,
+                    "tweets_days_threshold": user.tweets_days_threshold,
+                    "tweets_retweet_threshold": user.tweets_retweet_threshold,
+                    "tweets_like_threshold": user.tweets_like_threshold,
+                    "tweets_threads_threshold": user.tweets_threads_threshold,
+                    "retweets_likes": user.retweets_likes,
+                    "retweets_likes_delete_retweets": user.retweets_likes_delete_retweets,
+                    "retweets_likes_retweets_threshold": user.retweets_likes_retweets_threshold,
+                    "retweets_likes_delete_likes": user.retweets_likes_delete_likes,
+                    "retweets_likes_likes_threshold": user.retweets_likes_likes_threshold,
+                },
+                "last_fetch": user.last_fetch,
             }
         )
     else:
-        return web.json_response({"current_user": None})
+        return web.json_response({"user": None})
 
 
 @aiohttp_jinja2.template("index.jinja2")
@@ -219,7 +232,7 @@ async def app_factory():
             web.get("/auth/login", auth_login),
             web.get("/auth/logout", auth_logout),
             web.get("/auth/twitter_callback", auth_twitter_callback),
-            web.get("/auth/current_user", auth_current_user),
+            web.get("/auth/get_user", auth_get_user),
             # Web
             web.get("/", index),
             web.get("/app", app_main),

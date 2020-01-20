@@ -33,6 +33,12 @@ def upgrade():
         sa.Column("tweets_like_threshold", sa.Integer, default=20, nullable=False),
     )
     op.add_column(
+        "users",
+        sa.Column(
+            "tweets_threads_threshold", sa.Boolean, default=False, nullable=False
+        ),
+    )
+    op.add_column(
         "users", sa.Column("retweets_likes", sa.Boolean, default=False, nullable=False)
     )
     op.add_column(
@@ -60,7 +66,7 @@ def upgrade():
         ),
     )
     op.add_column(
-        "users", sa.Column("since_id", sa.String(), nullable=False),
+        "users", sa.Column("since_id", sa.String(), nullable=True),
     )
     op.add_column(
         "users", sa.Column("last_fetch", sa.DateTime(), nullable=True),

@@ -1,34 +1,48 @@
 Vue.component('settings', {
+    data: function () {
+        return {
+            deleteTweets: this.$root.settingsDeleteTweets,
+            tweetsDaysThreshold: this.$root.settingsTweetsDaysThreshold,
+            tweetsRetweetThreshold: this.$root.settingsTweetsRetweetThreshold,
+            tweetsLikeThreshold: this.$root.settingsTweetsLikeThreshold,
+            tweetsThreadsThreshold: this.$root.settingsTweetsThreadsThreshold,
+            retweetsLikes: this.$root.settingsRetweetsLikes,
+            retweetsLikesDeleteRetweets: this.$root.settingsDeleteTweets,
+            retweetsLikesRetweetsThreshold: this.$root.settingsRetweetsLikesDeleteRetweets,
+            retweetsLikesDeleteLikes: this.$root.settsettingsRetweetsLikesDeleteLikesingsDeleteTweets,
+            retweetsLikesLikesThreshold: this.$root.settingsRetweetsLikesLikesThreshold,
+        }
+    },
     template: `
         <div class="page settings">
-            <h1>Settings</h1>
+            <h1>Choose what you'd like Semiphemeral to automatically delete</h1>
             <form method="post" action="/settings">
             <p>
                 <label class="checkbox">
-                <input type="checkbox" class="delete-tweets-checkbox" name="delete_tweets" {% if delete_tweets %}checked="checked"{% endif %} />
-                Delete old tweets
+                    <input type="checkbox" class="delete-tweets-checkbox" name="delete_tweets" v-model="deleteTweets" />
+                    Delete old tweets
                 </label>
             </p>
             <fieldset class="delete-tweets-fieldset">
                 <legend>Tweets</legend>
                 <p>
                     Delete tweets older than
-                    <input class="small" type="number" min="0"  name="tweets_days_threshold" value="{{ tweets_days_threshold }}" \>
+                    <input class="small" type="number" min="0"  name="tweets_days_threshold" v-model="tweetsDaysThreshold" \>
                     days
                 </p>
                 <p>
                     Unless they have at least
-                    <input class="small" type="number" min="0"  name="tweets_retweet_threshold" value="{{ tweets_retweet_threshold }}" \>
+                    <input class="small" type="number" min="0"  name="tweets_retweet_threshold" v-model="tweetsRetweetThreshold" \>
                     retweets
                 </p>
                 <p>
                     Or at least
-                    <input class="small" type="number" min="0"  name="tweets_like_threshold" value="{{ tweets_like_threshold }}" \>
+                    <input class="small" type="number" min="0"  name="tweets_like_threshold" v-model="tweetsLikeThreshold" \>
                     likes
                 </p>
                 <p>
                     <label class="checkbox">
-                        <input type="checkbox" name="tweets_threads_threshold" {% if tweets_threads_threshold %}checked="checked"{% endif %} />
+                        <input type="checkbox" name="tweets_threads_threshold" v-model="tweetsThreadsThreshold" />
                         Don't delete tweets that are part of a thread that contains at least one tweet that meets these thresholds
                     </label>
                 </p>
@@ -36,7 +50,7 @@ Vue.component('settings', {
 
             <p>
                 <label class="checkbox">
-                <input type="checkbox" class="retweets-likes-checkbox" name="retweets_likes" {% if retweets_likes %}checked="checked"{% endif %} />
+                <input type="checkbox" class="retweets-likes-checkbox" name="retweets_likes" v-model="retweetsLikes" />
                 Unretweet and unlike old tweets
                 </label>
             </p>
@@ -46,21 +60,21 @@ Vue.component('settings', {
 
                 <p>
                     <label class="checkbox">
-                        <input type="checkbox" name="retweets_likes_delete_retweets" {% if retweets_likes_delete_retweets %}checked="checked"{% endif %} />
+                        <input type="checkbox" name="retweets_likes_delete_retweets" v-model="retweetsLikesDeleteRetweets" />
                         Unretweet tweets
                     </label>
                     older than
-                    <input class="small" type="number" min="0"  name="retweets_likes_retweets_threshold" value="{{ retweets_likes_retweets_threshold }}" \>
+                    <input class="small" type="number" min="0"  name="retweets_likes_retweets_threshold" v-model="retweetsLikesRetweetsThreshold" \>
                     days
                 </p>
 
                 <p>
                     <label class="checkbox">
-                        <input type="checkbox" name="retweets_likes_delete_likes" {% if retweets_likes_delete_likes %}checked="checked"{% endif %} />
+                        <input type="checkbox" name="retweets_likes_delete_likes" v-model="retweetsLikesDeleteLikes" />
                         Unlike tweets
                     </label>
                     older than
-                    <input class="small" type="number" min="0"  name="retweets_likes_likes_threshold" value="{{ retweets_likes_likes_threshold }}" \>
+                    <input class="small" type="number" min="0"  name="retweets_likes_likes_threshold" v-model="retweetsLikesLikesThreshold" \>
                     days
                 </p>
 
