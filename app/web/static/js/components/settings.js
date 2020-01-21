@@ -2,44 +2,73 @@ Vue.component('settings', {
     data: function () {
         return {
             loading: false,
-            deleteTweets: this.$root.settingsDeleteTweets,
-            tweetsDaysThreshold: this.$root.settingsTweetsDaysThreshold,
-            tweetsRetweetThreshold: this.$root.settingsTweetsRetweetThreshold,
-            tweetsLikeThreshold: this.$root.settingsTweetsLikeThreshold,
-            tweetsThreadsThreshold: this.$root.settingsTweetsThreadsThreshold,
-            retweetsLikes: this.$root.settingsRetweetsLikes,
-            retweetsLikesDeleteRetweets: this.$root.settingsRetweetsLikesDeleteRetweets,
-            retweetsLikesRetweetsThreshold: this.$root.settingsRetweetsLikesRetweetsThreshold,
-            retweetsLikesDeleteLikes: this.$root.settingsRetweetsLikesDeleteLikes,
-            retweetsLikesLikesThreshold: this.$root.settingsRetweetsLikesLikesThreshold,
+            deleteTweets: false,
+            tweetsDaysThreshold: false,
+            tweetsRetweetThreshold: false,
+            tweetsLikeThreshold: false,
+            tweetsThreadsThreshold: false,
+            retweetsLikes: false,
+            retweetsLikesDeleteRetweets: false,
+            retweetsLikesRetweetsThreshold: false,
+            retweetsLikesDeleteLikes: false,
+            retweetsLikesLikesThreshold: false,
         }
     },
+    created: function () {
+        this.getSettings()
+    },
     methods: {
+        "getSettings": function () {
+            var that = this;
+            fetch("/api/settings")
+                .then(function (response) {
+                    if (response.status !== 200) {
+                        console.log('Error fetching settings, status code: ' + response.status);
+                        return;
+                    }
+                    response.json().then(function (data) {
+                        that.deleteTweets = data['delete_tweets'];
+                        that.tweetsDaysThreshold = data['tweets_days_threshold'];
+                        that.tweetsRetweetThreshold = data['tweets_retweet_threshold'];
+                        that.tweetsLikeThreshold = data['tweets_like_threshold'];
+                        that.tweetsThreadsThreshold = data['tweets_threads_threshold'];
+                        that.retweetsLikes = data['retweets_likes'];
+                        that.retweetsLikesDeleteRetweets = data['retweets_likes_delete_retweets'];
+                        that.retweetsLikesRetweetsThreshold = data['retweets_likes_retweets_threshold'];
+                        that.retweetsLikesDeleteLikes = data['retweets_likes_delete_likes'];
+                        that.retweetsLikesLikesThreshold = data['retweets_likes_likes_threshold'];
+                    })
+                })
+                .catch(function (err) {
+                    console.log("Error fetching user", err)
+                })
+        },
         "onSubmit": function () {
-            this.loading = true
+            that = this;
+            this.loading = true;
             fetch("/api/settings", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     delete_tweets: this.deleteTweets,
-                    tweets_days_threshold: this.tweetsDaysThreshold,
-                    tweets_retweet_threshold: this.tweetsRetweetThreshold,
-                    tweets_like_threshold: this.tweetsLikeThreshold,
+                    tweets_days_threshold: Number(this.tweetsDaysThreshold),
+                    tweets_retweet_threshold: Number(this.tweetsRetweetThreshold),
+                    tweets_like_threshold: Number(this.tweetsLikeThreshold),
                     tweets_threads_threshold: this.tweetsThreadsThreshold,
                     retweets_likes: this.retweetsLikes,
                     retweets_likes_delete_retweets: this.retweetsLikesDeleteRetweets,
-                    retweets_likes_retweets_threshold: this.retweetsLikesRetweetsThreshold,
+                    retweets_likes_retweets_threshold: Number(this.retweetsLikesRetweetsThreshold),
                     retweets_likes_delete_likes: this.retweetsLikesDeleteLikes,
-                    retweets_likes_likes_threshold: this.retweetsLikesLikesThreshold
+                    retweets_likes_likes_threshold: Number(this.retweetsLikesLikesThreshold)
                 })
             })
                 .then(function (response) {
-                    this.loading = false
-                    // TODO: Force the root component to re-fetch
+                    that.loading = false;
+                    that.getSettings()
                 })
                 .catch(function (err) {
                     console.log("Error updating settings", err)
-                    this.loading = false
+                    that.loading = false;
                 })
         }
     },

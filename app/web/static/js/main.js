@@ -60,48 +60,32 @@ var app = new Vue({
         currentPageComponent: "dashboard",
         userScreenName: false,
         userProfileUrl: false,
-        settingsDeleteTweets: false,
-        settingsTweetsDaysThreshold: false,
-        settingsTweetsRetweetThreshold: false,
-        settingsTweetsLikeThreshold: false,
-        settingsTweetsThreadsThreshold: false,
-        settingsRetweetsLikes: false,
-        settingsRetweetsLikesDeleteRetweets: false,
-        settingsRetweetsLikesRetweetsThreshold: false,
-        settingsRetweetsLikesDeleteLikes: false,
-        settingsRetweetsLikesLikesThreshold: false,
         lastFetch: false
+    },
+    created: function () {
+        this.getUser()
     },
     methods: {
         selectPage: function (pageComponent) {
             this.currentPageComponent = pageComponent
+        },
+        getUser: function () {
+            var that = this;
+            fetch("/api/user")
+                .then(function (response) {
+                    if (response.status !== 200) {
+                        console.log('Error fetching user, status code: ' + response.status);
+                        return;
+                    }
+                    response.json().then(function (data) {
+                        that.userScreenName = data['user_screen_name'];
+                        that.userProfileUrl = data['user_profile_url'];
+                        that.lastFetch = data['last_fetch'];
+                    })
+                })
+                .catch(function (err) {
+                    console.log("Error fetching user", err)
+                })
         }
     }
 })
-
-// Fetch the logged in user
-fetch("/api/get_user")
-    .then(function (response) {
-        if (response.status !== 200) {
-            console.log('Error fetching user, status code: ' + response.status);
-            return;
-        }
-        response.json().then(function (data) {
-            app.userScreenName = data['user']['twitter_screen_name'];
-            app.userProfileUrl = data['user']['profile_image_url'];
-            app.settingsDeleteTweets = data['settings']['delete_tweets'];
-            app.settingsTweetsDaysThreshold = data['settings']['tweets_days_threshold'];
-            app.settingsTweetsRetweetThreshold = data['settings']['tweets_retweet_threshold'];
-            app.settingsTweetsLikeThreshold = data['settings']['tweets_like_threshold'];
-            app.settingsTweetsThreadsThreshold = data['settings']['tweets_threads_threshold'];
-            app.settingsRetweetsLikes = data['settings']['retweets_likes'];
-            app.settingsRetweetsLikesDeleteRetweets = data['settings']['retweets_likes_delete_retweets'];
-            app.settingsRetweetsLikesRetweetsThreshold = data['settings']['retweets_likes_retweets_threshold'];
-            app.settingsRetweetsLikesDeleteLikes = data['settings']['retweets_likes_delete_likes'];
-            app.settingsRetweetsLikesLikesThreshold = data['settings']['retweets_likes_likes_threshold'];
-            app.lastFetch = data['last_fetch'];
-        })
-    })
-    .catch(function (err) {
-        console.log("Error fetching user", err)
-    })
