@@ -166,7 +166,7 @@ async def auth_twitter_callback(request):
 @authentication_required_401
 async def api_get_user(request):
     """
-    If there's a currently logged in user, respond with information about it
+    Respond with information about the logged in user
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
@@ -175,30 +175,39 @@ async def api_get_user(request):
 
     return web.json_response(
         {
-            "user": {
-                "twitter_id": user.twitter_id,
-                "twitter_screen_name": user.twitter_screen_name,
-                "profile_image_url": twitter_user.profile_image_url_https,
-            },
-            "settings": {
-                "delete_tweets": user.delete_tweets,
-                "tweets_days_threshold": user.tweets_days_threshold,
-                "tweets_retweet_threshold": user.tweets_retweet_threshold,
-                "tweets_like_threshold": user.tweets_like_threshold,
-                "tweets_threads_threshold": user.tweets_threads_threshold,
-                "retweets_likes": user.retweets_likes,
-                "retweets_likes_delete_retweets": user.retweets_likes_delete_retweets,
-                "retweets_likes_retweets_threshold": user.retweets_likes_retweets_threshold,
-                "retweets_likes_delete_likes": user.retweets_likes_delete_likes,
-                "retweets_likes_likes_threshold": user.retweets_likes_likes_threshold,
-            },
+            "user_screen_name": user.twitter_screen_name,
+            "user_profile_url": twitter_user.profile_image_url_https,
             "last_fetch": user.last_fetch,
         }
     )
 
 
 @authentication_required_401
-async def api_settings(request):
+async def api_get_settings(request):
+    """
+    If there's a currently logged in user, respond with information about it
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    return web.json_response(
+        {
+            "delete_tweets": user.delete_tweets,
+            "tweets_days_threshold": user.tweets_days_threshold,
+            "tweets_retweet_threshold": user.tweets_retweet_threshold,
+            "tweets_like_threshold": user.tweets_like_threshold,
+            "tweets_threads_threshold": user.tweets_threads_threshold,
+            "retweets_likes": user.retweets_likes,
+            "retweets_likes_delete_retweets": user.retweets_likes_delete_retweets,
+            "retweets_likes_retweets_threshold": user.retweets_likes_retweets_threshold,
+            "retweets_likes_delete_likes": user.retweets_likes_delete_likes,
+            "retweets_likes_likes_threshold": user.retweets_likes_likes_threshold,
+        }
+    )
+
+
+@authentication_required_401
+async def api_post_settings(request):
     """
     Update the settings for the currently-logged in user
     """
@@ -282,8 +291,9 @@ async def app_factory():
             web.get("/auth/logout", auth_logout),
             web.get("/auth/twitter_callback", auth_twitter_callback),
             # API
-            web.get("/api/get_user", api_get_user),
-            web.post("/api/settings", api_settings),
+            web.get("/api/user", api_get_user),
+            web.get("/api/settings", api_get_settings),
+            web.post("/api/settings", api_post_settings),
             # Web
             web.get("/", index),
             web.get("/app", app_main),
