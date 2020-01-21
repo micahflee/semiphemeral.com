@@ -23,6 +23,7 @@ services:
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
       - POSTGRES_PASSWORD={{ postgres_password }}
+      - COOKIE_FERNET_KEY={{ cookie_fernet_key }}
     expose:
       - "8080"
     volumes:
