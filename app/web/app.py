@@ -6,7 +6,6 @@ import logging
 import asyncio
 import subprocess
 
-from cryptography import fernet
 from aiohttp import web
 from aiohttp_session import setup, get_session, new_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
@@ -269,7 +268,7 @@ async def app_factory():
     logging.basicConfig(filename="/var/web/web.log", level=logging.DEBUG)
 
     # secret_key must be 32 url-safe base64-encoded bytes
-    fernet_key = fernet.Fernet.generate_key()
+    fernet_key = os.environ.get("COOKIE_FERNET_KEY")
     secret_key = base64.urlsafe_b64decode(fernet_key)
     setup(app, EncryptedCookieStorage(secret_key))
 
