@@ -46,8 +46,8 @@ Vue.component('nav-bar', {
                     </nav-button>
                 </li>
             </ul>
-            <span class="user" v-if="userScreenName">
-                <img v-bind:src="userProfileUrl" v-bind:title="logoutTitle" />
+            <span class="user">
+                <img v-if="userScreenName" v-bind:src="userProfileUrl" v-bind:title="logoutTitle" />
                 <span><a href="/auth/logout">Log out</a></span>
             </span>
         </div>
