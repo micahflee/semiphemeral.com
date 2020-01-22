@@ -12,6 +12,7 @@ aiopg = "*"
 sqlalchemy = "*"
 alembic = "*"
 jinja2 = "*"
+stripe = "*"
 
 [dev-packages]
 

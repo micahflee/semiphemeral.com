@@ -6,6 +6,7 @@
     <title>Semiphemeral</title>
     <link rel="stylesheet" href="/static/css/style.css" />
     <link rel="icon" type="image/png" href="/static/img/logo-small.png">
+    <script src="https://js.stripe.com/v3/"></script>
 </head>
 
 <body>
@@ -15,7 +16,9 @@
             userScreenName: userScreenName,
             userProfileUrl: userProfileUrl }">
         </nav-bar>
-        <component v-bind:is="currentPageComponent"></component>
+        <keep-alive>
+            <component v-bind:is="currentPageComponent"></component>
+        </keep-alive>
     </div>
 
     {% if deploy_environment == "staging" %}
