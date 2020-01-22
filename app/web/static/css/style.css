@@ -69,3 +69,27 @@ body {
 .page h1 {
     font-size: 1.2em;
 }
+
+.tip form fieldset {
+    margin-bottom: 10px;
+    max-width: 410px;
+}
+
+.tip form ul {
+    list-style: none;
+    padding: 0;
+}
+
+.tip form li {
+    display: inline-block;
+}
+
+.tip form .other-amount {
+    width: 2em;
+}
+
+.tip form #card-element {
+    max-width: 400px;
+    border: 1px solid #F0F0F0;
+    padding: 5px;
+}

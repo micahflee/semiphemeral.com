@@ -5,18 +5,15 @@ import tweepy
 import logging
 import asyncio
 import subprocess
-
 from aiohttp import web
 from aiohttp_session import setup, get_session, new_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
-
 import jinja2
 import aiohttp_jinja2
-
 from aiopg.sa import create_engine
+import stripe
 
-
-from db import connect_db, db, User
+from db import connect_db, db, User, Tip
 
 
 async def _twitter_api(user):
@@ -185,7 +182,7 @@ async def api_get_user(request):
 @authentication_required_401
 async def api_get_settings(request):
     """
-    If there's a currently logged in user, respond with information about it
+    Respond with the logged in user's settings
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
@@ -253,6 +250,35 @@ async def api_post_settings(request):
     return web.json_response(True)
 
 
+@authentication_required_401
+async def api_get_tip(request):
+    """
+    Respond with all information necessary for Stripe tips
+    """
+    return web.json_response(
+        {"stripe_publishable_key": os.environ.get("STRIPE_PUBLISHABLE_KEY")}
+    )
+
+
+@authentication_required_302
+async def api_post_tip(request):
+    """
+    Charge the credit card
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+    data = await request.json()
+
+    # Validate
+
+    token = request.form["stripeToken"]
+
+    charge = stripe.Charge.create(
+        amount=5, currency="usd", description="Tip", source=token,
+    )
+    raise web.HTTPFound(location="/app/thanks")
+
+
 @aiohttp_jinja2.template("index.jinja2")
 async def index(request):
     session = await get_session(request)
@@ -268,15 +294,18 @@ async def app_main(request):
 
 
 async def app_factory():
-    # connect to the database
+    # Init stripe
+    stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+
+    # Connect to the database
     await connect_db()
 
-    # create the web app
+    # Create the web app
     app = web.Application()
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader("templates"))
     logging.basicConfig(filename="/var/web/web.log", level=logging.DEBUG)
 
-    # secret_key must be 32 url-safe base64-encoded bytes
+    # Secret_key must be 32 url-safe base64-encoded bytes
     fernet_key = os.environ.get("COOKIE_FERNET_KEY")
     secret_key = base64.urlsafe_b64decode(fernet_key)
     setup(app, EncryptedCookieStorage(secret_key))
@@ -294,6 +323,8 @@ async def app_factory():
             web.get("/api/user", api_get_user),
             web.get("/api/settings", api_get_settings),
             web.post("/api/settings", api_post_settings),
+            web.get("/api/tip", api_get_tip),
+            web.post("/api/tip", api_post_tip),
             # Web
             web.get("/", index),
             web.get("/app", app_main),

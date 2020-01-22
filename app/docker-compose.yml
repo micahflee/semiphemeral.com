@@ -24,6 +24,8 @@ services:
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
       - POSTGRES_PASSWORD={{ postgres_password }}
       - COOKIE_FERNET_KEY={{ cookie_fernet_key }}
+      - STRIPE_PUBLISHABLE_KEY={{ stripe_publishable_key }}
+      - STRIPE_SECRET_KEY={{ stripe_secret_key }}
     expose:
       - "8080"
     volumes:
