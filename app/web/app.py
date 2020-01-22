@@ -46,6 +46,24 @@ async def _logged_in_user(session):
     return None
 
 
+async def _api_validate(expected_fields, json_data):
+    for field in expected_fields:
+        if field not in json_data:
+            raise web.HTTPBadRequest(text=f"Missing field: {field}")
+
+        invalid_type = False
+        if type(expected_fields[field]) == list:
+            if type(json_data[field]) not in expected_fields[field]:
+                invald_type = True
+        else:
+            if type(json_data[field]) != expected_fields[field]:
+                invalid_type = True
+        if invalid_type:
+            raise web.HTTPBadRequest(
+                text=f"Invalid type: {field} should be {expected_fields[field]}, not {type(json_data[field])}"
+            )
+
+
 def authentication_required_401(func):
     async def wrapper(request):
         session = await get_session(request)
@@ -213,25 +231,21 @@ async def api_post_settings(request):
     data = await request.json()
 
     # Validate
-    expected_fields = {
-        "delete_tweets": bool,
-        "tweets_days_threshold": int,
-        "tweets_retweet_threshold": int,
-        "tweets_like_threshold": int,
-        "tweets_threads_threshold": bool,
-        "retweets_likes": bool,
-        "retweets_likes_delete_retweets": bool,
-        "retweets_likes_retweets_threshold": int,
-        "retweets_likes_delete_likes": bool,
-        "retweets_likes_likes_threshold": int,
-    }
-    for field in expected_fields:
-        if field not in data:
-            raise web.HTTPBadRequest(text=f"Missing field: {field}")
-        if type(data[field]) != expected_fields[field]:
-            raise web.HTTPBadRequest(
-                text=f"Invalid type: {field} should be {expected_fields[field]}, not {type(data[field])}"
-            )
+    await _api_validate(
+        {
+            "delete_tweets": bool,
+            "tweets_days_threshold": int,
+            "tweets_retweet_threshold": int,
+            "tweets_like_threshold": int,
+            "tweets_threads_threshold": bool,
+            "retweets_likes": bool,
+            "retweets_likes_delete_retweets": bool,
+            "retweets_likes_retweets_threshold": int,
+            "retweets_likes_delete_likes": bool,
+            "retweets_likes_likes_threshold": int,
+        },
+        data,
+    )
 
     # Update settings in the database
     await user.update(
@@ -268,15 +282,73 @@ async def api_post_tip(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
     data = await request.json()
+    print(data)
 
     # Validate
-
-    token = request.form["stripeToken"]
-
-    charge = stripe.Charge.create(
-        amount=5, currency="usd", description="Tip", source=token,
+    await _api_validate(
+        {"token": str, "amount": str, "other_amount": [str, float],}, data,
     )
-    raise web.HTTPFound(location="/app/thanks")
+    if (
+        data["amount"] != "100"
+        and data["amount"] != "200"
+        and data["amount"] != "500"
+        and data["amount"] != "1000"
+        and data["amount"] != "5000"
+        and data["amount"] != "other"
+    ):
+        return web.json_response({"error": True, "error_message": "Invalid amount"})
+    if data["amount"] == "other" and float(data["other_amount"]) < 1:
+        return web.json_response(
+            {"error": True, "error_message": "You must tip at least $1"}
+        )
+
+    # How much is being tipped?
+    if data["amount"] == "other":
+        amount = int(float(data["other_amount"]) * 100)
+    else:
+        amount = int(data["amount"])
+
+    # Charge the card
+    try:
+        stripe.Charge.create(
+            amount=amount, currency="usd", description="Tip", source=data["token"],
+        )
+        return web.json_response({"error": False})
+
+    except stripe.error.CardError as e:
+        return web.json_response(
+            {"error": True, "error_message": f"Card error: {e.error.message}"}
+        )
+    except stripe.error.RateLimitError as e:
+        return web.json_response(
+            {"error": True, "error_message": f"Rate limit error: {e.error.message}"}
+        )
+    except stripe.error.InvalidRequestError as e:
+        return web.json_response(
+            {
+                "error": True,
+                "error_message": f"Invalid request error: {e.error.message}",
+            }
+        )
+    except stripe.error.AuthenticationError as e:
+        return web.json_response(
+            {"error": True, "error_message": f"Authentication error: {e.error.message}"}
+        )
+    except stripe.error.APIConnectionError as e:
+        return web.json_response(
+            {
+                "error": True,
+                "error_message": f"Network communication with Stripe error: {e.error.message}",
+            }
+        )
+    except stripe.error.StripeError as e:
+        return web.json_response(
+            {"error": True, "error_message": f"Unknown Stripe error: {e.error.message}"}
+        )
+    except Exception as e:
+        return web.json_response(
+            {"error": True, "error_message": "Something went wrong, sorry"}
+        )
 
 
 @aiohttp_jinja2.template("index.jinja2")

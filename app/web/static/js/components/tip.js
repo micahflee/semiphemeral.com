@@ -3,7 +3,9 @@ Vue.component('tip', {
         return {
             loading: false,
             stripePublishableKey: false,
-            amount: "5",
+            stripe: false,
+            stripeCard: false,
+            amount: "500",
             otherAmount: ""
         }
     },
@@ -27,39 +29,56 @@ Vue.component('tip', {
     methods: {
         initStripe: function () {
             // Initialize Stripe
-            var stripe = Stripe(this.stripePublishableKey);
-            var elements = stripe.elements();
+            this.stripe = Stripe(this.stripePublishableKey);
+            var elements = this.stripe.elements();
 
             // Create a card element, attach it to the div
-            var card = elements.create('card');
-            card.mount('#card-element');
+            this.stripeCard = elements.create('card');
+            this.stripeCard.mount('#card-element');
+        },
+        onSubmit: function () {
+            that = this;
+            this.loading = true;
 
-            // Create a token or display an error when the form is submitted
-            var form = document.getElementById('payment-form');
-            form.addEventListener('submit', function (event) {
-                event.preventDefault();
+            this.stripe.createToken(this.stripeCard).then(function (result) {
+                if (result.error) {
+                    // Inform the customer that there was an error
+                    var errorElement = document.getElementById('card-errors');
+                    errorElement.textContent = result.error.message;
+                } else {
+                    // Send the token to the server
+                    var token = result.token;
 
-                stripe.createToken(card).then(function (result) {
-                    if (result.error) {
-                        // Inform the customer that there was an error
-                        var errorElement = document.getElementById('card-errors');
-                        errorElement.textContent = result.error.message;
-                    } else {
-                        // Send the token to the server
-                        var token = result.token;
+                    fetch("/api/tip", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            token: token.id,
+                            amount: that.amount,
+                            other_amount: that.otherAmount
+                        })
+                    })
+                        .then(function (response) {
+                            that.loading = false;
+                            response.json().then(function (data) {
+                                if (data['error']) {
+                                    var errorElement = document.getElementById('card-errors');
+                                    errorElement.textContent = data['error_message'];
+                                } else {
+                                    // No error, reload tips history
+                                }
 
-                        // Insert the token ID into the form so it gets submitted to the server
-                        var form = document.getElementById('payment-form');
-                        var hiddenInput = document.createElement('input');
-                        hiddenInput.setAttribute('type', 'hidden');
-                        hiddenInput.setAttribute('name', 'stripeToken');
-                        hiddenInput.setAttribute('value', token.id);
-                        form.appendChild(hiddenInput);
+                                that.loading = false;
+                            })
+                        })
+                        .catch(function (err) {
+                            console.log("Error submitting card", err)
+                            var errorElement = document.getElementById('card-errors');
+                            errorElement.textContent = "Error submitting card: " + err;
 
-                        // Submit the form
-                        form.submit();
-                    }
-                });
+                            that.loading = false;
+                        })
+                }
             });
         }
     },
@@ -70,15 +89,15 @@ Vue.component('tip', {
 
             <p>As long as you're using this service, the @semiphemeral Twitter account will gently ask you for a tip, via Twitter DM, once a month. If you donate any amount, even just $1, it will stop nagging you for a year.</p>
 
-            <form action="/api/tip" method="post" id="payment-form">
+            <form action="/api/tip" method="post" v-on:submit.prevent="onSubmit">
                 <fieldset>
                     <legend>How much would you like to tip?</legend>
                     <ul>
-                        <li><label><input type="radio" name="amount" value="1" v-model="amount" /> $1</label></li>
-                        <li><label><input type="radio" name="amount" value="2" v-model="amount" /> $2</label></li>
-                        <li><label><input type="radio" name="amount" value="5" v-model="amount" /> $5</label></li>
-                        <li><label><input type="radio" name="amount" value="10" v-model="amount" /> $10</label></li>
-                        <li><label><input type="radio" name="amount" value="50" v-model="amount" /> $50</label></li>
+                        <li><label><input type="radio" name="amount" value="100" v-model="amount" /> $1</label></li>
+                        <li><label><input type="radio" name="amount" value="200" v-model="amount" /> $2</label></li>
+                        <li><label><input type="radio" name="amount" value="500" v-model="amount" /> $5</label></li>
+                        <li><label><input type="radio" name="amount" value="1000" v-model="amount" /> $10</label></li>
+                        <li><label><input type="radio" name="amount" value="5000" v-model="amount" /> $50</label></li>
                         <li>
                             <label><input type="radio" name="amount" value="other" v-model="amount" /> Other</label>
                             <span v-if="amount == 'other'">$<input type="text" v-model.number="otherAmount" class="other-amount" /></span>
@@ -88,8 +107,9 @@ Vue.component('tip', {
                 <fieldset>
                     <legend>Credit or debit card</legend>
                     <div id="card-element"></div>
-                    <div id="card-errors" role="alert"></div>
                 </fieldset>
+
+                <div id="card-errors" role="alert"></div>
 
                 <p>
                     <input v-bind:disabled="loading" type="submit" value="Tip" />
