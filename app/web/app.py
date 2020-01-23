@@ -5,6 +5,7 @@ import tweepy
 import logging
 import asyncio
 import subprocess
+from datetime import datetime
 from aiohttp import web
 from aiohttp_session import setup, get_session, new_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
@@ -282,7 +283,6 @@ async def api_post_tip(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
     data = await request.json()
-    print(data)
 
     # Validate
     await _api_validate(
@@ -310,8 +310,20 @@ async def api_post_tip(request):
 
     # Charge the card
     try:
-        stripe.Charge.create(
+        charge = stripe.Charge.create(
             amount=amount, currency="usd", description="Tip", source=data["token"],
+        )
+
+        # Add tip to the database
+        timestamp = datetime.utcfromtimestamp(charge.created)
+        await Tip.create(
+            user_id=user.id,
+            charge_id=charge.id,
+            receipt_url=charge.receipt_url,
+            paid=charge.paid,
+            refunded=charge.refunded,
+            amount=amount,
+            timestamp=timestamp,
         )
         return web.json_response({"error": False})
 
@@ -347,8 +359,30 @@ async def api_post_tip(request):
         )
     except Exception as e:
         return web.json_response(
-            {"error": True, "error_message": "Something went wrong, sorry"}
+            {"error": True, "error_message": f"Something went wrong, sorry: {e}"}
         )
+
+
+@authentication_required_401
+async def api_get_tip_recent(request):
+    """
+    Respond with the receipt_url for the most recent tip from this user
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    tip = (
+        await Tip.query.where(User.id == user.id)
+        .order_by(Tip.timestamp.desc())
+        .gino.first()
+    )
+
+    if tip:
+        receipt_url = tip.receipt_url
+    else:
+        receipt_url = None
+
+    return web.json_response({"receipt_url": receipt_url})
 
 
 @aiohttp_jinja2.template("index.jinja2")
@@ -397,6 +431,7 @@ async def app_factory():
             web.post("/api/settings", api_post_settings),
             web.get("/api/tip", api_get_tip),
             web.post("/api/tip", api_post_tip),
+            web.get("/api/tip/recent", api_get_tip_recent),
             # Web
             web.get("/", index),
             web.get("/app", app_main),

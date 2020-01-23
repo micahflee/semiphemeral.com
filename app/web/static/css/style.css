@@ -72,7 +72,7 @@ body {
 
 .tip form fieldset {
     margin-bottom: 10px;
-    max-width: 410px;
+    max-width: 450px;
 }
 
 .tip form ul {
@@ -85,11 +85,11 @@ body {
 }
 
 .tip form .other-amount {
-    width: 2em;
+    width: 2.5em;
 }
 
 .tip form #card-element {
-    max-width: 400px;
+    max-width: 440px;
     border: 1px solid #F0F0F0;
     padding: 5px;
 }
