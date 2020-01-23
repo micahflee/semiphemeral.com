@@ -98,6 +98,43 @@ body {
     color: #cc0000;
 }
 
+.tip .tips-history {
+    margin-top: 30px;
+}
+
+.tip .tips-history ul {
+    list-style: none;
+    padding: 0;
+}
+
+.tip .tips-history li img {
+    width: 20px;
+    height: 20px;
+}
+
+.tip .tips-history li .tip-date {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 0.5em;
+    width: 120px;
+    font-size: 0.8em;
+    color: #666666;
+}
+
+.tip .tips-history li .tip-amount {
+    display: inline-block;
+    vertical-align: middle;
+    font-size: 0.8em;
+    color: #009900;
+    width: 60px;
+}
+
+.tip .tips-history li .tip-receipt {
+    display: inline-block;
+    vertical-align: middle;
+    width: 30px;
+}
+
 .thanks img {
     width: 200px;
     height: 200px;

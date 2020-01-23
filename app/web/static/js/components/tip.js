@@ -7,11 +7,14 @@ Vue.component('tip', {
             stripe: false,
             stripeCard: false,
             amount: "500",
-            otherAmount: ""
+            otherAmount: "",
+            tips: []
         }
     },
     created: function () {
         var that = this;
+
+        // Get the publishable Stripe API key
         fetch("/api/tip")
             .then(function (response) {
                 if (response.status !== 200) {
@@ -26,8 +29,28 @@ Vue.component('tip', {
             .catch(function (err) {
                 console.log("Error fetching tip variables", err)
             })
+
+        this.fetchHistory()
     },
     methods: {
+        fetchHistory: function () {
+            var that = this;
+
+            // Get the history of tips
+            fetch("/api/tip/history")
+                .then(function (response) {
+                    if (response.status !== 200) {
+                        console.log('Error fetching tip history, status code: ' + response.status);
+                        return;
+                    }
+                    response.json().then(function (data) {
+                        that.tips = data;
+                    })
+                })
+                .catch(function (err) {
+                    console.log("Error fetching tip history", err)
+                })
+        },
         initStripe: function () {
             // Initialize Stripe
             this.stripe = Stripe(this.stripePublishableKey);
@@ -65,7 +88,7 @@ Vue.component('tip', {
                                 if (data['error']) {
                                     that.errorMessage = data['error_message'];
                                 } else {
-                                    // TODO: Reload tips history
+                                    that.fetchHistory()
 
                                     // Navigate to thank you page
                                     that.$emit('select-page', 'thanks');
@@ -81,6 +104,29 @@ Vue.component('tip', {
                         })
                 }
             });
+        },
+        formatTipDate: function (timestamp) {
+            var date = new Date(timestamp * 1000);
+            var date_str = '';
+            var month_num = date.getMonth() + 1;
+            var month = "";
+            if (month_num == 1) { month = "January" }
+            else if (month_num == 2) { month = "February" }
+            else if (month_num == 2) { month = "March" }
+            else if (month_num == 2) { month = "April" }
+            else if (month_num == 2) { month = "May" }
+            else if (month_num == 2) { month = "June" }
+            else if (month_num == 2) { month = "July" }
+            else if (month_num == 2) { month = "August" }
+            else if (month_num == 2) { month = "September" }
+            else if (month_num == 2) { month = "October" }
+            else if (month_num == 2) { month = "November" }
+            else if (month_num == 2) { month = "December" }
+            return month + " " + date.getDate() + ", " + date.getFullYear()
+
+        },
+        formatTipAmount: function (amount) {
+            return "$" + (amount / 100).toFixed(2)
         }
     },
     template: `
@@ -116,6 +162,18 @@ Vue.component('tip', {
                     <img v-if="loading" src="/static/img/loading.gif" alt="Loading" />
                 </p>
             </form>
+            <div v-if="tips.length > 0" class="tips-history">
+                <p><strong>Your history of tips</strong></p>
+                <ul>
+                    <li v-for="tip in tips">
+                        <span class="tip-date">{{ formatTipDate(tip.timestamp) }}</span>
+                        <span class="tip-amount">{{ formatTipAmount(tip.amount) }}</span>
+                        <span class="tip-receipt"><a v-bind:href="tip.receipt_url" target="_blank">
+                            <img title="Receipt" alt="Receipt" src="/static/img/receipt.png" />
+                        </a></span>
+                    </li>
+                </ul>
+            </div>
         </div>
     `
 })
