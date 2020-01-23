@@ -381,6 +381,8 @@ async def api_get_tip_recent(request):
 
     tip = (
         await Tip.query.where(User.id == user.id)
+        .where(Tip.paid == True)
+        .where(Tip.refunded == False)
         .order_by(Tip.timestamp.desc())
         .gino.first()
     )
@@ -391,6 +393,34 @@ async def api_get_tip_recent(request):
         receipt_url = None
 
     return web.json_response({"receipt_url": receipt_url})
+
+
+@authentication_required_401
+async def api_get_tip_history(request):
+    """
+    Respond with a list of all tips the user has given
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    tips = (
+        await Tip.query.where(User.id == user.id)
+        .where(Tip.paid == True)
+        .where(Tip.refunded == False)
+        .order_by(Tip.timestamp.desc())
+        .gino.all()
+    )
+
+    return web.json_response(
+        [
+            {
+                "timestamp": tip.timestamp.timestamp(),
+                "amount": tip.amount,
+                "receipt_url": tip.receipt_url,
+            }
+            for tip in tips
+        ]
+    )
 
 
 @aiohttp_jinja2.template("index.jinja2")
@@ -440,6 +470,7 @@ async def app_factory():
             web.get("/api/tip", api_get_tip),
             web.post("/api/tip", api_post_tip),
             web.get("/api/tip/recent", api_get_tip_recent),
+            web.get("/api/tip/history", api_get_tip_history),
             # Web
             web.get("/", index),
             web.get("/app", app_main),
