@@ -88,17 +88,16 @@ Vue.component('tip', {
             <h1>Care to chip in?</h1>
             <p>Semiphemeral is free. Every day a bot will automatically delete your old tweets and likes except for the ones you want to keep, keeping your social media presence a bit more private. Hosting this service costs money though, so tips are appreciated.</p>
 
-            <p>As long as you're using this service, the @semiphemeral Twitter account will gently ask you for a tip, via Twitter DM, once a month. If you donate any amount, even just $1, it will stop nagging you for a year.</p>
+            <p>As long as you're using this service, the @semiphemeral Twitter account will gently ask you for a tip, via Twitter DM, once a month. If you tip any amount, even just $1, it will stop nagging you for a year.</p>
 
             <form action="/api/tip" method="post" v-on:submit.prevent="onSubmit">
                 <fieldset>
                     <legend>How much would you like to tip?</legend>
                     <ul>
                         <li><label><input type="radio" name="amount" value="100" v-model="amount" /> $1</label></li>
-                        <li><label><input type="radio" name="amount" value="200" v-model="amount" /> $2</label></li>
                         <li><label><input type="radio" name="amount" value="500" v-model="amount" /> $5</label></li>
-                        <li><label><input type="radio" name="amount" value="1000" v-model="amount" /> $10</label></li>
-                        <li><label><input type="radio" name="amount" value="5000" v-model="amount" /> $50</label></li>
+                        <li><label><input type="radio" name="amount" value="1337" v-model="amount" /> $13.37</label></li>
+                        <li><label><input type="radio" name="amount" value="2000" v-model="amount" /> $20</label></li>
                         <li>
                             <label><input type="radio" name="amount" value="other" v-model="amount" /> Other</label>
                             <span v-if="amount == 'other'">$<input type="text" v-model.number="otherAmount" class="other-amount" /></span>
