@@ -26,7 +26,7 @@ Vue.component('thanks', {
             <h1>Thanks for the tip</h1>
             <p><img src="/static/img/logo.png" /></p>
             <p>I'm glad you find this service useful!</p>
-            <p v-if="receipt_url"><a v-bind:href="receipt_url">Click here</a> for your receipt.</p>
+            <p v-if="receipt_url"><a v-bind:href="receipt_url" target="_blank">Click here</a> for your receipt.</p>
         </div>
     `
 })

@@ -97,3 +97,13 @@ body {
 .tip form #card-errors {
     color: #cc0000;
 }
+
+.thanks img {
+    width: 200px;
+    height: 200px;
+}
+
+.thanks a {
+    color: #3333ff;
+    text-decoration: underline;
+}

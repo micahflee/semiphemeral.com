@@ -292,15 +292,23 @@ async def api_post_tip(request):
         data["amount"] != "100"
         and data["amount"] != "200"
         and data["amount"] != "500"
-        and data["amount"] != "1000"
-        and data["amount"] != "5000"
+        and data["amount"] != "1337"
+        and data["amount"] != "2000"
         and data["amount"] != "other"
     ):
         return web.json_response({"error": True, "error_message": "Invalid amount"})
-    if data["amount"] == "other" and float(data["other_amount"]) < 1:
-        return web.json_response(
-            {"error": True, "error_message": "You must tip at least $1"}
-        )
+    if data["amount"] == "other":
+        if float(data["other_amount"]) < 0:
+            return web.json_response(
+                {
+                    "error": True,
+                    "error_message": "Mess with the best, die like the rest",
+                }
+            )
+        elif float(data["other_amount"]) < 1:
+            return web.json_response(
+                {"error": True, "error_message": "You must tip at least $1"}
+            )
 
     # How much is being tipped?
     if data["amount"] == "other":
