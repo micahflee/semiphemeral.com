@@ -2,6 +2,7 @@ Vue.component('tip', {
     data: function () {
         return {
             loading: false,
+            errorMessage: null,
             stripePublishableKey: false,
             stripe: false,
             stripeCard: false,
@@ -38,13 +39,13 @@ Vue.component('tip', {
         },
         onSubmit: function () {
             that = this;
+            this.errorMessage = null;
             this.loading = true;
 
             this.stripe.createToken(this.stripeCard).then(function (result) {
                 if (result.error) {
-                    // Inform the customer that there was an error
-                    var errorElement = document.getElementById('card-errors');
-                    errorElement.textContent = result.error.message;
+                    that.errorMessage = result.error.message;
+                    that.loading = false;
                 } else {
                     // Send the token to the server
                     var token = result.token;
@@ -62,10 +63,12 @@ Vue.component('tip', {
                             that.loading = false;
                             response.json().then(function (data) {
                                 if (data['error']) {
-                                    var errorElement = document.getElementById('card-errors');
-                                    errorElement.textContent = data['error_message'];
+                                    that.errorMessage = data['error_message'];
                                 } else {
-                                    // No error, reload tips history
+                                    // TODO: Reload tips history
+
+                                    // Navigate to thank you page
+                                    that.$emit('select-page', 'thanks');
                                 }
 
                                 that.loading = false;
@@ -73,9 +76,7 @@ Vue.component('tip', {
                         })
                         .catch(function (err) {
                             console.log("Error submitting card", err)
-                            var errorElement = document.getElementById('card-errors');
-                            errorElement.textContent = "Error submitting card: " + err;
-
+                            that.errorMessage = "Error submitting card: " + err;
                             that.loading = false;
                         })
                 }
@@ -109,7 +110,7 @@ Vue.component('tip', {
                     <div id="card-element"></div>
                 </fieldset>
 
-                <div id="card-errors" role="alert"></div>
+                <div v-if="errorMessage" id="card-errors">{{ errorMessage }}</div>
 
                 <p>
                     <input v-bind:disabled="loading" type="submit" value="Tip" />

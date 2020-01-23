@@ -17,7 +17,7 @@
             userProfileUrl: userProfileUrl }">
         </nav-bar>
         <keep-alive>
-            <component v-bind:is="currentPageComponent"></component>
+            <component v-on:select-page="selectPage" v-bind:is="currentPageComponent"></component>
         </keep-alive>
     </div>
 
@@ -30,6 +30,7 @@
     <script src="/static/js/components/tweets.js"></script>
     <script src="/static/js/components/settings.js"></script>
     <script src="/static/js/components/tip.js"></script>
+    <script src="/static/js/components/thanks.js"></script>
     <script src="/static/js/main.js"></script>
 </body>
 

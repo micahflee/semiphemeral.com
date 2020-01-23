@@ -34,9 +34,12 @@ class Tip(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
+    charge_id = db.Column(db.String)
+    receipt_url = db.Column(db.String)
+    paid = db.Column(db.Boolean)
+    refunded = db.Column(db.Boolean)
     amount = db.Column(db.Float)
     timestamp = db.Column(db.DateTime)
-    status = db.Column(db.String)
 
 
 async def connect_db():
