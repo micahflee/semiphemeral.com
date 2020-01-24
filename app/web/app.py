@@ -14,6 +14,7 @@ import aiohttp_jinja2
 from aiopg.sa import create_engine
 import stripe
 
+from sqlalchemy import or_
 from db import connect_db, db, User, Tip, Job
 
 
@@ -423,6 +424,119 @@ async def api_get_tip_history(request):
     )
 
 
+@authentication_required_401
+async def api_get_job(request):
+    """
+    Respond with the current user's list of active and pending jobs
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    pending_jobs = (
+        await Job.query.where(User.id == user.id)
+        .where(Job.status == "pending")
+        .order_by(Job.scheduled_timestamp)
+        .gino.all()
+    )
+
+    active_jobs = (
+        await Job.query.where(User.id == user.id)
+        .where(Job.status == "active")
+        .order_by(Job.scheduled_timestamp)
+        .gino.all()
+    )
+
+    def to_client(jobs):
+        jobs_json = []
+        for job in jobs:
+            if job.scheduled_timestamp:
+                scheduled_timestamp = job.scheduled_timestamp.timestamp()
+            else:
+                scheduled_timestamp = None
+            if job.started_timestamp:
+                started_timestamp = job.started_timestamp.timestamp()
+            else:
+                started_timestamp = None
+
+            jobs_json.append(
+                {
+                    "id": job.id,
+                    "job_type": job.job_type,
+                    "progress": job.progress,
+                    "scheduled_timestamp": scheduled_timestamp,
+                    "started_timestamp": started_timestamp,
+                }
+            )
+            return jobs_json
+
+    return web.json_response(
+        {"pending_jobs": to_client(pending_jobs), "active_jobs": to_client(active_jobs)}
+    )
+
+
+@authentication_required_401
+async def api_post_job(request):
+    """
+    Either start or pause semiphemeral. If action is start, if there are no pending or
+    active jobs, then add new fetch and delete jobs right now. If action is pause,
+    cancel any active or pending jobs.
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+    data = await request.json()
+
+    # Validate
+    await _api_validate({"action": str}, data)
+    if data["action"] != "start" and data["action"] != "pause":
+        raise web.HTTPBadRequest(text="action must be 'start' or 'pause")
+
+    pending_jobs = (
+        await Job.query.where(User.id == user.id)
+        .where(Job.status == "pending")
+        .gino.all()
+    )
+    active_jobs = (
+        await Job.query.where(User.id == user.id)
+        .where(Job.status == "active")
+        .gino.all()
+    )
+    jobs = pending_jobs + active_jobs
+
+    if data["action"] == "start":
+        if len(jobs) > 0:
+            raise web.HTTPBadRequest(
+                text="Cannot 'start' when there are pending or active jobs"
+            )
+
+        # Create new jobs
+        fetch_job = await Job.create(
+            user_id=user.id,
+            job_type="fetch",
+            status="pending",
+            scheduled_timestamp=datetime.now(),
+        )
+        await Job.create(
+            user_id=user.id,
+            job_type="delete",
+            status="pending",
+            depends_on_job_id=fetch_job.id,
+            scheduled_timestamp=datetime.now(),
+        )
+        return web.json_response(True)
+
+    elif data["action"] == "pause":
+        if len(jobs) == 0:
+            raise web.HTTPBadRequest(
+                text="Cannot 'cancel' when there are no pending or active jobs"
+            )
+
+        # Cancel these jobs
+        for job in jobs:
+            await job.update(status="canceled").apply()
+
+        return web.json_response(True)
+
+
 @aiohttp_jinja2.template("index.jinja2")
 async def index(request):
     session = await get_session(request)
@@ -471,6 +585,8 @@ async def app_factory():
             web.post("/api/tip", api_post_tip),
             web.get("/api/tip/recent", api_get_tip_recent),
             web.get("/api/tip/history", api_get_tip_history),
+            web.get("/api/job", api_get_job),
+            web.post("/api/job", api_post_job),
             # Web
             web.get("/", index),
             web.get("/app", app_main),

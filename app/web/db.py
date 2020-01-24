@@ -48,9 +48,10 @@ class Job(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
     job_type = db.Column(db.String)  # "fetch", "delete"
-    status = db.Column(db.String)  # "pending", "active", "finished"
+    status = db.Column(db.String)  # "pending", "active", "finished", "canceled"
     progress = db.Column(db.String)
-    added_timestamp = db.Column(db.DateTime)
+    depends_on_job_id = db.Column(db.Integer)
+    scheduled_timestamp = db.Column(db.DateTime)
     started_timestamp = db.Column(db.DateTime)
     finished_timestamp = db.Column(db.DateTime)
 
