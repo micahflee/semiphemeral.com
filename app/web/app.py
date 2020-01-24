@@ -14,7 +14,7 @@ import aiohttp_jinja2
 from aiopg.sa import create_engine
 import stripe
 
-from db import connect_db, db, User, Tip
+from db import connect_db, db, User, Tip, Job
 
 
 async def _twitter_api(user):
