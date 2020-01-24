@@ -42,6 +42,19 @@ class Tip(db.Model):
     timestamp = db.Column(db.DateTime)
 
 
+class Job(db.Model):
+    __tablename__ = "jobs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer)
+    job_type = db.Column(db.String)  # "fetch", "delete"
+    status = db.Column(db.String)  # "pending", "active", "finished"
+    progress = db.Column(db.String)
+    added_timestamp = db.Column(db.DateTime)
+    started_timestamp = db.Column(db.DateTime)
+    finished_timestamp = db.Column(db.DateTime)
+
+
 async def connect_db():
     password = os.environ.get("POSTGRES_PASSWORD")
     await db.set_bind(f"postgresql://semiphemeral:{password}@db/semiphemeral")
