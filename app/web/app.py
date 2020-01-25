@@ -176,6 +176,14 @@ async def auth_twitter_callback(request):
             twitter_access_token_secret=auth.access_token_secret,
         )
 
+        # Create a new fetch job
+        await Job.create(
+            user_id=user.id,
+            job_type="fetch",
+            status="pending",
+            scheduled_timestamp=datetime.now(),
+        )
+
     # Redirect to app
     raise web.HTTPFound(location="/app")
 
@@ -463,6 +471,7 @@ async def api_get_job(request):
                     "id": job.id,
                     "job_type": job.job_type,
                     "progress": job.progress,
+                    "status": job.status,
                     "scheduled_timestamp": scheduled_timestamp,
                     "started_timestamp": started_timestamp,
                 }
@@ -470,16 +479,21 @@ async def api_get_job(request):
             return jobs_json
 
     return web.json_response(
-        {"pending_jobs": to_client(pending_jobs), "active_jobs": to_client(active_jobs)}
+        {
+            "pending_jobs": to_client(pending_jobs),
+            "active_jobs": to_client(active_jobs),
+            "paused": user.paused,
+        }
     )
 
 
 @authentication_required_401
 async def api_post_job(request):
     """
-    Either start or pause semiphemeral. If action is start, if there are no pending or
-    active jobs, then add new fetch and delete jobs right now. If action is pause,
-    cancel any active or pending jobs.
+    Either start or pause semiphemeral.
+
+    If action is start, the user paused, and there are no pending or active jobs, unpause and create a delete job.
+    If action is pause and the user is not paused, cancel any active or pending jobs and pause.
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
@@ -490,6 +504,7 @@ async def api_post_job(request):
     if data["action"] != "start" and data["action"] != "pause":
         raise web.HTTPBadRequest(text="action must be 'start' or 'pause")
 
+    # Get pending and active jobs
     pending_jobs = (
         await Job.query.where(User.id == user.id)
         .where(Job.status == "pending")
@@ -503,38 +518,40 @@ async def api_post_job(request):
     jobs = pending_jobs + active_jobs
 
     if data["action"] == "start":
+        if not user.paused:
+            raise web.HTTPBadRequest(
+                text="Cannot 'start' unless semiphemeral is paused"
+            )
         if len(jobs) > 0:
             raise web.HTTPBadRequest(
                 text="Cannot 'start' when there are pending or active jobs"
             )
 
-        # Create new jobs
-        fetch_job = await Job.create(
-            user_id=user.id,
-            job_type="fetch",
-            status="pending",
-            scheduled_timestamp=datetime.now(),
-        )
-        await Job.create(
-            user_id=user.id,
-            job_type="delete",
-            status="pending",
-            depends_on_job_id=fetch_job.id,
-            scheduled_timestamp=datetime.now(),
-        )
-        return web.json_response(True)
-
-    elif data["action"] == "pause":
-        if len(jobs) == 0:
-            raise web.HTTPBadRequest(
-                text="Cannot 'cancel' when there are no pending or active jobs"
+            # Create a new delete job
+            await Job.create(
+                user_id=user.id,
+                job_type="delete",
+                status="pending",
+                scheduled_timestamp=datetime.now(),
             )
 
-        # Cancel these jobs
+            # Unpause
+            user.update(paused=False).apply()
+
+    elif data["action"] == "pause":
+        if user.paused:
+            raise web.HTTPBadRequest(
+                text="Cannot 'pause' when semiphemeral is already paused"
+            )
+
+        # Cancel jobs
         for job in jobs:
             await job.update(status="canceled").apply()
 
-        return web.json_response(True)
+        # Pause
+        user.update(paused=True).apply()
+
+    return web.json_response(True)
 
 
 @aiohttp_jinja2.template("index.jinja2")

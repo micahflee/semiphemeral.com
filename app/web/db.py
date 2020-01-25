@@ -27,6 +27,7 @@ class User(db.Model):
 
     since_id = db.Column(db.String)
     last_fetch = db.Column(db.DateTime)
+    paused = db.Column(db.Boolean, default=True)
 
 
 class Tip(db.Model):
@@ -50,7 +51,6 @@ class Job(db.Model):
     job_type = db.Column(db.String)  # "fetch", "delete"
     status = db.Column(db.String)  # "pending", "active", "finished", "canceled"
     progress = db.Column(db.String)
-    depends_on_job_id = db.Column(db.Integer)
     scheduled_timestamp = db.Column(db.DateTime)
     started_timestamp = db.Column(db.DateTime)
     finished_timestamp = db.Column(db.DateTime)
