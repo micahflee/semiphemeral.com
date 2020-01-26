@@ -107,7 +107,6 @@ Vue.component('tip', {
         },
         formatTipDate: function (timestamp) {
             var date = new Date(timestamp * 1000);
-            var date_str = '';
             var month_num = date.getMonth() + 1;
             var month = "";
             if (month_num == 1) { month = "January" }
@@ -123,7 +122,6 @@ Vue.component('tip', {
             else if (month_num == 2) { month = "November" }
             else if (month_num == 2) { month = "December" }
             return month + " " + date.getDate() + ", " + date.getFullYear()
-
         },
         formatTipAmount: function (amount) {
             return "$" + (amount / 100).toFixed(2)

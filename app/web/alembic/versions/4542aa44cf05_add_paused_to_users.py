@@ -20,7 +20,7 @@ def upgrade():
     op.add_column(
         "users", sa.Column("paused", sa.Boolean, default=True, nullable=True),
     )
-    op.drop_column("job", "depends_on_job_id")
+    op.drop_column("jobs", "depends_on_job_id")
 
 
 def downgrade():
