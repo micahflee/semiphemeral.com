@@ -116,50 +116,60 @@ Vue.component('dashboard', {
     },
     template: `
         <div class="page dashboard">
-            <h1>Semiphemeral Dashboard</h1>
+            <h1>
+                Semiphemeral Dashboard
+                <img
+                    class="refresh"
+                    v-on:click="fetchJobs()"
+                    src="/static/img/refresh.png"
+                    alt="Refresh" title="Refresh" />
+            </h1>
 
-            <p v-if="loading"><img src="/static/img/loading.gif" alt="Loading" /></p>
+            <template v-if="loading">
+                <p><img src="/static/img/loading.gif" alt="Loading" /></p>
+            </template>
+            <template v-else>
+                <div v-if="paused">
+                    <p>Semiphemeral is <strong>paused</strong>. Before starting Semiphemeral:</p>
+                    <ol>
+                        <li>
+                            Make sure your
+                            <button v-on:click="$emit('select-page', 'settings')">settings</button>
+                            are exactly as you want them
+                        </li>
+                        <li>
+                            Make sure you have manually chosen which of your old
+                            <button v-on:click="$emit('select-page', 'tweets')">tweets</button>
+                            you want to make sure don't get automatically deleted
+                        </li>
+                    </ol>
+                    <p v-if="pendingJobs.length == 0 && activeJobs.length == 0">
+                        <button v-on:click="startSemiphemeral">Start Semiphemeral</button>
+                    </p>
+                    <p v-else>
+                        <em>You must wait for Semiphemeral to finish download all your old tweets
+                        before you can start deleting, so you don't accidentally delete tweets
+                        you wished you had kept.</em>
+                    </p>
+                </div>
 
-            <div v-if="!loading && paused">
-                <p>Semiphemeral is <strong>paused</strong>. Before starting Semiphemeral:</p>
-                <ol>
-                    <li>
-                        Make sure your
-                        <button v-on:click="$emit('select-page', 'settings')">settings</button>
-                        are exactly as you want them
-                    </li>
-                    <li>
-                        Make sure you have manually chosen which of your old
-                        <button v-on:click="$emit('select-page', 'tweets')">tweets</button>
-                        you want to make sure don't get automatically deleted
-                    </li>
-                </ol>
-                <p v-if="pendingJobs.length == 0 && activeJobs.length == 0">
-                    <button v-on:click="startSemiphemeral">Start Semiphemeral</button>
-                </p>
-                <p v-else>
-                    <em>You must wait for Semiphemeral to finish download all your old tweets
-                    before you can start deleting, so you don't accidentally delete tweets
-                    you wished you had kept.</em>
-                </p>
-            </div>
+                <div v-if="!paused">
+                    <p>
+                        Semiphemeral is <strong>active</strong>.
+                        <button v-on:click="pauseSemiphemeral">Pause Semiphemeral</button>
+                    </p>
+                </div>
 
-            <div v-if="!loading && !paused">
-                <p>
-                    Semiphemeral is <strong>active</strong>.
-                    <button v-on:click="pauseSemiphemeral">Pause Semiphemeral</button>
-                </p>
-            </div>
+                <h2>Current status</h2>
 
-            <h2>Current status</h2>
+                <ul v-if="activeJobs.length > 0" v-for="job in activeJobs">
+                    <job v-bind:job="job"></job>
+                </ul>
 
-            <ul v-if="activeJobs.length > 0" v-for="job in activeJobs">
-                <job v-bind:job="job"></job>
-            </ul>
-
-            <ul v-if="pendingJobs.length > 0" v-for="job in pendingJobs">
-                <job v-bind:job="job"></job>
-            </ul>
+                <ul v-if="pendingJobs.length > 0" v-for="job in pendingJobs">
+                    <job v-bind:job="job"></job>
+                </ul>
+            </template>
         </div>
     `
 })
