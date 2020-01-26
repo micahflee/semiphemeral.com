@@ -6,6 +6,7 @@ import stripe
 
 from db import connect_db
 from web import start_web_server
+from twitter import start_jobs
 
 
 async def main():
@@ -19,7 +20,7 @@ async def main():
     await connect_db()
 
     # Start
-    await asyncio.gather(start_web_server())
+    await asyncio.gather(start_web_server(), start_jobs())
 
 
 if __name__ == "__main__":
