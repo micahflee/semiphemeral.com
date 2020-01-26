@@ -14,7 +14,7 @@ from aiopg.sa import create_engine
 import stripe
 
 from sqlalchemy import or_
-from db import db, User, Tip, Job
+from db import User, Tip, Job
 
 
 async def _twitter_api(user):
