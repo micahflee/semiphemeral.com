@@ -7,31 +7,37 @@ from common import twitter_api
 from db import Job, User
 
 
-class SemiphemeralTweetsProtected(Exception):
-    pass
-
-
 class JobRescheduled(Exception):
     pass
 
 
-async def ensure_user_follows_us(user, api):
-    # Is the user following us?
-    friendship = api.show_friendship(
-        source_id=user.twitter_id, target_screen_name="semiphemeral"
-    )[0]
+def ensure_user_follows_us(func):
+    async def wrapper(job):
+        user = await User.query.where(User.id == job.user_id).gino.first()
+        api = await twitter_api(user)
 
-    if not friendship.following:
-        # If we've already sent a follow request but it still hasn't been accepted
-        if friendship.following_requested:
-            raise SemiphemeralTweetsProtected()
+        # Is the user following us?
+        friendship = api.show_friendship(
+            source_id=user.twitter_id, target_screen_name="semiphemeral"
+        )[0]
 
-        # Follow
-        followed_user = api.create_friendship("semiphemeral", follow=True)
+        if not friendship.following:
+            reschedule_timedelta_in_the_future = timedelta(minutes=30)
 
-        # If we're still not following but have now sent a follow request
-        if not followed_user.following and followed_user.follow_request_sent:
-            raise SemiphemeralTweetsProtected()
+            # If we've already sent a follow request but it still hasn't been accepted
+            if friendship.following_requested:
+                await reschedule_job(job, reschedule_timedelta_in_the_future)
+
+            # Follow
+            followed_user = api.create_friendship("semiphemeral", follow=True)
+
+            # If we're still not following but have now sent a follow request
+            if not followed_user.following and followed_user.follow_request_sent:
+                await reschedule_job(job, reschedule_timedelta_in_the_future)
+
+        return await func(job)
+
+    return wrapper
 
 
 async def reschedule_job(job, timedelta_in_the_future):
@@ -41,19 +47,15 @@ async def reschedule_job(job, timedelta_in_the_future):
     raise JobRescheduled()
 
 
+@ensure_user_follows_us
 async def fetch(job):
     user = await User.query.where(User.id == job.user_id).gino.first()
     api = await twitter_api(user)
 
-    try:
-        await ensure_user_follows_us(user, api)
-    except SemiphemeralTweetsProtected:
-        print("tweets are protected, rescheduled 30 minutes from now")
-        await reschedule_job(job, timedelta(minutes=30))
-
     # TODO: fetch tweets
 
 
+@ensure_user_follows_us
 async def delete(job):
     pass
 
