@@ -2,15 +2,18 @@ Vue.component('job', {
     props: ["job"],
     computed: {
         scheduledTimestampInThePast: function () {
-            // job['scheduled_timestamp']
+            scheduleTimestamp = Math.floor(this.job['scheduled_timestamp'] * 1000);
+            nowTimestamp = Date.now();
+            return scheduleTimestamp <= nowTimestamp;
         },
         humanReadableScheduledTimestamp: function () {
-            // job['scheduled_timestamp']
+            var date = new Date(this.job['scheduled_timestamp'] * 1000);
+            return date.toLocaleDateString() + " at " + date.toLocaleTimeString()
         }
     },
     template: `
         <div v-bind:class="job.status">
-            <template v-if="job.type == 'fetch'">
+            <template v-if="job.job_type == 'fetch'">
                 <template v-if="job.status == 'pending'">
                     <p v-if="scheduledTimestampInThePast">Waiting to download all of your tweets and likes as soon as it's your turn in the queue.</p>
                     <p v-else>Waiting to download all of your tweets and likes, scheduled for <em>{{ humanReadableScheduledTimestamp }}</em>.</p>
@@ -20,7 +23,7 @@ Vue.component('job', {
                 </template>
             </template>
 
-            <template v-if="job.type == 'delete'">
+            <template v-if="job.job_type == 'delete'">
                 <template v-if="job.status == 'pending'">
                     <p v-if="scheduledTimestampInThePast">Waiting to delete your old tweets and likes as soon as it's your turn in the queue.</p>
                     <p v-else>Waiting to delete your old tweets and likes, scheduled for <em>{{ humanReadableScheduledTimestamp }}</em>.</p>
@@ -131,7 +134,7 @@ Vue.component('dashboard', {
                         you want to make sure don't get automatically deleted
                     </li>
                 </ol>
-                <p v-if="pendingJobs.length == 0 and activeJobs.length == 0">
+                <p v-if="pendingJobs.length == 0 && activeJobs.length == 0">
                     <button v-on:click="startSemiphemeral">Start Semiphemeral</button>
                 </p>
                 <p v-else>
@@ -147,6 +150,8 @@ Vue.component('dashboard', {
                     <button v-on:click="pauseSemiphemeral">Pause Semiphemeral</button>
                 </p>
             </div>
+
+            <h2>Current status</h2>
 
             <ul v-if="activeJobs.length > 0" v-for="job in activeJobs">
                 <job v-bind:job="job"></job>

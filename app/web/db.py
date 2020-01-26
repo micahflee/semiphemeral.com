@@ -43,6 +43,14 @@ class Tip(db.Model):
     timestamp = db.Column(db.DateTime)
 
 
+class Nag(db.Model):
+    __tablename__ = "nags"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer)
+    timestamp = db.Column(db.DateTime)
+
+
 class Job(db.Model):
     __tablename__ = "jobs"
 
