@@ -14,17 +14,9 @@ from aiopg.sa import create_engine
 import stripe
 
 from sqlalchemy import or_
+
+from common import twitter_api
 from db import User, Tip, Job
-
-
-async def _twitter_api(user):
-    auth = tweepy.OAuthHandler(
-        os.environ.get("TWITTER_CONSUMER_TOKEN"),
-        os.environ.get("TWITTER_CONSUMER_KEY"),
-    )
-    auth.set_access_token(user.twitter_access_token, user.twitter_access_token_secret)
-    api = tweepy.API(auth)
-    return api
 
 
 async def _logged_in_user(session):
@@ -39,7 +31,7 @@ async def _logged_in_user(session):
 
         # Get the twitter API for the user, and make sure it works
         try:
-            api = await _twitter_api(user)
+            api = await twitter_api(user)
             api.me()
             return user
         except:
@@ -194,7 +186,7 @@ async def api_get_user(request):
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
-    api = await _twitter_api(user)
+    api = await twitter_api(user)
     twitter_user = api.me()
 
     return web.json_response(
