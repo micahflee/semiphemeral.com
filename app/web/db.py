@@ -64,6 +64,39 @@ class Job(db.Model):
     finished_timestamp = db.Column(db.DateTime)
 
 
+class Thread(db.Model):
+    __tablename__ = "threads"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer)
+    root_status_id = db.Column(db.Integer)
+    should_exclude = db.Column(db.Boolean)
+
+
+class Tweet(db.Model):
+    __tablename__ = "tweets"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime)
+    twitter_user_id = db.Column(db.Integer)
+    twitter_user_screen_name = db.Column(db.String)
+    status_id = db.Column(db.Integer)
+    text = db.Column(db.String)
+    in_reply_to_screen_name = db.Column(db.String)
+    in_reply_to_status_id = db.Column(db.Integer)
+    in_reply_to_user_id = db.Column(db.Integer)
+    retweet_count = db.Column(db.Integer)
+    favorite_count = db.Column(db.Integer)
+    retweeted = db.Column(db.Boolean)
+    favorited = db.Column(db.Boolean)
+    is_retweet = db.Column(db.Boolean)
+    is_deleted = db.Column(db.Boolean)
+    is_unliked = db.Column(db.Boolean)
+    exclude_from_delete = db.Column(db.Boolean)
+    thread_id = db.Column(db.Integer)
+
+
 async def connect_db():
     password = os.environ.get("POSTGRES_PASSWORD")
     await db.set_bind(f"postgresql://semiphemeral:{password}@db/semiphemeral")

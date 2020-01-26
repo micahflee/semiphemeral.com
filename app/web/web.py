@@ -505,12 +505,12 @@ async def api_post_job(request):
 
     # Get pending and active jobs
     pending_jobs = (
-        await Job.query.where(User.id == user.id)
+        await Job.query.where(Job.user_id == user.id)
         .where(Job.status == "pending")
         .gino.all()
     )
     active_jobs = (
-        await Job.query.where(User.id == user.id)
+        await Job.query.where(Job.user_id == user.id)
         .where(Job.status == "active")
         .gino.all()
     )
