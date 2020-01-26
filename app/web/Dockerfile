@@ -12,7 +12,7 @@ COPY . /app
 WORKDIR /app
 
 # Install python dependencies
-RUN pipenv --python /usr/local/bin/python install --dev
+RUN pipenv install --dev
 
 EXPOSE 8080
 CMD ["pipenv", "run", "python", "-u", "app.py"]
