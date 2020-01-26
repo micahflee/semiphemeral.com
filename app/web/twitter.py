@@ -13,16 +13,16 @@ async def delete(job):
 
 
 async def start_job(job):
-    job.update(status="active", started_timestamp=datetime.now()).apply()
+    await job.update(status="active", started_timestamp=datetime.now()).apply()
 
     if job.job_type == "fetch":
         await fetch(job)
-        job.update(status="finished", finished_timestamp=datetime.now()).apply()
+        await job.update(status="finished", finished_timestamp=datetime.now()).apply()
 
     elif job.job_type == "delete":
         await fetch(job)
         await delete(job)
-        job.update(status="finished", finished_timestamp=datetime.now()).apply()
+        await job.update(status="finished", finished_timestamp=datetime.now()).apply()
 
 
 async def start_jobs():
@@ -36,10 +36,9 @@ async def start_jobs():
     while True:
         await asyncio.sleep(60)
 
-        jobs = (
+        for job in (
             await Job.query.where(Job.status == "pending")
             .where(Job.scheduled_timestamp <= datetime.now())
             .gino.all()
-        )
-        for job in jobs:
-            start_job(job)
+        ):
+            await start_job(job)

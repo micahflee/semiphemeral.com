@@ -74,6 +74,12 @@ body {
     font-size: 1.1em;
 }
 
+.dashboard .refresh {
+    margin-left: 1em;
+    height: 15px;
+    cursor: pointer;
+}
+
 .tip form fieldset {
     margin-bottom: 10px;
     max-width: 450px;
