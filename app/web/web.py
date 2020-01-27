@@ -3,6 +3,7 @@ import base64
 import tweepy
 import logging
 import asyncio
+import functools
 import subprocess
 from datetime import datetime
 from aiohttp import web
@@ -318,8 +319,16 @@ async def api_post_tip(request):
 
     # Charge the card
     try:
-        charge = stripe.Charge.create(
-            amount=amount, currency="usd", description="Tip", source=data["token"],
+        loop = asyncio.get_running_loop()
+        charge = await loop.run_in_executor(
+            None,
+            functools.partial(
+                stripe.Charge.create,
+                amount=amount,
+                currency="usd",
+                description="Tip",
+                source=data["token"],
+            ),
         )
 
         # Add tip to the database
