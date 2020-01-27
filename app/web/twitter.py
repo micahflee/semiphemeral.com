@@ -1,10 +1,11 @@
 import asyncio
+import json
 from datetime import datetime, timedelta
 
 import tweepy
 
 from common import twitter_api
-from db import Job, User
+from db import Job, User, Tweet, Thread
 
 
 class JobRescheduled(Exception):
@@ -47,12 +48,232 @@ async def reschedule_job(job, timedelta_in_the_future):
     raise JobRescheduled()
 
 
+async def update_progress(job, progress):
+    await job.update(progress=json.dumps(progress)).apply()
+
+
+async def save_tweet(user, status):
+    await Tweet.create(
+        user_id=user.id,
+        create_at=status.created_at,
+        twitter_user_id=status.author.id,
+        twitter_user_screen_name=status.author.screen_name,
+        status_id=status.id,
+        text=status.full_text,
+        in_reply_to_screen_name=status.in_reply_to_screen_name,
+        in_reply_to_status_id=status.in_reply_to_status_id,
+        in_reply_to_user_id=status.in_reply_to_user_id,
+        retweet_count=status.retweet_count,
+        favorite_count=status.favorite_count,
+        retweeted=status.retweeted,
+        favorited=status.favorited,
+        is_retweet=hasattr(status, "retweeted_status"),
+        is_deleted=False,
+        is_unliked=False,
+        exclude_from_delete=False,
+    )
+
+
+async def import_tweet_and_thread(user, api, status):
+    """
+    This imports a tweet, and recursively imports all tweets that it's in reply to,
+    and returns the number of tweets fetched
+    """
+    fetched_count = 0
+
+    # Is the tweet already saved?
+    tweet = await (
+        Tweet.query.where(Tweet.user_id == user.id)
+        .where(Tweet.status_id == status.id)
+        .gino.first()
+    )
+    if not tweet:
+        # Save the tweet
+        await save_tweet(user, status)
+        fetched_count += 1
+
+    # Is this tweet a reply?
+    if tweet.in_reply_to_status_id:
+        # Do we already have the parent tweet?
+        parent_tweet = await (
+            Tweet.query.where(Tweet.user_id == user.id)
+            .where(Tweet.status_id == tweet.in_reply_to_status_id)
+            .gino.first()
+        )
+        if not parent_tweet:
+            # If not, import it
+            try:
+                parent_status = api.get_status(
+                    tweet.in_reply_to_status_id, tweet_mode="extended"
+                )
+                fetched_count += await import_tweet_and_thread(user, api, parent_status)
+            except tweepy.error.TweepError:
+                # If it's been deleted, ignore
+                pass
+
+    return fetched_count
+
+
+async def calculate_thread(user, status_id):
+    """
+    Given a tweet, recursively add its parents to a thread. In this end, the first
+    element of the list should be the root of the thread
+    """
+    tweet = (
+        await Tweet.query.where(Tweet.user_id == user.id)
+        .where(Tweet.status_id == status_id)
+        .gino.first()
+    )
+    if not tweet:
+        return []
+    if not tweet.in_reply_to_status_id:
+        return [status_id]
+    return calculate_thread(user, tweet.in_reply_to_status_id) + [status_id]
+
+
+async def calculate_excluded_threads(user):
+    """
+    Based on the user's settings, figure out which threads should be excluded from
+    deletion, and which threads should have their tweets deleted
+    """
+    # Reset the should_exclude flag for all threads
+    await Thread.update.values(should_exclude=False).where(
+        Thread.user_id == user.id
+    ).gino.status()
+
+    # Set should_exclude for all threads based on the settings
+    if user.tweets_threads_threshold:
+        for thread in (
+            await Thread.join(Tweet, Thread.id == Tweet.thread_id)
+            .select()
+            .where(Thread.user_id == user.id)
+            .where(Tweet.user_id == user.id)
+            .where(Tweet.is_deleted == False)
+            .where(Tweet.is_retweet == False)
+            .where(Tweet.retweet_count >= user.tweets_retweet_threshold)
+            .where(Tweet.favorite_count >= user.tweets_like_threshold)
+            .gino.all()
+        ):
+            await thread.update(should_exclude=True).apply()
+
+
 @ensure_user_follows_us
 async def fetch(job):
     user = await User.query.where(User.id == job.user_id).gino.first()
     api = await twitter_api(user)
 
-    # TODO: fetch tweets
+    # Start the progress
+    progress = {"tweets": 0, "retweets": 0, "likes": 0, "threads": 0}
+    if user.since_id:
+        progress["status"] = "Downloading all recent tweets"
+    else:
+        progress[
+            "status"
+        ] = "Downloading all tweets, this first run may take a long time"
+    await update_progress(job, progress)
+
+    # Fetch tweets from timeline a page at a time
+    for page in tweepy.Cursor(
+        api.user_timeline,
+        id=user.twitter_screen_name,
+        since_id=user.since_id,
+        tweet_mode="extended",
+    ).pages():
+        fetched_count = 0
+
+        # Import these tweets, and all their threads
+        for status in page:
+            fetched_count += await import_tweet_and_thread(user, api, status)
+
+            if hasattr(status, "retweeted_status"):
+                progress["retweets"] += 1
+            else:
+                progress["tweets"] += 1
+
+        await update_progress(job, progress)
+
+        # Now hunt for threads. This is a dict that maps the root status_id
+        # to a list of status_ids in the thread
+        threads = {}
+        for status in page:
+            if status.in_reply_to_status_id:
+                status_ids = calculate_thread(user, status.id)
+                root_status_id = status_ids[0]
+                if root_status_id in threads:
+                    for status_id in status_ids:
+                        if status_id not in threads[root_status_id]:
+                            threads[root_status_id].append(status_id)
+                else:
+                    threads[root_status_id] = status_ids
+
+        # For each thread, does this thread already exist, or do we create a new one?
+        for root_status_id in threads:
+            status_ids = threads[root_status_id]
+            thread = (
+                await Thread.query.where(Thread.user_id == user.id)
+                .where(Thread.root_status_id == root_status_id)
+                .gino.first()
+            )
+            if not thread:
+                thread = await Thread.create(
+                    user_id=user.id, root_status_id=root_status_id, should_exclude=False
+                )
+                progress["threads"] += 1
+
+            # Add all of the thread's tweets to the thread
+            for status_id in status_ids:
+                tweet = (
+                    await Tweet.query.where(Tweet.user_id == user.id)
+                    .where(Tweet.status_id == status_id)
+                    .where(Tweet.thread_id != thread.id)
+                    .gino.first()
+                )
+                if tweet:
+                    await Tweet.update(thread_id=thread.id).apply()
+
+        await update_progress(job, progress)
+
+    # Fetch tweets that are liked
+    progress["status"] = "Downloading tweets that you liked"
+    for page in tweepy.Cursor(
+        api.favorites,
+        id=user.twitter_screen_name,
+        since_id=user.since_id,
+        tweet_mode="extended",
+    ).pages():
+        # Import these tweets
+        for status in page:
+
+            # Is the tweet already saved?
+            tweet = await (
+                Tweet.query.where(Tweet.user_id == user.id)
+                .where(Tweet.status_id == status.id)
+                .gino.first()
+            )
+            if not tweet:
+                # Save the tweet
+                await save_tweet(user, status)
+                progress["likes"] += 1
+
+        await update_progress(job, progress)
+
+    # All done, update the since_id
+    tweet = await (
+        Tweet.query.where(Tweet.user_id == user.id)
+        .order_by(Tweet.status_id.desc())
+        .gino.first()
+    )
+    if tweet:
+        await user.update(since_id=tweet.status_id).apply()
+
+    # Calculate which threads should be excluded from deletion
+    progress["status"] = "Calculating which threads to exclude from deletion"
+    await update_progress(job, progress)
+
+    await calculate_excluded_threads(user)
+
+    progress["status"] = "Finished"
+    await update_progress(job, progress)
 
 
 @ensure_user_follows_us

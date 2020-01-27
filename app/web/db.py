@@ -8,7 +8,7 @@ class User(db.Model):
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
-    twitter_id = db.Column(db.String)
+    twitter_id = db.Column(db.BigInteger)
     twitter_screen_name = db.Column(db.String)
     twitter_access_token = db.Column(db.String)
     twitter_access_token_secret = db.Column(db.String)
@@ -25,7 +25,7 @@ class User(db.Model):
     retweets_likes_delete_likes = db.Column(db.Boolean, default=True)
     retweets_likes_likes_threshold = db.Column(db.Integer, default=60)
 
-    since_id = db.Column(db.String)
+    since_id = db.Column(db.BigInteger)
     last_fetch = db.Column(db.DateTime)
     paused = db.Column(db.Boolean, default=True)
 
@@ -58,7 +58,7 @@ class Job(db.Model):
     user_id = db.Column(db.Integer)
     job_type = db.Column(db.String)  # "fetch", "delete"
     status = db.Column(db.String)  # "pending", "active", "finished", "canceled"
-    progress = db.Column(db.String)
+    progress = db.Column(db.String)  # JSON object
     scheduled_timestamp = db.Column(db.DateTime)
     started_timestamp = db.Column(db.DateTime)
     finished_timestamp = db.Column(db.DateTime)
@@ -79,13 +79,13 @@ class Tweet(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
     created_at = db.Column(db.DateTime)
-    twitter_user_id = db.Column(db.Integer)
+    twitter_user_id = db.Column(db.BigInteger)
     twitter_user_screen_name = db.Column(db.String)
-    status_id = db.Column(db.Integer)
+    status_id = db.Column(db.BigInteger)
     text = db.Column(db.String)
     in_reply_to_screen_name = db.Column(db.String)
-    in_reply_to_status_id = db.Column(db.Integer)
-    in_reply_to_user_id = db.Column(db.Integer)
+    in_reply_to_status_id = db.Column(db.BigInteger)
+    in_reply_to_user_id = db.Column(db.BigInteger)
     retweet_count = db.Column(db.Integer)
     favorite_count = db.Column(db.Integer)
     retweeted = db.Column(db.Boolean)

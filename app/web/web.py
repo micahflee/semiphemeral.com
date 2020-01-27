@@ -154,14 +154,14 @@ async def auth_twitter_callback(request):
         raise web.HTTPUnauthorized(text="Error, error using Twitter API")
 
     # Save values in the session
-    session["twitter_id"] = twitter_user.id_str
+    session["twitter_id"] = twitter_user.id
 
     # Does this user already exist?
-    user = await User.query.where(User.twitter_id == twitter_user.id_str).gino.first()
+    user = await User.query.where(User.twitter_id == twitter_user.id).gino.first()
     if user is None:
         # Create a new user
         user = await User.create(
-            twitter_id=twitter_user.id_str,
+            twitter_id=twitter_user.id,
             twitter_screen_name=twitter_user.screen_name,
             twitter_access_token=auth.access_token,
             twitter_access_token_secret=auth.access_token_secret,
@@ -527,7 +527,7 @@ async def api_post_job(request):
             )
 
             # Unpause
-            user.update(paused=False).apply()
+            await user.update(paused=False).apply()
 
     elif data["action"] == "pause":
         if user.paused:
@@ -540,7 +540,7 @@ async def api_post_job(request):
             await job.update(status="canceled").apply()
 
         # Pause
-        user.update(paused=True).apply()
+        await user.update(paused=True).apply()
 
     return web.json_response(True)
 
