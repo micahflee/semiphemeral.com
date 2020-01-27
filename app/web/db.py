@@ -69,7 +69,7 @@ class Thread(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
-    root_status_id = db.Column(db.Integer)
+    root_status_id = db.Column(db.BigInteger)
     should_exclude = db.Column(db.Boolean)
 
 
