@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import tweepy
 
-from common import twitter_api
+from common import twitter_api, twitter_api_call
 from db import Job, User, Tweet, Thread
 
 
@@ -18,8 +18,13 @@ def ensure_user_follows_us(func):
         api = await twitter_api(user)
 
         # Is the user following us?
-        friendship = api.show_friendship(
-            source_id=user.twitter_id, target_screen_name="semiphemeral"
+        friendship = (
+            await twitter_api_call(
+                api,
+                "show_friendship",
+                source_id=user.twitter_id,
+                target_screen_name="semiphemeral",
+            )
         )[0]
 
         if not friendship.following:
@@ -30,7 +35,9 @@ def ensure_user_follows_us(func):
                 await reschedule_job(job, reschedule_timedelta_in_the_future)
 
             # Follow
-            followed_user = api.create_friendship("semiphemeral", follow=True)
+            followed_user = await twitter_api_call(
+                api, "create_friendship", screen_name="semiphemeral", follow=True
+            )
 
             # If we're still not following but have now sent a follow request
             if not followed_user.following and followed_user.follow_request_sent:
@@ -50,6 +57,23 @@ async def reschedule_job(job, timedelta_in_the_future):
 
 async def update_progress(job, progress):
     await job.update(progress=json.dumps(progress)).apply()
+
+
+async def update_progress_rate_limit(job, progress):
+    old_status = progress["status"]
+
+    # Change status message
+    progress[
+        "status"
+    ] = "Not so fast... I hit Twitter's rate limit, so I need to wait awhile before continuing"
+    await update_progress(job, progress)
+
+    # Wait 15 minutes
+    await asyncio.sleep(15 * 60)
+
+    # Change status message back
+    progress["status"] = old_status
+    await update_progress(job, progress)
 
 
 async def save_tweet(user, status):
@@ -103,8 +127,11 @@ async def import_tweet_and_thread(user, api, status):
         if not parent_tweet:
             # If not, import it
             try:
-                parent_status = api.get_status(
-                    tweet.in_reply_to_status_id, tweet_mode="extended"
+                parent_status = await twitter_api_call(
+                    api,
+                    "get_status",
+                    id=tweet.in_reply_to_status_id,
+                    tweet_mode="extended",
                 )
                 fetched_count += await import_tweet_and_thread(user, api, parent_status)
             except tweepy.error.TweepError:
@@ -173,12 +200,22 @@ async def fetch(job):
     await update_progress(job, progress)
 
     # Fetch tweets from timeline a page at a time
-    for page in tweepy.Cursor(
-        api.user_timeline,
-        id=user.twitter_screen_name,
-        since_id=user.since_id,
-        tweet_mode="extended",
-    ).pages():
+    loop = asyncio.get_running_loop()
+    pages = await loop.run_in_executor(
+        None,
+        tweepy.Cursor(
+            api.user_timeline,
+            id=user.twitter_screen_name,
+            since_id=user.since_id,
+            tweet_mode="extended",
+        ).pages,
+    )
+    while True:
+        try:
+            page = await loop.run_in_executor(None, pages.next)
+        except tweepy.TweepError:
+            await update_progress_rate_limit(job, progress)
+
         fetched_count = 0
 
         # Import these tweets, and all their threads
@@ -235,12 +272,22 @@ async def fetch(job):
 
     # Fetch tweets that are liked
     progress["status"] = "Downloading tweets that you liked"
-    for page in tweepy.Cursor(
-        api.favorites,
-        id=user.twitter_screen_name,
-        since_id=user.since_id,
-        tweet_mode="extended",
-    ).pages():
+    loop = asyncio.get_running_loop()
+    pages = await loop.run_in_executor(
+        None,
+        tweepy.Cursor(
+            api.favorites,
+            id=user.twitter_screen_name,
+            since_id=user.since_id,
+            tweet_mode="extended",
+        ).pages,
+    )
+    while True:
+        try:
+            page = await loop.run_in_executor(None, pages.next)
+        except tweepy.TweepError:
+            await update_progress_rate_limit(job, progress)
+
         # Import these tweets
         for status in page:
 
