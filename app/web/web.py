@@ -15,7 +15,7 @@ import stripe
 
 from sqlalchemy import or_
 
-from common import twitter_api
+from common import twitter_api, twitter_api_call
 from db import User, Tip, Job
 
 
@@ -32,7 +32,7 @@ async def _logged_in_user(session):
         # Get the twitter API for the user, and make sure it works
         try:
             api = await twitter_api(user)
-            api.me()
+            await twitter_api_call(api, "me")
             return user
         except:
             return None
@@ -94,7 +94,7 @@ async def auth_login(request):
         api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
         # Validate user
-        twitter_user = api.me()
+        twitter_user = await twitter_api_call(api, "me")
         if session["twitter_id"] == twitter_user.id:
             raise web.HTTPFound("/app")
 
@@ -149,7 +149,7 @@ async def auth_twitter_callback(request):
 
     try:
         api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-        twitter_user = api.me()
+        twitter_user = await twitter_api_call(api, "me")
     except tweepy.TweepError:
         raise web.HTTPUnauthorized(text="Error, error using Twitter API")
 
@@ -187,7 +187,7 @@ async def api_get_user(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
     api = await twitter_api(user)
-    twitter_user = api.me()
+    twitter_user = await twitter_api_call(api, "me")
 
     return web.json_response(
         {
