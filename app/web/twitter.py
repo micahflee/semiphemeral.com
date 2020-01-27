@@ -53,9 +53,9 @@ async def update_progress(job, progress):
 
 
 async def save_tweet(user, status):
-    await Tweet.create(
+    return await Tweet.create(
         user_id=user.id,
-        create_at=status.created_at,
+        created_at=status.created_at,
         twitter_user_id=status.author.id,
         twitter_user_screen_name=status.author.screen_name,
         status_id=status.id,
@@ -89,7 +89,7 @@ async def import_tweet_and_thread(user, api, status):
     )
     if not tweet:
         # Save the tweet
-        await save_tweet(user, status)
+        tweet = await save_tweet(user, status)
         fetched_count += 1
 
     # Is this tweet a reply?
@@ -128,7 +128,7 @@ async def calculate_thread(user, status_id):
         return []
     if not tweet.in_reply_to_status_id:
         return [status_id]
-    return calculate_thread(user, tweet.in_reply_to_status_id) + [status_id]
+    return await calculate_thread(user, tweet.in_reply_to_status_id) + [status_id]
 
 
 async def calculate_excluded_threads(user):
@@ -197,7 +197,7 @@ async def fetch(job):
         threads = {}
         for status in page:
             if status.in_reply_to_status_id:
-                status_ids = calculate_thread(user, status.id)
+                status_ids = await calculate_thread(user, status.id)
                 root_status_id = status_ids[0]
                 if root_status_id in threads:
                     for status_id in status_ids:
