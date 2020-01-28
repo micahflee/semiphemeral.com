@@ -5,7 +5,7 @@ import logging
 import asyncio
 import functools
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 from aiohttp import web
 from aiohttp_session import setup, get_session, new_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
@@ -17,7 +17,7 @@ import stripe
 from sqlalchemy import or_
 
 from common import twitter_api, twitter_api_call
-from db import User, Tip, Job
+from db import User, Tip, Job, Tweet, Thread
 
 
 async def _logged_in_user(session):
@@ -554,6 +554,64 @@ async def api_post_dashboard(request):
     return web.json_response(True)
 
 
+@authentication_required_401
+async def api_get_tweets(request):
+    """
+    Respond with the current user's list of tweets that should be deleted based on the
+    criteria in the user's settings
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    datetime_threshold = datetime.utcnow() - timedelta(days=user.tweets_days_threshold)
+
+    # Select tweets from threads to exclude
+    tweets_to_exclude = []
+    threads = (
+        await Thread.query.where(Thread.user_id == user.id)
+        .where(Thread.should_exclude == True)
+        .gino.all()
+    )
+    for thread in threads:
+        for tweet in (
+            await Tweet.query.where(Tweet.user_id == user.id)
+            .where(Tweet.thread_id == thread.id)
+            .where(Tweet.is_deleted == False)
+            .order_by(Tweet.created_at)
+            .gino.all()
+        ):
+            tweets_to_exclude.append(tweet.status_id)
+
+    # Select tweets that we will delete
+    tweets_to_delete = []
+    for tweet in (
+        await Tweet.query.where(Tweet.user_id == user.id)
+        .where(Tweet.twitter_user_id == user.twitter_id)
+        .where(Tweet.is_deleted == False)
+        .where(Tweet.is_retweet == False)
+        .where(Tweet.created_at < datetime_threshold)
+        .where(Tweet.retweet_count < user.tweets_retweet_threshold)
+        .where(Tweet.favorite_count < user.tweets_like_threshold)
+        .order_by(Tweet.created_at)
+        .gino.all()
+    ):
+        if tweet.status_id not in tweets_to_exclude:
+            created_at = tweet.created_at.timestamp()
+            tweets_to_delete.append(
+                {
+                    "created_at": created_at,
+                    "status_id": tweet.status_id,
+                    "text": tweet.text,
+                    "in_reply_to_status_id": tweet.in_reply_to_status_id,
+                    "retweet_count": tweet.retweet_count,
+                    "favorite_count": tweet.favorite_count,
+                    "exclude": tweet.exclude_from_delete,
+                }
+            )
+
+    return web.json_response({"tweets": tweets_to_delete})
+
+
 @aiohttp_jinja2.template("index.jinja2")
 async def index(request):
     session = await get_session(request)
@@ -598,6 +656,7 @@ async def start_web_server():
             web.get("/api/tip/history", api_get_tip_history),
             web.get("/api/dashhboard", api_get_dashboard),
             web.post("/api/dashhboard", api_post_dashboard),
+            web.get("/api/tweets", api_get_tweets),
             # Web
             web.get("/", index),
             web.get("/app", app_main),
