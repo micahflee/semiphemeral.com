@@ -60,6 +60,10 @@ async def update_progress(job, progress):
 
 
 async def update_progress_rate_limit(job, progress):
+    print(
+        f"[{datetime.now().strftime('%c')}] job_id={job.id} Hit twitter rate limit, waiting 15 minutes"
+    )
+
     old_status = progress["status"]
 
     # Change status message
@@ -189,8 +193,19 @@ async def fetch(job):
     user = await User.query.where(User.id == job.user_id).gino.first()
     api = await twitter_api(user)
 
+    loop = asyncio.get_running_loop()
+
+    # Load info about the user
+    twitter_user = await twitter_api_call(api, "me")
+
     # Start the progress
-    progress = {"tweets": 0, "retweets": 0, "likes": 0, "threads": 0}
+    progress = {
+        "tweets": 0,
+        "total_tweets": twitter_user.statuses_count,
+        "likes": 0,
+        "total_likes": twitter_user.favourites_count,
+        "threads": 0,
+    }
     if user.since_id:
         progress["status"] = "Downloading all recent tweets"
     else:
@@ -200,7 +215,6 @@ async def fetch(job):
     await update_progress(job, progress)
 
     # Fetch tweets from timeline a page at a time
-    loop = asyncio.get_running_loop()
     pages = await loop.run_in_executor(
         None,
         tweepy.Cursor(
@@ -212,7 +226,15 @@ async def fetch(job):
     )
     while True:
         try:
-            page = await loop.run_in_executor(None, pages.next)
+            # Sadly, I can't figure out a good way of making the cursor's next() function
+            # happen in the executor, so it will be a blocking call. If I try running it
+            # with loop.run_in_executor, the StopIteration exception gets lost, and the code
+            # simply freezes when the loop is done, and never continues.
+
+            # page = await loop.run_in_executor(None, pages.next)
+            page = pages.next()
+        except StopIteration:
+            break
         except tweepy.TweepError:
             await update_progress_rate_limit(job, progress)
 
@@ -221,11 +243,7 @@ async def fetch(job):
         # Import these tweets, and all their threads
         for status in page:
             fetched_count += await import_tweet_and_thread(user, api, status)
-
-            if hasattr(status, "retweeted_status"):
-                progress["retweets"] += 1
-            else:
-                progress["tweets"] += 1
+            progress["tweets"] += 1
 
         await update_progress(job, progress)
 
@@ -270,9 +288,11 @@ async def fetch(job):
 
         await update_progress(job, progress)
 
-    # Fetch tweets that are liked
+    # Update progress
     progress["status"] = "Downloading tweets that you liked"
-    loop = asyncio.get_running_loop()
+    await update_progress(job, progress)
+
+    # Fetch tweets that are liked
     pages = await loop.run_in_executor(
         None,
         tweepy.Cursor(
@@ -284,7 +304,9 @@ async def fetch(job):
     )
     while True:
         try:
-            page = await loop.run_in_executor(None, pages.next)
+            page = pages.next()
+        except StopIteration:
+            break
         except tweepy.TweepError:
             await update_progress_rate_limit(job, progress)
 

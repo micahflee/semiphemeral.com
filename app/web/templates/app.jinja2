@@ -16,9 +16,7 @@
             userScreenName: userScreenName,
             userProfileUrl: userProfileUrl }">
         </nav-bar>
-        <keep-alive>
-            <component v-on:select-page="selectPage" v-bind:is="currentPageComponent"></component>
-        </keep-alive>
+        <component v-on:select-page="selectPage" v-bind:is="currentPageComponent"></component>
     </div>
 
     {% if deploy_environment == "staging" %}
