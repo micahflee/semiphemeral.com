@@ -69,9 +69,7 @@ async def update_progress_rate_limit(job, progress):
     old_status = progress["status"]
 
     # Change status message
-    progress[
-        "status"
-    ] = "Not so fast... I hit Twitter's rate limit, so I need to wait awhile before continuing"
+    progress["status"] = "Not so fast... I hit Twitter's rate limit, waiting 15 minutes"
     await update_progress(job, progress)
 
     # Wait 15 minutes
@@ -80,6 +78,8 @@ async def update_progress_rate_limit(job, progress):
     # Change status message back
     progress["status"] = old_status
     await update_progress(job, progress)
+
+    await log(job, "Finished waiting, resuming")
 
 
 async def save_tweet(user, status):
