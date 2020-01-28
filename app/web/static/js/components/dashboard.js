@@ -87,7 +87,7 @@ Vue.component('dashboard', {
         startSemiphemeral: function () {
             var that = this;
             this.loading = true;
-            fetch("/api/job", {
+            fetch("/api/dashboard", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "start" })
@@ -103,7 +103,7 @@ Vue.component('dashboard', {
         pauseSemiphemeral: function () {
             var that = this;
             this.loading = true;
-            fetch("/api/job", {
+            fetch("/api/dashboard", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "pause" })
@@ -121,7 +121,7 @@ Vue.component('dashboard', {
             this.loading = true;
 
             // Get list of pending and active jobs
-            fetch("/api/job")
+            fetch("/api/dashboard")
                 .then(function (response) {
                     if (response.status !== 200) {
                         console.log('Error fetching jobs, status code: ' + response.status);
