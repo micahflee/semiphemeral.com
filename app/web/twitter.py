@@ -12,6 +12,10 @@ class JobRescheduled(Exception):
     pass
 
 
+async def log(job, s):
+    print(f"[{datetime.now().strftime('%c')}] job_id={job.id} {s}")
+
+
 def ensure_user_follows_us(func):
     async def wrapper(job):
         user = await User.query.where(User.id == job.user_id).gino.first()
@@ -60,9 +64,7 @@ async def update_progress(job, progress):
 
 
 async def update_progress_rate_limit(job, progress):
-    print(
-        f"[{datetime.now().strftime('%c')}] job_id={job.id} Hit twitter rate limit, waiting 15 minutes"
-    )
+    await log(job, "Hit twitter rate limit, waiting 15 minutes")
 
     old_status = progress["status"]
 
@@ -190,6 +192,8 @@ async def calculate_excluded_threads(user):
 
 @ensure_user_follows_us
 async def fetch(job):
+    await log(job, "Fetch started")
+
     user = await User.query.where(User.id == job.user_id).gino.first()
     api = await twitter_api(user)
 
@@ -343,6 +347,8 @@ async def fetch(job):
 
     progress["status"] = "Finished"
     await update_progress(job, progress)
+
+    await log(job, "Fetch finished")
 
 
 @ensure_user_follows_us
