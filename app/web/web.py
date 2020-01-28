@@ -433,7 +433,7 @@ async def api_get_tip_history(request):
 
 
 @authentication_required_401
-async def api_get_job(request):
+async def api_get_dashboard(request):
     """
     Respond with the current user's list of active and pending jobs
     """
@@ -488,7 +488,7 @@ async def api_get_job(request):
 
 
 @authentication_required_401
-async def api_post_job(request):
+async def api_post_dashboard(request):
     """
     Either start or pause semiphemeral.
 
@@ -596,8 +596,8 @@ async def start_web_server():
             web.post("/api/tip", api_post_tip),
             web.get("/api/tip/recent", api_get_tip_recent),
             web.get("/api/tip/history", api_get_tip_history),
-            web.get("/api/job", api_get_job),
-            web.post("/api/job", api_post_job),
+            web.get("/api/dashhboard", api_get_dashboard),
+            web.post("/api/dashhboard", api_post_dashboard),
             # Web
             web.get("/", index),
             web.get("/app", app_main),
