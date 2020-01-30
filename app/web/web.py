@@ -597,14 +597,15 @@ async def api_get_tweets(request):
     ):
         if tweet.status_id not in tweets_to_exclude:
             created_at = tweet.created_at.timestamp()
+            is_reply = tweet.in_reply_to_status_id is not None
             tweets_to_delete.append(
                 {
                     "created_at": created_at,
                     "status_id": tweet.status_id,
                     "text": tweet.text,
-                    "in_reply_to_status_id": tweet.in_reply_to_status_id,
+                    "is_reply": is_reply,
                     "retweet_count": tweet.retweet_count,
-                    "favorite_count": tweet.favorite_count,
+                    "like_count": tweet.favorite_count,
                     "exclude": tweet.exclude_from_delete,
                 }
             )
@@ -654,8 +655,8 @@ async def start_web_server():
             web.post("/api/tip", api_post_tip),
             web.get("/api/tip/recent", api_get_tip_recent),
             web.get("/api/tip/history", api_get_tip_history),
-            web.get("/api/dashhboard", api_get_dashboard),
-            web.post("/api/dashhboard", api_post_dashboard),
+            web.get("/api/dashboard", api_get_dashboard),
+            web.post("/api/dashboard", api_post_dashboard),
             web.get("/api/tweets", api_get_tweets),
             # Web
             web.get("/", index),
