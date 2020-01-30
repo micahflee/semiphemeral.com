@@ -7,10 +7,17 @@ Vue.component('tweet', {
     props: ["tweet"],
     created: function () {
         this.excludeFromDeletion = this.tweet.exclude;
-
-        // Display the tweet
-        var el = document.getElementById(this.tweetId);
-        twttr.widgets.createTweet(tweet, el, { 'dnt': true });
+    },
+    mounted: function () {
+        var that = this;
+        this.$nextTick(function () {
+            // TODO: For some reason this isn't rendering...
+            twttr.widgets.createTweet(
+                that.tweet.status_id,
+                document.getElementById(that.tweetId),
+                { 'dnt': true }
+            );
+        })
     },
     computed: {
         tweetId: function () {
@@ -21,13 +28,13 @@ Vue.component('tweet', {
         <div>
             <div class="info">
                 <label>
-                    <input type="checkbox" v-bind="excludeFromDeletion" />
+                    <input type="checkbox" v-bind:checked="excludeFromDeletion" />
                     <span v-if="excludeFromDeletion">Excluded from deletion</span>
                     <span v-else>Staged for deletion</span>
                 </label>
                 <div class="stats">{{ tweet.retweet_count }} retweets, {{ tweet.favorite_count }} likes</div>
             </div>
-            <div v-bind:class="tweetId"></div>
+            <div v-bind:id="tweetId"></div>
         </div>
     `
 })
@@ -37,7 +44,14 @@ Vue.component('tweets', {
         return {
             loading: false,
             tweets: [],
-            ids: []
+            filteredIndices: [], // Indices for tweets after applying filter
+            pageIndices: [], // Indices of tweets on the current page
+            filterQuery: "",
+            showReplies: true,
+            page: 0,
+            numPages: 1,
+            countPerPage: 50,
+            info: ""
         }
     },
     created: function () {
@@ -57,10 +71,7 @@ Vue.component('tweets', {
                     }
                     response.json().then(function (data) {
                         that.tweets = data['tweets'];
-                        that.ids = [];
-                        for (var id in that.tweets) {
-                            that.ids.push(id);
-                        }
+                        that.filterTweets();
                         that.loading = false;
                     })
                 })
@@ -68,6 +79,39 @@ Vue.component('tweets', {
                     console.log("Error fetching tweets", err)
                     that.loading = false;
                 })
+        },
+        filterTweets: function (page = 0) {
+            this.page = page;
+
+            // filteredIndices is a list of tweets array indices that match the filter settings
+            for (var i in this.tweets) {
+                if (this.tweets[i]["text"].toLowerCase().includes(this.filterQuery.toLowerCase())) {
+                    if (this.showReplies || (!this.showReplies && !this.tweets[i]["is_reply"])) {
+                        this.filteredIndices.push(i);
+                    }
+                }
+            }
+
+            this.numPages = Math.ceil(this.filteredIndices.length / this.countPerPage);
+            if (this.page >= this.numPages) {
+                this.page = 0;
+            }
+
+            // pageIndices is a list of tweets array indices to get displayed on the current page
+            this.pageIndices = [];
+            for (var i = this.page * this.countPerPage; i < this.countPerPage; i++) {
+                if (i < this.filteredIndices.length) {
+                    this.pageIndices.push(this.filteredIndices[i]);
+                }
+            }
+
+            // The info text box
+            this.info = 'Page ' +
+                this.commaFormatted(this.page) + ' of ' +
+                this.commaFormatted(this.numPages) + ' - ';
+        },
+        commaFormatted: function (x) {
+            return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
     },
     template: `
@@ -85,8 +129,19 @@ Vue.component('tweets', {
                 <p><img src="/static/img/loading.gif" alt="Loading" /></p>
             </template>
             <template v-else>
-                <ul v-for="tweet in tweets">
-                    <tweet v-bind="tweet"></tweet>
+            <div class="controls">
+                <div class="filter">
+                    <input placeholder="Filter" type="text" v-bind:value="filterQuery" />
+                </div>
+                <div class="options">
+                    <label><input type="checkbox" v-bind:checked="showReplies" /> Show replies</label>
+                </div>
+                <div class="info">{{ info }}</div>
+                <div class="pagination"></div>
+            </div>
+
+                <ul v-for="id in pageIndices">
+                    <tweet v-bind:tweet="tweets[id]"></tweet>
                 </ul>
             </template>
         </div>
