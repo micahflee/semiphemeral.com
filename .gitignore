@@ -115,9 +115,3 @@ terraform.tfstate.backup
 .vars-*
 ansible/inventory-*
 
-# node.js
-.next
-node_modules
-*.log
-yarn.lock
-package-lock.json
