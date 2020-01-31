@@ -21,7 +21,7 @@ COPY . .
 
 # Webpack the js
 USER root:root
-RUN cd js && ./node_modules/.bin/webpack
+RUN cd js && ./build.js
 USER user:user
 
 EXPOSE 8080
