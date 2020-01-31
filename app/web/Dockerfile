@@ -7,12 +7,14 @@ RUN pip install pipenv
 RUN useradd -u 1000 -o -ms /bin/bash user
 USER user:user
 
-# Copy code
-COPY . /app
-WORKDIR /app
-
 # Install python dependencies
+WORKDIR /app
+COPY Pipfile .
+COPY Pipfile.lock .
 RUN pipenv install --dev
+
+# Copy code
+COPY . .
 
 EXPOSE 8080
 CMD ["pipenv", "run", "python", "-u", "app.py"]
