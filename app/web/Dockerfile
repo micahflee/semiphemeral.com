@@ -1,5 +1,8 @@
 FROM python:3.8-buster
 
+# Install nodejs
+RUN apt-get update && apt-get install -y nodejs
+
 # Install pipenv
 RUN pip install pipenv
 
@@ -15,6 +18,11 @@ RUN pipenv install --dev
 
 # Copy code
 COPY . .
+
+# Webpack the js
+USER root:root
+RUN cd js && ./node_modules/.bin/webpack
+USER user:user
 
 EXPOSE 8080
 CMD ["pipenv", "run", "python", "-u", "app.py"]
