@@ -10,15 +10,7 @@
 </head>
 
 <body>
-    <div id="app">
-        <nav-bar v-on:select-page="selectPage" v-bind="{
-            currentPageComponent: currentPageComponent,
-            userScreenName: userScreenName,
-            userProfileUrl: userProfileUrl }">
-        </nav-bar>
-        <component v-on:select-page="selectPage" v-bind:is="currentPageComponent"></component>
-    </div>
-
+    <div id="app"></div>
     <script src="/static/bundle.js"></script>
 </body>
 
