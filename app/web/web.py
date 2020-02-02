@@ -601,7 +601,9 @@ async def api_get_tweets(request):
             tweets_to_delete.append(
                 {
                     "created_at": created_at,
-                    "status_id": tweet.status_id,
+                    "status_id": str(
+                        tweet.status_id
+                    ),  # Typecast it to a string, to avoid javascript issues
                     "text": tweet.text,
                     "is_reply": is_reply,
                     "retweet_count": tweet.retweet_count,
