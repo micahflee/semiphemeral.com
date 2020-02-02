@@ -1,3 +1,22 @@
+<style scoped>
+.label {
+  display: inline-block;
+  width: 60px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+progress {
+  min-width: 200px;
+}
+
+.status {
+  color: #666666;
+  font-size: 12px;
+}
+</style>
+
 <template>
   <div v-bind:class="job.status">
     <template v-if="job.job_type == 'fetch'">
@@ -52,25 +71,6 @@
     </template>
   </div>
 </template>
-
-<style scoped>
-.label {
-  display: inline-block;
-  width: 60px;
-  text-align: right;
-  font-size: 11px;
-  font-weight: bold;
-}
-
-progress {
-  min-width: 200px;
-}
-
-.status {
-  color: #666666;
-  font-size: 12px;
-}
-</style>
 
 <script>
 export default {

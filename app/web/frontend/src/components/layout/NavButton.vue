@@ -1,7 +1,3 @@
-<template>
-  <button v-on:click="$emit('select-page')" v-bind:class="{ active: isActive }">{{ buttonText }}</button>
-</template>
-
 <style scoped>
 button {
   border: 0;
@@ -15,6 +11,10 @@ button.active {
   border-bottom: 3px solid #42465d;
 }
 </style>
+
+<template>
+  <button v-on:click="$emit('select-page')" v-bind:class="{ active: isActive }">{{ buttonText }}</button>
+</template>
 
 <script>
 export default {

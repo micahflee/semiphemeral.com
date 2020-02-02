@@ -1,3 +1,70 @@
+<style scoped>
+form fieldset {
+  margin-bottom: 10px;
+  max-width: 450px;
+}
+
+form ul {
+  list-style: none;
+  padding: 0;
+}
+
+form li {
+  display: inline-block;
+}
+
+form .other-amount {
+  width: 2.5em;
+}
+
+form #card-element {
+  max-width: 440px;
+  border: 1px solid #f0f0f0;
+  padding: 5px;
+}
+
+form #card-errors {
+  color: #cc0000;
+}
+
+.tips-history {
+  margin-top: 30px;
+}
+
+.tips-history ul {
+  list-style: none;
+  padding: 0;
+}
+
+.tips-history li img {
+  width: 20px;
+  height: 20px;
+}
+
+.tips-history li .tip-date {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.5em;
+  width: 120px;
+  font-size: 0.8em;
+  color: #666666;
+}
+
+.tips-history li .tip-amount {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 0.8em;
+  color: #009900;
+  width: 60px;
+}
+
+.tips-history li .tip-receipt {
+  display: inline-block;
+  vertical-align: middle;
+  width: 30px;
+}
+</style>
+
 <template>
   <div>
     <script src="https://js.stripe.com/v3/"></script>
@@ -72,75 +139,9 @@
   </div>
 </template>
 
-<style scoped>
-form fieldset {
-  margin-bottom: 10px;
-  max-width: 450px;
-}
-
-form ul {
-  list-style: none;
-  padding: 0;
-}
-
-form li {
-  display: inline-block;
-}
-
-form .other-amount {
-  width: 2.5em;
-}
-
-form #card-element {
-  max-width: 440px;
-  border: 1px solid #f0f0f0;
-  padding: 5px;
-}
-
-form #card-errors {
-  color: #cc0000;
-}
-
-.tips-history {
-  margin-top: 30px;
-}
-
-.tips-history ul {
-  list-style: none;
-  padding: 0;
-}
-
-.tips-history li img {
-  width: 20px;
-  height: 20px;
-}
-
-.tips-history li .tip-date {
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 0.5em;
-  width: 120px;
-  font-size: 0.8em;
-  color: #666666;
-}
-
-.tips-history li .tip-amount {
-  display: inline-block;
-  vertical-align: middle;
-  font-size: 0.8em;
-  color: #009900;
-  width: 60px;
-}
-
-.tips-history li .tip-receipt {
-  display: inline-block;
-  vertical-align: middle;
-  width: 30px;
-}
-</style>
-
 <script>
 export default {
+  props: ["userScreenName"],
   data: function() {
     return {
       loading: false,

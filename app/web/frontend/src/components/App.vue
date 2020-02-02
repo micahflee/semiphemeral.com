@@ -1,16 +1,3 @@
-<template>
-  <div>
-    <NavBar
-      v-on:select-page="selectPage"
-      v-bind="{
-            currentPageComponent: currentPageComponent,
-            userScreenName: userScreenName,
-            userProfileUrl: userProfileUrl }"
-    ></NavBar>
-    <component v-on:select-page="selectPage" v-bind:is="currentPageComponent"></component>
-  </div>
-</template>
-
 <style>
 body {
   font-family: sans;
@@ -35,7 +22,38 @@ img.refresh {
   height: 15px;
   cursor: pointer;
 }
+
+a:link,
+a:visited {
+  color: #28404f;
+  text-decoration: underline;
+}
+
+a:active,
+a:hover {
+  color: #5d8fad;
+  text-decoration: none;
+}
 </style>
+
+<template>
+  <div>
+    <NavBar
+      v-on:select-page="selectPage"
+      v-bind="{
+            currentPageComponent: currentPageComponent,
+            userScreenName: userScreenName,
+            userProfileUrl: userProfileUrl }"
+    ></NavBar>
+    <component
+      v-on:select-page="selectPage"
+      v-bind:is="currentPageComponent"
+      v-bind="{
+        userScreenName: userScreenName
+      }"
+    ></component>
+  </div>
+</template>
 
 <script>
 import NavBar from "./layout/NavBar.vue";

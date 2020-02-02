@@ -74,6 +74,7 @@
 
 <script>
 export default {
+  props: ["userScreenName"],
   data: function() {
     return {
       loading: false,
