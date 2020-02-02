@@ -1,3 +1,52 @@
+<style scoped>
+.controls {
+  display: block;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 999;
+  background-color: #dae8f1;
+  padding: 10px;
+  width: 100%;
+  border-top: 1px solid #666;
+}
+
+.controls .filter input {
+  min-width: 90%;
+  padding: 5px;
+  font-size: 1.2em;
+}
+
+.controls .options {
+  margin: 0 20px 10px 0;
+  color: #666666;
+  font-size: 0.8em;
+  display: inline-block;
+}
+
+.controls .info {
+  margin: 0 0 10px 0;
+  color: #666666;
+  font-size: 0.8em;
+  display: inline-block;
+}
+
+.controls .pagination {
+  margin: 15px 0 0 0;
+}
+
+ul {
+  list-style: none;
+  margin: 0 0 150px 0; /* big margin at the bottom to make space for controls */
+  padding: 0;
+}
+
+li {
+  display: inline-block;
+  vertical-align: top;
+}
+</style>
+
 <template>
   <div class="page tweets">
     <h1>
@@ -27,16 +76,26 @@
           </label>
         </div>
         <div class="info">{{ info }}</div>
-        <div class="pagination"></div>
+        <div class="pagination">
+          <span v-for="pageNumber in pageNumbers">
+            <PageButton
+              v-bind="{
+                pageNumber: pageNumber,
+                currentPage: page
+              }"
+              v-on:select-page="filterTweets(pageNumber)"
+            ></PageButton>
+          </span>
+        </div>
       </div>
 
       <ul>
         <li v-for="id in pageIndices">
           <TweetWrapper
             v-bind="{
-            tweet: tweets[id],
-            userScreenName: userScreenName
-          }"
+              tweet: tweets[id],
+              userScreenName: userScreenName
+            }"
           ></TweetWrapper>
         </li>
       </ul>
@@ -44,21 +103,9 @@
   </div>
 </template>
 
-<style scoped>
-ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-li {
-  display: inline-block;
-  vertical-align: top;
-}
-</style>
-
 <script>
 import TweetWrapper from "./Tweets/TweetWrapper.vue";
+import PageButton from "./Tweets/PageButton.vue";
 
 export default {
   props: ["userScreenName"],
@@ -73,6 +120,7 @@ export default {
       page: 0,
       numPages: 1,
       countPerPage: 50,
+      pageNumbers: [],
       info: ""
     };
   },
@@ -105,10 +153,17 @@ export default {
         });
     },
     filterTweets: function(page = 0) {
-      this.page = page;
+      if (page == "previous") {
+        this.page--;
+      } else if (page == "next") {
+        this.page++;
+      } else {
+        this.page = page;
+      }
 
       // filteredIndices is a list of tweets array indices that match the filter settings
-      for (var i in this.tweets) {
+      this.filteredIndices = [];
+      for (var i = 0; i < this.tweets.length; i++) {
         if (
           this.tweets[i]["text"]
             .toLowerCase()
@@ -123,6 +178,7 @@ export default {
         }
       }
 
+      // Calculate number of pages
       this.numPages = Math.ceil(
         this.filteredIndices.length / this.countPerPage
       );
@@ -130,9 +186,27 @@ export default {
         this.page = 0;
       }
 
+      // Make the page numbers boxes
+      this.pageNumbers = [];
+      if (this.page > 0) {
+        this.pageNumbers.push("previous");
+      }
+      for (var i = this.page - 3; i <= this.page + 3; i++) {
+        if (i >= 0 && i <= this.numPages - 1) {
+          this.pageNumbers.push(i);
+        }
+      }
+      if (this.page < this.numPages - 1) {
+        this.pageNumbers.push("next");
+      }
+
       // pageIndices is a list of tweets array indices to get displayed on the current page
       this.pageIndices = [];
-      for (var i = this.page * this.countPerPage; i < this.countPerPage; i++) {
+      for (
+        var i = this.page * this.countPerPage;
+        i < (this.page + 1) * this.countPerPage;
+        i++
+      ) {
         if (i < this.filteredIndices.length) {
           this.pageIndices.push(this.filteredIndices[i]);
         }
@@ -151,7 +225,8 @@ export default {
     }
   },
   components: {
-    TweetWrapper: TweetWrapper
+    TweetWrapper: TweetWrapper,
+    PageButton: PageButton
   }
 };
 </script>

@@ -50,10 +50,10 @@ span.user span a {
       <li v-for="button in buttons">
         <NavButton
           v-bind="{
-                            currentPageComponent: currentPageComponent,
-                            buttonText: button.buttonText,
-                            pageComponent: button.pageComponent
-                        }"
+            currentPageComponent: currentPageComponent,
+            buttonText: button.buttonText,
+            pageComponent: button.pageComponent
+          }"
           v-on:select-page="$emit('select-page', button.pageComponent)"
         ></NavButton>
       </li>
