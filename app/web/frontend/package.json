@@ -8,7 +8,6 @@
     "vue-loader": "^15.8.3",
     "vue-server-renderer": "^2.6.11",
     "vue-template-compiler": "^2.6.11",
-    "vue-tweet-embed": "^2.4.0",
     "webpack": "^4.41.5",
     "webpack-cli": "^3.3.10"
   }

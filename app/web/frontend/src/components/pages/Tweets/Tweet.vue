@@ -8,14 +8,14 @@
       </label>
       <div class="stats">
         {{ tweet.retweet_count }} retweets,
-        {{ tweet.favorite_count }} likes,
+        {{ tweet.like_count }} likes,
         <a
           target="_blank"
           v-bind:href="twitterPermalink"
         >permalink</a>
       </div>
     </div>
-    <Tweet v-bind:id="statusId"></Tweet>
+    <div ref="embeddedTweet" v-bind:id="embeddedTweetId"></div>
   </div>
 </template>
 
@@ -28,7 +28,20 @@
 </style>
 
 <script>
-import { Tweet } from "vue-tweet-embed";
+let addScriptPromise = 0;
+function addScript() {
+  if (!addScriptPromise) {
+    const s = document.createElement("script");
+    s.setAttribute("src", "https://platform.twitter.com/widgets.js");
+    document.body.appendChild(s);
+    addScriptPromise = new Promise(resolve => {
+      s.onload = () => {
+        resolve(window.twttr);
+      };
+    });
+  }
+  return addScriptPromise;
+}
 
 export default {
   props: ["tweet", "userScreenName"],
@@ -40,6 +53,12 @@ export default {
   created: function() {
     this.excludeFromDeletion = this.tweet.exclude;
   },
+  mounted: function() {
+    this.$nextTick(this.loadTweet);
+  },
+  updated: function() {
+    this.$nextTick(this.loadTweet);
+  },
   computed: {
     twitterPermalink: function() {
       return (
@@ -49,12 +68,23 @@ export default {
         this.tweet.status_id
       );
     },
-    statusId: function() {
-      return this.tweet.status_id;
+    embeddedTweetId: function() {
+      return "tweet-" + this.tweet.status_id;
     }
   },
-  components: {
-    Tweet: Tweet
+  methods: {
+    loadTweet: function() {
+      var that = this;
+      Promise.resolve(window.twttr ? window.twttr : addScript()).then(function(
+        twttr
+      ) {
+        twttr.widgets.createTweetEmbed(
+          that.tweet.status_id,
+          that.$refs.embeddedTweet,
+          { dnt: true }
+        );
+      });
+    }
   }
 };
 </script>
