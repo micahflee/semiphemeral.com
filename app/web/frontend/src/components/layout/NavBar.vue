@@ -45,6 +45,9 @@ export default {
     logoutTitle: function() {
       return "Logged in as @" + this.userScreenName;
     }
+  },
+  components: {
+    NavButton: NavButton
   }
 };
 </script>

@@ -1,28 +1,32 @@
 <template>
-  <NavBar
-    v-on:select-page="selectPage"
-    v-bind="{
+  <div>
+    <NavBar
+      v-on:select-page="selectPage"
+      v-bind="{
             currentPageComponent: currentPageComponent,
             userScreenName: userScreenName,
             userProfileUrl: userProfileUrl }"
-  ></NavBar>
-  <component v-on:select-page="selectPage" v-bind:is="currentPageComponent"></component>
+    ></NavBar>
+    <component v-on:select-page="selectPage" v-bind:is="currentPageComponent"></component>
+  </div>
 </template>
 
 <script>
-import NavBar from "./Layout/NavBar.vue";
-import Dashboard from "./Dashboard.vue";
-import Tweets from "./Tweets.vue";
-import Settings from "./Settings.vue";
-import Tip from "./Tip.vue";
-import Thanks from "./Thanks.vue";
+import NavBar from "./layout/NavBar.vue";
+import Dashboard from "./pages/Dashboard.vue";
+import Tweets from "./pages/Tweets.vue";
+import Settings from "./pages/Settings.vue";
+import Tip from "./pages/Tip.vue";
+import Thanks from "./pages/Thanks.vue";
 
 export default {
-  data: {
-    currentPageComponent: "Dashboard",
-    userScreenName: false,
-    userProfileUrl: false,
-    lastFetch: false
+  data: function() {
+    return {
+      currentPageComponent: "Dashboard",
+      userScreenName: false,
+      userProfileUrl: false,
+      lastFetch: false
+    };
   },
   created: function() {
     this.getUser();
@@ -49,6 +53,14 @@ export default {
           console.log("Error fetching user", err);
         });
     }
+  },
+  components: {
+    NavBar: NavBar,
+    Dashboard: Dashboard,
+    Tweets: Tweets,
+    Settings: Settings,
+    Tip: Tip,
+    Thanks: Thanks
   }
 };
 </script>

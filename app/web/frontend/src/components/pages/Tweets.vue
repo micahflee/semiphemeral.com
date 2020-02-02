@@ -128,6 +128,9 @@ export default {
     commaFormatted: function(x) {
       return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
+  },
+  components: {
+    Tweet: Tweet
   }
 };
 </script>

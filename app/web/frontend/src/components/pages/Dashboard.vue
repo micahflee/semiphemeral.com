@@ -149,6 +149,9 @@ export default {
           that.loading = false;
         });
     }
+  },
+  components: {
+    Job: Job
   }
 };
 </script>
