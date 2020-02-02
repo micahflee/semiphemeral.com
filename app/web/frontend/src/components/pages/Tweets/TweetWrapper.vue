@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="tweet-wrapper">
     <div class="info">
       <label>
         <input type="checkbox" v-bind:checked="excludeFromDeletion" />
@@ -15,21 +15,28 @@
         >permalink</a>
       </div>
     </div>
-    <Tweet v-bind:id="String(tweet.status_id)"></Tweet>
+    <Tweet v-bind:id="tweet.status_id"></Tweet>
   </div>
 </template>
+
+<style scoped>
+.tweet-wrapper {
+  display: inline-block;
+  width: 500px;
+  margin-right: 10px;
+}
+</style>
 
 <script>
 import { Tweet } from "vue-tweet-embed";
 
 export default {
-  props: ["userScreenName"],
+  props: ["tweet", "userScreenName"],
   data: function() {
     return {
       excludeFromDeletion: false
     };
   },
-  props: ["tweet"],
   created: function() {
     console.log(this.tweet);
     this.excludeFromDeletion = this.tweet.exclude;

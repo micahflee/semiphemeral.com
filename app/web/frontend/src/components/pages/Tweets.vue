@@ -30,17 +30,32 @@
         <div class="pagination"></div>
       </div>
 
-      <ul v-for="id in pageIndices">
-        <TweetWrapper
-          v-bind="{
+      <ul>
+        <li v-for="id in pageIndices">
+          <TweetWrapper
+            v-bind="{
             tweet: tweets[id],
             userScreenName: userScreenName
           }"
-        ></TweetWrapper>
+          ></TweetWrapper>
+        </li>
       </ul>
     </template>
   </div>
 </template>
+
+<style scoped>
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+li {
+  display: inline-block;
+  vertical-align: top;
+}
+</style>
 
 <script>
 import TweetWrapper from "./Tweets/TweetWrapper.vue";
@@ -58,8 +73,7 @@ export default {
       page: 0,
       numPages: 1,
       countPerPage: 50,
-      info: "",
-      userScreenName: this.userScreenName
+      info: ""
     };
   },
   created: function() {
