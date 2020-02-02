@@ -15,7 +15,7 @@
         >permalink</a>
       </div>
     </div>
-    <Tweet v-bind:id="tweet.status_id"></Tweet>
+    <Tweet v-bind:id="statusId"></Tweet>
   </div>
 </template>
 
@@ -38,7 +38,6 @@ export default {
     };
   },
   created: function() {
-    console.log(this.tweet);
     this.excludeFromDeletion = this.tweet.exclude;
   },
   computed: {
@@ -49,6 +48,9 @@ export default {
         "/status/" +
         this.tweet.status_id
       );
+    },
+    statusId: function() {
+      return this.tweet.status_id;
     }
   },
   components: {
