@@ -48,7 +48,7 @@ li {
 </style>
 
 <template>
-  <div class="page tweets">
+  <div class="page">
     <h1>
       Choose which tweets should never get automatically deleted
       <img
@@ -91,12 +91,12 @@ li {
 
       <ul>
         <li v-for="id in pageIndices">
-          <TweetWrapper
+          <Tweet
             v-bind="{
               tweet: tweets[id],
               userScreenName: userScreenName
             }"
-          ></TweetWrapper>
+          ></Tweet>
         </li>
       </ul>
     </template>
@@ -104,7 +104,7 @@ li {
 </template>
 
 <script>
-import TweetWrapper from "./Tweets/TweetWrapper.vue";
+import Tweet from "./Tweets/Tweet.vue";
 import PageButton from "./Tweets/PageButton.vue";
 
 export default {
@@ -225,7 +225,7 @@ export default {
     }
   },
   components: {
-    TweetWrapper: TweetWrapper,
+    Tweet: Tweet,
     PageButton: PageButton
   }
 };
