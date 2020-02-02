@@ -207,7 +207,7 @@ export default {
       this.stripeCard.mount("#card-element");
     },
     onSubmit: function() {
-      that = this;
+      var that = this;
       this.errorMessage = null;
       this.loading = true;
 
