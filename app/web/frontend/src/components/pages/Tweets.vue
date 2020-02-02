@@ -31,16 +31,22 @@
       </div>
 
       <ul v-for="id in pageIndices">
-        <Tweet v-bind:tweet="tweets[id]"></Tweet>
+        <TweetWrapper
+          v-bind="{
+            tweet: tweets[id],
+            userScreenName: userScreenName
+          }"
+        ></TweetWrapper>
       </ul>
     </template>
   </div>
 </template>
 
 <script>
-import Tweet from "./Tweets/Tweet.vue";
+import TweetWrapper from "./Tweets/TweetWrapper.vue";
 
 export default {
+  props: ["userScreenName"],
   data: function() {
     return {
       loading: false,
@@ -52,7 +58,8 @@ export default {
       page: 0,
       numPages: 1,
       countPerPage: 50,
-      info: ""
+      info: "",
+      userScreenName: this.userScreenName
     };
   },
   created: function() {
@@ -130,7 +137,7 @@ export default {
     }
   },
   components: {
-    Tweet: Tweet
+    TweetWrapper: TweetWrapper
   }
 };
 </script>

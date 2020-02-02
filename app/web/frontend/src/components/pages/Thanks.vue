@@ -1,6 +1,13 @@
+<style scoped>
+img {
+  width: 200px;
+  height: 200px;
+}
+</style>
+
 <template>
   <div>
-    <h1>Thanks for the tip</h1>
+    <h1>Thanks for the tip, @{{ this.userScreenName }}</h1>
     <p>
       <img src="/static/img/logo.png" />
     </p>
@@ -11,20 +18,9 @@
   </div>
 </template>
 
-<style scoped>
-img {
-  width: 200px;
-  height: 200px;
-}
-
-a {
-  color: #3333ff;
-  text-decoration: underline;
-}
-</style>
-
 <script>
 export default {
+  props: ["userScreenName"],
   data: function() {
     return {
       receipt_url: null

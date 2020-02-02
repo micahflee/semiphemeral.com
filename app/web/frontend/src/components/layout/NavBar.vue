@@ -1,31 +1,3 @@
-<template>
-  <div>
-    <span class="logo">
-      <a href="/">
-        <img src="/static/img/logo-small.png" />
-      </a>
-    </span>
-    <ul>
-      <li v-for="button in buttons">
-        <NavButton
-          v-bind="{
-                            currentPageComponent: currentPageComponent,
-                            buttonText: button.buttonText,
-                            pageComponent: button.pageComponent
-                        }"
-          v-on:select-page="$emit('select-page', button.pageComponent)"
-        ></NavButton>
-      </li>
-    </ul>
-    <span class="user">
-      <img v-if="userScreenName" v-bind:src="userProfileUrl" v-bind:title="logoutTitle" />
-      <span>
-        <a href="/auth/logout">Log out</a>
-      </span>
-    </span>
-  </div>
-</template>
-
 <style scoped>
 span.logo img {
   vertical-align: middle;
@@ -66,6 +38,34 @@ span.user span a {
   text-decoration: none;
 }
 </style>
+
+<template>
+  <div>
+    <span class="logo">
+      <a href="/">
+        <img src="/static/img/logo-small.png" />
+      </a>
+    </span>
+    <ul>
+      <li v-for="button in buttons">
+        <NavButton
+          v-bind="{
+                            currentPageComponent: currentPageComponent,
+                            buttonText: button.buttonText,
+                            pageComponent: button.pageComponent
+                        }"
+          v-on:select-page="$emit('select-page', button.pageComponent)"
+        ></NavButton>
+      </li>
+    </ul>
+    <span class="user">
+      <img v-if="userScreenName" v-bind:src="userProfileUrl" v-bind:title="logoutTitle" />
+      <span>
+        <a href="/auth/logout">Log out</a>
+      </span>
+    </span>
+  </div>
+</template>
 
 <script>
 import NavButton from "./NavButton.vue";

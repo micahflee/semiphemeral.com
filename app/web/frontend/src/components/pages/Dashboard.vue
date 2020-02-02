@@ -77,6 +77,7 @@
 import Job from "./Dashboard/Job.vue";
 
 export default {
+  props: ["userScreenName"],
   data: function() {
     return {
       loading: false,

@@ -1,0 +1,51 @@
+<template>
+  <div>
+    <div class="info">
+      <label>
+        <input type="checkbox" v-bind:checked="excludeFromDeletion" />
+        <span v-if="excludeFromDeletion">Excluded from deletion</span>
+        <span v-else>Staged for deletion</span>
+      </label>
+      <div class="stats">
+        {{ tweet.retweet_count }} retweets,
+        {{ tweet.favorite_count }} likes,
+        <a
+          target="_blank"
+          v-bind:href="twitterPermalink"
+        >permalink</a>
+      </div>
+    </div>
+    <Tweet v-bind:id="String(tweet.status_id)"></Tweet>
+  </div>
+</template>
+
+<script>
+import { Tweet } from "vue-tweet-embed";
+
+export default {
+  props: ["userScreenName"],
+  data: function() {
+    return {
+      excludeFromDeletion: false
+    };
+  },
+  props: ["tweet"],
+  created: function() {
+    console.log(this.tweet);
+    this.excludeFromDeletion = this.tweet.exclude;
+  },
+  computed: {
+    twitterPermalink: function() {
+      return (
+        "https://twitter.com/" +
+        this.userScreenName +
+        "/status/" +
+        this.tweet.status_id
+      );
+    }
+  },
+  components: {
+    Tweet: Tweet
+  }
+};
+</script>
