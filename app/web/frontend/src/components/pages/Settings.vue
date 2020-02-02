@@ -124,7 +124,7 @@ export default {
         });
     },
     onSubmit: function() {
-      that = this;
+      var that = this;
       this.loading = true;
       fetch("/api/settings", {
         method: "POST",
