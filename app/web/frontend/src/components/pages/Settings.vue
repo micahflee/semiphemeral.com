@@ -1,5 +1,5 @@
 <template>
-  <div class="page settings">
+  <div>
     <h1>Choose what you'd like Semiphemeral to automatically delete</h1>
     <form v-on:submit.prevent="onSubmit">
       <p>

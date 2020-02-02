@@ -11,6 +11,32 @@
   </div>
 </template>
 
+<style>
+body {
+  font-family: sans;
+}
+
+#app {
+  max-width: 1000px;
+  margin: 0 auto;
+  font-size: 0.9em;
+}
+
+h1 {
+  font-size: 1.3em;
+}
+
+h2 {
+  font-size: 1.1em;
+}
+
+img.refresh {
+  margin-left: 1em;
+  height: 15px;
+  cursor: pointer;
+}
+</style>
+
 <script>
 import NavBar from "./layout/NavBar.vue";
 import Dashboard from "./pages/Dashboard.vue";

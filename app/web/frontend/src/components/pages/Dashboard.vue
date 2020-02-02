@@ -1,5 +1,5 @@
 <template>
-  <div class="page dashboard">
+  <div>
     <h1>
       Semiphemeral Dashboard
       <img

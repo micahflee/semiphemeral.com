@@ -1,5 +1,5 @@
 <template>
-  <div class="nav">
+  <div>
     <span class="logo">
       <a href="/">
         <img src="/static/img/logo-small.png" />
@@ -25,6 +25,47 @@
     </span>
   </div>
 </template>
+
+<style scoped>
+span.logo img {
+  vertical-align: middle;
+  border: 0;
+}
+
+ul {
+  display: inline-block;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  vertical-align: middle;
+}
+
+ul li {
+  display: inline-block;
+  padding: 3px 10px;
+}
+
+span.user {
+  display: block;
+  float: right;
+}
+
+span.user img {
+  width: 30px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+span.user span {
+  vertical-align: middle;
+  font-size: 0.8em;
+}
+
+span.user span a {
+  color: #42465d;
+  text-decoration: none;
+}
+</style>
 
 <script>
 import NavButton from "./NavButton.vue";
