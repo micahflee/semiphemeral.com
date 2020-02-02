@@ -12,17 +12,17 @@
         <legend>Tweets</legend>
         <p>
           Delete tweets older than
-          <input type="number" min="0" v-model="tweetsDaysThreshold" \ />
+          <input type="number" min="0" v-model="tweetsDaysThreshold" />
           days
         </p>
         <p>
           Unless they have at least
-          <input type="number" min="0" v-model="tweetsRetweetThreshold" \ />
+          <input type="number" min="0" v-model="tweetsRetweetThreshold" />
           retweets
         </p>
         <p>
           Or at least
-          <input type="number" min="0" v-model="tweetsLikeThreshold" \ />
+          <input type="number" min="0" v-model="tweetsLikeThreshold" />
           likes
         </p>
         <p>
@@ -49,12 +49,7 @@
             Unretweet tweets
           </label>
           older than
-          <input
-            type="number"
-            min="0"
-            v-model="retweetsLikesRetweetsThreshold"
-            \
-          />
+          <input type="number" min="0" v-model="retweetsLikesRetweetsThreshold" />
           days
         </p>
 
@@ -64,7 +59,7 @@
             Unlike tweets
           </label>
           older than
-          <input type="number" min="0" v-model="retweetsLikesLikesThreshold" \ />
+          <input type="number" min="0" v-model="retweetsLikesLikesThreshold" />
           days
         </p>
       </fieldset>
