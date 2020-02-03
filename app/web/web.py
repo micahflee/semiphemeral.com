@@ -174,6 +174,19 @@ async def auth_twitter_callback(request):
     raise web.HTTPFound(location="/app")
 
 
+async def stripe_callback(request):
+    data = await request.json()
+
+    # Refund a charge
+    if data["type"] == "charge.refunded":
+        charge_id = data["data"]["object"]["id"]
+        tip = await Tip.query.where(Tip.charge_id == charge_id).gino.first()
+        if tip:
+            await tip.update(refunded=True).apply()
+
+    return web.HTTPOk()
+
+
 @authentication_required_401
 async def api_get_user(request):
     """
@@ -408,8 +421,6 @@ async def api_get_tip_history(request):
 
     tips = (
         await Tip.query.where(User.id == user.id)
-        .where(Tip.paid == True)
-        .where(Tip.refunded == False)
         .order_by(Tip.timestamp.desc())
         .gino.all()
     )
@@ -419,6 +430,8 @@ async def api_get_tip_history(request):
             {
                 "timestamp": tip.timestamp.timestamp(),
                 "amount": tip.amount,
+                "paid": tip.paid,
+                "refunded": tip.refunded,
                 "receipt_url": tip.receipt_url,
             }
             for tip in tips
@@ -669,6 +682,8 @@ async def start_web_server():
             web.get("/auth/login", auth_login),
             web.get("/auth/logout", auth_logout),
             web.get("/auth/twitter_callback", auth_twitter_callback),
+            # Stripe
+            web.post("/stripe/callback", stripe_callback),
             # API
             web.get("/api/user", api_get_user),
             web.get("/api/settings", api_get_settings),
