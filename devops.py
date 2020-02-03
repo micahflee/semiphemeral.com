@@ -252,17 +252,23 @@ def update_app(deploy_environment):
 
 @main.command()
 @click.argument("deploy_environment", nargs=1)
-def terraform(deploy_environment):
+@click.option(
+    "--open-firewall",
+    is_flag=True,
+    default=False,
+    help="Allow any IPs to connect, even if this is staging",
+)
+def terraform(deploy_environment, open_firewall):
     """Re-apply terraform (uses current IP for devops IP)"""
     if not _validate_env(deploy_environment):
         return
 
     devops_ip = _get_devops_ip()
 
-    if deploy_environment == "staging":
-        _terraform_apply(deploy_environment, [devops_ip], [devops_ip])
-    else:
+    if open_firewall or deploy_environment == "production":
         _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
+    else:
+        _terraform_apply(deploy_environment, [devops_ip], [devops_ip])
 
 
 @main.command()
