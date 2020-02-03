@@ -2,8 +2,8 @@
   <div class="tweet-wrapper">
     <div class="info">
       <label>
-        <input type="checkbox" v-bind:checked="excludeFromDeletion" />
-        <span v-if="excludeFromDeletion">Excluded from deletion</span>
+        <input type="checkbox" v-model="excludeFromDeletion" v-on:click="toggleExclude" />
+        <span v-if="excludeFromDeletion" class="excluded">Excluded from deletion</span>
         <span v-else>Staged for deletion</span>
       </label>
       <div class="stats">
@@ -24,6 +24,13 @@
   display: inline-block;
   width: 500px;
   margin-right: 10px;
+}
+.excluded {
+  font-weight: bold;
+}
+.stats {
+  font-size: 0.8em;
+  color: #666666;
 }
 </style>
 
@@ -47,17 +54,24 @@ export default {
   props: ["tweet", "userScreenName"],
   data: function() {
     return {
-      excludeFromDeletion: false
+      excludeFromDeletion: false,
+      previousStatusId: null
     };
   },
   created: function() {
     this.excludeFromDeletion = this.tweet.exclude;
   },
   mounted: function() {
-    this.$nextTick(this.loadTweet);
+    this.$nextTick(this.embedTweet);
+  },
+  beforeUpdate: function() {
+    // If the tweet div id is "tweet-123", this will set previousStatusId to "123"
+    this.previousStatusId = this.$refs.embeddedTweet
+      .getAttribute("id")
+      .split("-")[1];
   },
   updated: function() {
-    this.$nextTick(this.loadTweet);
+    this.$nextTick(this.embedTweet);
   },
   computed: {
     twitterPermalink: function() {
@@ -73,8 +87,22 @@ export default {
     }
   },
   methods: {
-    loadTweet: function() {
+    embedTweet: function() {
       var that = this;
+
+      // If the tweet itself hasn't changed, no need to re-embed it
+      if (this.previousStatusId == this.tweet.status_id) {
+        return;
+      }
+
+      // Delete everything in the tweet div
+      while (this.$refs.embeddedTweet.firstChild) {
+        this.$refs.embeddedTweet.removeChild(
+          this.$refs.embeddedTweet.firstChild
+        );
+      }
+
+      // Embed the tweet
       Promise.resolve(window.twttr ? window.twttr : addScript()).then(function(
         twttr
       ) {
@@ -84,7 +112,8 @@ export default {
           { dnt: true }
         );
       });
-    }
+    },
+    toggleExclude: function() {}
   }
 };
 </script>

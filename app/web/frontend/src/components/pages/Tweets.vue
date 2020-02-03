@@ -68,15 +68,15 @@ li {
     <template v-else>
       <div class="controls">
         <div class="filter">
-          <input placeholder="Filter" type="text" v-bind:value="filterQuery" />
+          <input placeholder="Filter" type="text" v-model="filterQuery" />
         </div>
         <div class="options">
           <label>
-            <input type="checkbox" v-bind:checked="showReplies" /> Show replies
+            <input type="checkbox" v-model="showReplies" /> Show replies
           </label>
         </div>
         <div class="info">{{ info }}</div>
-        <div class="pagination">
+        <div class="pagination" v-if="this.numPages > 1">
           <span v-for="pageNumber in pageNumbers">
             <PageButton
               v-bind="{
@@ -127,6 +127,14 @@ export default {
   created: function() {
     this.fetchTweets();
   },
+  watch: {
+    showReplies: function() {
+      this.filterTweets();
+    },
+    filterQuery: function() {
+      this.filterTweets();
+    }
+  },
   methods: {
     fetchTweets: function() {
       var that = this;
@@ -153,6 +161,11 @@ export default {
         });
     },
     filterTweets: function(page = 0) {
+      console.log("filtering tweets", {
+        showReplies: this.showReplies,
+        filterQuery: this.filterQuery
+      });
+
       if (page == "previous") {
         this.page--;
       } else if (page == "next") {
@@ -218,7 +231,18 @@ export default {
         this.commaFormatted(this.page) +
         " of " +
         this.commaFormatted(this.numPages) +
-        " - ";
+        " | ";
+      if (this.filteredIndices.length != this.tweets.length) {
+        this.info +=
+          "Filtering to " +
+          this.filteredIndices.length +
+          " of " +
+          this.tweets.length +
+          " tweets | ";
+      } else {
+        this.info += this.tweets.length + " tweets | ";
+      }
+      this.info += this.tweets.length + " tweets staged for deletion";
     },
     commaFormatted: function(x) {
       return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");

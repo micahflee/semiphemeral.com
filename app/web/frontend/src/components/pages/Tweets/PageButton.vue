@@ -19,7 +19,7 @@
 .button {
   padding: 5px 10px;
   margin: 0 5px 0 0;
-  font-size: 1em;
+  font-size: 0.8em;
   border: 1px solid #999999;
   color: #034b9e;
   background-color: #ffffff;
