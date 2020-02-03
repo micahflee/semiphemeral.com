@@ -151,8 +151,8 @@ async def auth_twitter_callback(request):
     try:
         api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
         twitter_user = await twitter_api_call(api, "me")
-    except tweepy.TweepError:
-        raise web.HTTPUnauthorized(text="Error, error using Twitter API")
+    except tweepy.TweepError as e:
+        raise web.HTTPUnauthorized(text=f"Error, error using Twitter API: {e}")
 
     # Save values in the session
     session["twitter_id"] = twitter_user.id
@@ -615,6 +615,32 @@ async def api_get_tweets(request):
     return web.json_response({"tweets": tweets_to_delete})
 
 
+@authentication_required_401
+async def api_post_tweets(request):
+    """
+    Toggle "exclude for deletion" on a tweet
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+    data = await request.json()
+
+    # Validate
+    await _api_validate({"status_id": str, "exclude": bool}, data)
+    tweet = (
+        await Tweet.query.where(Tweet.user_id == user.id)
+        .where(Tweet.twitter_user_id == user.twitter_id)
+        .where(Tweet.status_id == int(data["status_id"]))
+        .gino.first()
+    )
+    if not tweet:
+        raise web.HTTPBadRequest(text="Invalid status_id")
+
+    # Update exclude from delete
+    await tweet.update(exclude_from_delete=data["exclude"]).apply()
+
+    return web.json_response(True)
+
+
 @aiohttp_jinja2.template("index.jinja2")
 async def index(request):
     session = await get_session(request)
@@ -660,6 +686,7 @@ async def start_web_server():
             web.get("/api/dashboard", api_get_dashboard),
             web.post("/api/dashboard", api_post_dashboard),
             web.get("/api/tweets", api_get_tweets),
+            web.post("/api/tweets", api_post_tweets),
             # Web
             web.get("/", index),
             web.get("/app", app_main),
