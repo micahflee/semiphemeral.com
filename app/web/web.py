@@ -29,14 +29,8 @@ async def _logged_in_user(session):
         user = await User.query.where(
             User.twitter_id == session["twitter_id"]
         ).gino.first()
+        return user
 
-        # Get the twitter API for the user, and make sure it works
-        try:
-            api = await twitter_api(user)
-            await twitter_api_call(api, "me")
-            return user
-        except:
-            return None
     return None
 
 
