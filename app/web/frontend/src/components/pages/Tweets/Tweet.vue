@@ -2,9 +2,12 @@
   <div class="tweet-wrapper">
     <div class="info">
       <label>
-        <input type="checkbox" v-model="excludeFromDeletion" v-on:click="toggleExclude" />
-        <span v-if="excludeFromDeletion" class="excluded">Excluded from deletion</span>
+        <input ref="excludeCheckbox" type="checkbox" v-model="exclude" v-on:click="toggleExclude()" />
+        <span v-if="exclude" class="excluded">Excluded from deletion</span>
         <span v-else>Staged for deletion</span>
+        <span v-if="loading">
+          <img src="/static/img/loading.gif" title="Loading" />
+        </span>
       </label>
       <div class="stats">
         {{ tweet.retweet_count }} retweets,
@@ -54,12 +57,13 @@ export default {
   props: ["tweet", "userScreenName"],
   data: function() {
     return {
-      excludeFromDeletion: false,
+      loading: false,
+      exclude: null,
       previousStatusId: null
     };
   },
   created: function() {
-    this.excludeFromDeletion = this.tweet.exclude;
+    this.exclude = this.tweet.exclude;
   },
   mounted: function() {
     this.$nextTick(this.embedTweet);
@@ -113,7 +117,31 @@ export default {
         );
       });
     },
-    toggleExclude: function() {}
+    toggleExclude: function() {
+      console.log("exclude", this.exclude);
+
+      var that = this;
+      this.loading = true;
+      this.$refs.excludeCheckbox.disabled = true;
+
+      fetch("/api/tweets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status_id: that.tweet.status_id,
+          exclude: that.exclude
+        })
+      })
+        .then(function(response) {
+          that.loading = false;
+          that.$refs.excludeCheckbox.disabled = false;
+        })
+        .catch(function(err) {
+          console.log("Error toggling exclude", err);
+          that.loading = false;
+          that.$refs.excludeCheckbox.disabled = false;
+        });
+    }
   }
 };
 </script>

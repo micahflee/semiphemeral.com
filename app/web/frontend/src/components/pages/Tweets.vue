@@ -161,11 +161,6 @@ export default {
         });
     },
     filterTweets: function(page = 0) {
-      console.log("filtering tweets", {
-        showReplies: this.showReplies,
-        filterQuery: this.filterQuery
-      });
-
       if (page == "previous") {
         this.page--;
       } else if (page == "next") {
