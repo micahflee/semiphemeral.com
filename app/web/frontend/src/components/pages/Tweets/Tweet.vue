@@ -118,7 +118,8 @@ export default {
       });
     },
     toggleExclude: function() {
-      console.log("exclude", this.exclude);
+      // Toggle it
+      this.exclude = !this.exclude;
 
       var that = this;
       this.loading = true;
