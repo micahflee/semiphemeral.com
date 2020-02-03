@@ -8,6 +8,7 @@
         <span v-if="loading">
           <img src="/static/img/loading.gif" title="Loading" />
         </span>
+        <span v-if="error != ''" class="error">{{ error }}</span>
       </label>
       <div class="stats">
         {{ tweet.retweet_count }} retweets,
@@ -35,6 +36,9 @@
   font-size: 0.8em;
   color: #666666;
 }
+.error {
+  color: #cc0000;
+}
 </style>
 
 <script>
@@ -59,7 +63,8 @@ export default {
     return {
       loading: false,
       exclude: null,
-      previousStatusId: null
+      previousStatusId: null,
+      error: ""
     };
   },
   created: function() {
@@ -123,6 +128,7 @@ export default {
 
       var that = this;
       this.loading = true;
+      this.error = "";
       this.$refs.excludeCheckbox.disabled = true;
 
       fetch("/api/tweets", {
@@ -141,6 +147,10 @@ export default {
           console.log("Error toggling exclude", err);
           that.loading = false;
           that.$refs.excludeCheckbox.disabled = false;
+
+          // Toggle back
+          this.exclude = !this.exclude;
+          this.error = "Error toggling exclude";
         });
     }
   }
