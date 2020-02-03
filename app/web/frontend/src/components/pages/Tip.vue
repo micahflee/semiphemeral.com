@@ -55,7 +55,12 @@ form #card-errors {
   vertical-align: middle;
   font-size: 0.8em;
   color: #009900;
-  width: 60px;
+  min-width: 55px;
+  margin-right: 10px;
+}
+
+.tips-history li .tip-amount .refunded {
+  color: #cc0000;
 }
 
 .tips-history li .tip-receipt {
@@ -127,7 +132,13 @@ form #card-errors {
       <ul>
         <li v-for="tip in tips">
           <span class="tip-date">{{ formatTipDate(tip.timestamp) }}</span>
-          <span class="tip-amount">{{ formatTipAmount(tip.amount) }}</span>
+          <span class="tip-amount">
+            <template v-if="tip.refunded">
+              <strike>{{ formatTipAmount(tip.amount) }}</strike>
+              <span class="refunded">refunded</span>
+            </template>
+            <template v-else>{{ formatTipAmount(tip.amount) }}</template>
+          </span>
           <span class="tip-receipt">
             <a v-bind:href="tip.receipt_url" target="_blank">
               <img title="Receipt" alt="Receipt" src="/static/img/receipt.png" />
