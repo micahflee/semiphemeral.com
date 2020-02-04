@@ -91,7 +91,7 @@ async def auth_login(request):
         # Validate user
         twitter_user = await twitter_api_call(api, "me")
         if session["twitter_id"] == twitter_user.id:
-            raise web.HTTPFound("/app")
+            raise web.HTTPFound("/dashboard")
 
     # Otherwise, authorize with Twitter
     try:
@@ -171,7 +171,7 @@ async def auth_twitter_callback(request):
         )
 
     # Redirect to app
-    raise web.HTTPFound(location="/app")
+    raise web.HTTPFound(location="/dashboard")
 
 
 async def stripe_callback(request):
@@ -698,7 +698,11 @@ async def start_web_server():
             web.post("/api/tweets", api_post_tweets),
             # Web
             web.get("/", index),
-            web.get("/app", app_main),
+            web.get("/dashboard", app_main),
+            web.get("/tweets", app_main),
+            web.get("/settings", app_main),
+            web.get("/tip", app_main),
+            web.get("/thanks", app_main),
         ]
     )
 

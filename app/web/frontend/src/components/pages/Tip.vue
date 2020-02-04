@@ -249,7 +249,7 @@ export default {
                   that.fetchHistory();
 
                   // Navigate to thank you page
-                  that.$emit("select-page", "Thanks");
+                  that.$router.push("/thanks");
                 }
 
                 that.loading = false;
