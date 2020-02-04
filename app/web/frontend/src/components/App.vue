@@ -45,11 +45,9 @@ a:hover {
             userScreenName: userScreenName,
             userProfileUrl: userProfileUrl }"
     ></NavBar>
-    <transition name="fade">
-      <router-view v-bind="{
-        userScreenName: userScreenName
-      }"></router-view>
-    </transition>
+    <router-view v-bind="{
+      userScreenName: userScreenName
+    }"></router-view>
   </div>
 </template>
 
