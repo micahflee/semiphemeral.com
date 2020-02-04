@@ -45,23 +45,16 @@ a:hover {
             userScreenName: userScreenName,
             userProfileUrl: userProfileUrl }"
     ></NavBar>
-    <component
-      v-on:select-page="selectPage"
-      v-bind:is="currentPageComponent"
-      v-bind="{
+    <transition name="fade">
+      <router-view v-bind="{
         userScreenName: userScreenName
-      }"
-    ></component>
+      }"></router-view>
+    </transition>
   </div>
 </template>
 
 <script>
 import NavBar from "./layout/NavBar.vue";
-import Dashboard from "./pages/Dashboard.vue";
-import Tweets from "./pages/Tweets.vue";
-import Settings from "./pages/Settings.vue";
-import Tip from "./pages/Tip.vue";
-import Thanks from "./pages/Thanks.vue";
 
 export default {
   data: function() {
@@ -99,12 +92,7 @@ export default {
     }
   },
   components: {
-    NavBar: NavBar,
-    Dashboard: Dashboard,
-    Tweets: Tweets,
-    Settings: Settings,
-    Tip: Tip,
-    Thanks: Thanks
+    NavBar: NavBar
   }
 };
 </script>

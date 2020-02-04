@@ -17,6 +17,18 @@ ul li {
   padding: 3px 10px;
 }
 
+ul li a {
+  border: 0;
+  background-color: transparent;
+  padding: 5px;
+  text-decoration: none;
+}
+
+ul li a.router-link-active {
+  color: #42465d;
+  border-bottom: 3px solid #42465d;
+}
+
 span.user {
   display: block;
   float: right;
@@ -47,15 +59,17 @@ span.user span a {
       </a>
     </span>
     <ul>
-      <li v-for="button in buttons">
-        <NavButton
-          v-bind="{
-            currentPageComponent: currentPageComponent,
-            buttonText: button.buttonText,
-            pageComponent: button.pageComponent
-          }"
-          v-on:select-page="$emit('select-page', button.pageComponent)"
-        ></NavButton>
+      <li>
+        <router-link to="/dashboard">Dashboard</router-link>
+      </li>
+      <li>
+        <router-link to="/tweets">Tweets</router-link>
+      </li>
+      <li>
+        <router-link to="/settings">Settings</router-link>
+      </li>
+      <li>
+        <router-link to="/tip">Tip</router-link>
       </li>
     </ul>
     <span class="user">
@@ -68,27 +82,12 @@ span.user span a {
 </template>
 
 <script>
-import NavButton from "./NavButton.vue";
-
 export default {
   props: ["currentPageComponent", "userScreenName", "userProfileUrl"],
-  data: function() {
-    return {
-      buttons: [
-        { buttonText: "Dashboard", pageComponent: "Dashboard" },
-        { buttonText: "Tweets", pageComponent: "Tweets" },
-        { buttonText: "Settings", pageComponent: "Settings" },
-        { buttonText: "Tip", pageComponent: "Tip" }
-      ]
-    };
-  },
   computed: {
     logoutTitle: function() {
       return "Logged in as @" + this.userScreenName;
     }
-  },
-  components: {
-    NavButton: NavButton
   }
 };
 </script>
