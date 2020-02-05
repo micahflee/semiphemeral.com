@@ -126,9 +126,11 @@ export default {
       return JSON.parse(this.job.progress).status;
     },
     scheduledTimestampInThePast: function() {
-      scheduleTimestamp = Math.floor(this.job["scheduled_timestamp"] * 1000);
-      nowTimestamp = Date.now();
-      return scheduleTimestamp <= nowTimestamp;
+      var scheduledTimestamp = Math.floor(
+        this.job["scheduled_timestamp"] * 1000
+      );
+      var nowTimestamp = Date.now();
+      return scheduledTimestamp <= nowTimestamp;
     },
     humanReadableScheduledTimestamp: function() {
       var date = new Date(this.job["scheduled_timestamp"] * 1000);
