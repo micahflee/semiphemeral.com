@@ -457,7 +457,14 @@ async def api_get_dashboard(request):
     active_jobs = (
         await Job.query.where(User.id == user.id)
         .where(Job.status == "active")
-        .order_by(Job.scheduled_timestamp)
+        .order_by(Job.started_timestamp)
+        .gino.all()
+    )
+
+    finished_jobs = (
+        await Job.query.where(User.id == user.id)
+        .where(Job.status == "finished")
+        .order_by(Job.finished_timestamp)
         .gino.all()
     )
 
@@ -472,6 +479,10 @@ async def api_get_dashboard(request):
                 started_timestamp = job.started_timestamp.timestamp()
             else:
                 started_timestamp = None
+            if job.finished_timestamp:
+                finished_timestamp = job.finished_timestamp.timestamp()
+            else:
+                finished_timestamp = None
 
             jobs_json.append(
                 {
@@ -481,6 +492,7 @@ async def api_get_dashboard(request):
                     "status": job.status,
                     "scheduled_timestamp": scheduled_timestamp,
                     "started_timestamp": started_timestamp,
+                    "finished_timestamp": finished_timestamp,
                 }
             )
             return jobs_json
@@ -489,6 +501,7 @@ async def api_get_dashboard(request):
         {
             "pending_jobs": to_client(pending_jobs),
             "active_jobs": to_client(active_jobs),
+            "finished_jobs": to_client(finished_jobs),
             "paused": user.paused,
         }
     )
