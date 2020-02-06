@@ -21,3 +21,7 @@ module "semiphemeral" {
 output "app_ip" {
   value = module.semiphemeral.app_ip
 }
+
+output "database_uri" {
+  value = module.semiphemeral.database_uri
+}

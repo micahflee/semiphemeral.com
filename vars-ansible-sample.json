@@ -3,7 +3,6 @@
         "domain": "staging.semiphemeral.com",
         "twitter_consumer_token": "put_consumer_token_here",
         "twitter_consumer_secret": "put_consumer_token_secret_here",
-        "postgres_password": "put_a_unique_password_here",
         "cookie_fernet_key": "output of: python3 -c 'from cryptography import fernet; print(fernet.Fernet.generate_key().decode())'",
         "stripe_publishable_key": "pk_blahblahblahfromstripe",
         "stripe_secret_key": "sk_blahblahblahfromstripe"
@@ -12,7 +11,6 @@
         "domain": "semiphemeral.com",
         "twitter_consumer_token": "put_consumer_token_here",
         "twitter_consumer_secret": "put_consumer_token_secret_here",
-        "postgres_password": "put_a_unique_password_here",
         "cookie_fernet_key": "output of: python3 -c 'from cryptography import fernet; print(fernet.Fernet.generate_key().decode())'",
         "stripe_publishable_key": "pk_blahblahblahfromstripe",
         "stripe_secret_key": "sk_blahblahblahfromstripe"
