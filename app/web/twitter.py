@@ -350,6 +350,17 @@ async def fetch(job):
 
     await log(job, "Fetch finished")
 
+    # If semiphemeral is paused, then we're done. If it's not paused, then schedule
+    # a delete job
+    if not user.paused:
+        # Create a new delete job
+        await Job.create(
+            user_id=user.id,
+            job_type="delete",
+            status="pending",
+            scheduled_timestamp=datetime.now(),
+        )
+
 
 @ensure_user_follows_us
 async def delete(job):
