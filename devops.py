@@ -47,14 +47,21 @@ def _terraform_variables(deploy_environment):
 
 
 def _ansible_variables(deploy_environment):
+    ansible_vars = []
+
+    # Add variables from .vars-ansible.json
     all_variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible.json"))
     variables = all_variables[deploy_environment]
     variables["deploy_environment"] = deploy_environment
 
-    ansible_vars = []
     for key in variables:
         ansible_vars.append("-e")
         ansible_vars.append(f"{key}={variables[key]}")
+
+    # Add variables from terraform
+    terraform_output = _get_terraform_output(deploy_environment)
+    ansible_vars.append("-e")
+    ansible_vars.append(f"database_uri={terraform_output['database_uri']}")
 
     return ansible_vars
 
@@ -170,7 +177,7 @@ def _ssh(deploy_environment, args=None):
         return
 
 
-def _get_ip(deploy_environment):
+def _get_terraform_output(deploy_environment):
     # Get the terraform output
     terraform_output = {}
     try:
@@ -184,7 +191,12 @@ def _get_ip(deploy_environment):
             parts = line.split("=")
             terraform_output[parts[0].strip()] = parts[1].strip()
 
+    return terraform_output
+
+
+def _get_ip(deploy_environment):
     # Make sure the IP is in there
+    terraform_output = _get_terraform_output(deploy_environment)
     if "app_ip" not in terraform_output:
         print(
             "Terraform output is missing `app_ip`. Did you run `terraform apply` successfully?"

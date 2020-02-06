@@ -84,6 +84,33 @@ resource "digitalocean_domain" "domain" {
   ip_address = digitalocean_droplet.app.ipv4_address
 }
 
+resource "digitalocean_database_cluster" "db" {
+  name       = "db-${var.deploy_environment}"
+  engine     = "pg"
+  version    = "11"
+  size       = "db-s-1vcpu-1gb"
+  region     = "nyc1"
+  node_count = 1
+}
+
+resource "digitalocean_database_user" "user" {
+  cluster_id = digitalocean_database_cluster.db.id
+  name       = "semiphemeral"
+}
+
+resource "digitalocean_database_firewall" "fw" {
+  cluster_id = digitalocean_database_cluster.db.id
+
+  rule {
+    type  = "droplet"
+    value = digitalocean_droplet.app.id
+  }
+}
+
 output "app_ip" {
   value = digitalocean_droplet.app.ipv4_address
+}
+
+output "database_uri" {
+  value = digitalocean_database_cluster.db.private_uri
 }

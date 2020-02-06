@@ -76,13 +76,6 @@
         owner: "1000"
         mode: 0700
 
-    - name: ensure db volume data directory has the right permissions
-      file:
-        path: /opt/semiphemeral/data/db
-        state: directory
-        owner: "999" # postgres user
-        mode: 0700
-
     - name: ensure proxy volume data directory has the right permissions
       file:
         path: /opt/semiphemeral/data/proxy

@@ -98,5 +98,5 @@ class Tweet(db.Model):
 
 
 async def connect_db():
-    password = os.environ.get("POSTGRES_PASSWORD")
-    await db.set_bind(f"postgresql://semiphemeral:{password}@db/semiphemeral")
+    database_uri = os.environ.get("DATABASE_URI")
+    await db.set_bind(database_uri)

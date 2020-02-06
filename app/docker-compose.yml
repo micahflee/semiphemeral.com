@@ -22,7 +22,7 @@ services:
       - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
-      - POSTGRES_PASSWORD={{ postgres_password }}
+      - DATABASE_URI={{ database_uri }}
       - COOKIE_FERNET_KEY={{ cookie_fernet_key }}
       - STRIPE_PUBLISHABLE_KEY={{ stripe_publishable_key }}
       - STRIPE_SECRET_KEY={{ stripe_secret_key }}
@@ -30,25 +30,6 @@ services:
       - "8080"
     volumes:
       - /opt/semiphemeral/data/web:/var/web
-    depends_on:
-      - db
-    networks:
-      - default
-
-  db:
-    restart: always
-    image: "postgres:12"
-    expose:
-      - "5432"
-    # so I can ssh forward postgres port locally
-    ports:
-      - "127.0.0.1:5432:5432"
-    environment:
-      - POSTGRES_USER=semiphemeral
-      - POSTGRES_PASSWORD={{ postgres_password }}
-      - POSTGRES_DB=semiphemeral
-    volumes:
-      - /opt/semiphemeral/data/db:/var/lib/postgresql/data
     networks:
       - default
 
