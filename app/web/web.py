@@ -464,7 +464,7 @@ async def api_get_dashboard(request):
     finished_jobs = (
         await Job.query.where(User.id == user.id)
         .where(Job.status == "finished")
-        .order_by(Job.finished_timestamp)
+        .order_by(Job.finished_timestamp.desc())
         .gino.all()
     )
 
@@ -495,7 +495,7 @@ async def api_get_dashboard(request):
                     "finished_timestamp": finished_timestamp,
                 }
             )
-            return jobs_json
+        return jobs_json
 
     return web.json_response(
         {
@@ -510,10 +510,14 @@ async def api_get_dashboard(request):
 @authentication_required_401
 async def api_post_dashboard(request):
     """
-    Either start or pause semiphemeral.
+    Start or pause semiphemeral, or fetch.
 
-    If action is start, the user paused, and there are no pending or active jobs, unpause and create a delete job.
-    If action is pause and the user is not paused, cancel any active or pending jobs and pause.
+    If action is start, the user paused, and there are no pending or active jobs:
+      unpause and create a delete job
+    If action is pause and the user is not paused:
+      cancel any active or pending jobs and pause
+    If action is fetch, the user is paused, and there are no pending or active jobs:
+      create a fetch job
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
@@ -521,8 +525,12 @@ async def api_post_dashboard(request):
 
     # Validate
     await _api_validate({"action": str}, data)
-    if data["action"] != "start" and data["action"] != "pause":
-        raise web.HTTPBadRequest(text="action must be 'start' or 'pause")
+    if (
+        data["action"] != "start"
+        and data["action"] != "pause"
+        and data["action"] != "fetch"
+    ):
+        raise web.HTTPBadRequest(text="action must be 'start', 'pause', or 'fetch'")
 
     # Get pending and active jobs
     pending_jobs = (
@@ -547,16 +555,16 @@ async def api_post_dashboard(request):
                 text="Cannot 'start' when there are pending or active jobs"
             )
 
-            # Create a new delete job
-            await Job.create(
-                user_id=user.id,
-                job_type="delete",
-                status="pending",
-                scheduled_timestamp=datetime.now(),
-            )
+        # Unpause
+        await user.update(paused=False).apply()
 
-            # Unpause
-            await user.update(paused=False).apply()
+        # Create a new fetch job
+        await Job.create(
+            user_id=user.id,
+            job_type="delete",
+            status="pending",
+            scheduled_timestamp=datetime.now(),
+        )
 
     elif data["action"] == "pause":
         if user.paused:
@@ -570,6 +578,25 @@ async def api_post_dashboard(request):
 
         # Pause
         await user.update(paused=True).apply()
+
+    elif data["action"] == "fetch":
+        if not user.paused:
+            raise web.HTTPBadRequest(
+                text="Cannot 'fetch' unless semiphemeral is paused"
+            )
+
+        if len(jobs) > 0:
+            raise web.HTTPBadRequest(
+                text="Cannot 'fetch' when there are pending or active jobs"
+            )
+
+        # Create a new fetch job
+        await Job.create(
+            user_id=user.id,
+            job_type="fetch",
+            status="pending",
+            scheduled_timestamp=datetime.now(),
+        )
 
     return web.json_response(True)
 

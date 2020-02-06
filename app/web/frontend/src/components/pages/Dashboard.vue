@@ -47,7 +47,8 @@ ul.jobs {
 
       <div v-if="state == 'B'">
         <p>
-          You have downloaded a copy of your Twitter history, and Semiphemeral is currently
+          You finished downloading a copy of your Twitter history on
+          <em>{{ mostRecentFetchFinished }}</em>, and Semiphemeral is currently
           <strong>paused</strong>. Before you proceed:
         </p>
         <ul>
@@ -63,12 +64,14 @@ ul.jobs {
           </li>
         </ul>
 
-        <p>When you're ready:</p>
         <p>
+          When you're ready,
           <button class="start" v-on:click="startSemiphemeral">Start Semiphemeral</button>
-        </p>
-        <p>
-          <button class="download" v-on:click="downloadHistory">Re-download my Twitter history again</button>
+          or
+          <button
+            class="download"
+            v-on:click="downloadHistory"
+          >Download my Twitter history again</button>
         </p>
       </div>
 
@@ -132,46 +135,54 @@ export default {
       } else {
         return "C";
       }
+    },
+    mostRecentFetchFinished: function() {
+      var timestamp = 0;
+      for (var i = 0; i < this.finishedJobs.length; i++) {
+        if (
+          this.finishedJobs[i]["job_type"] == "fetch" &&
+          this.finishedJobs[i]["finished_timestamp"] > timestamp
+        ) {
+          timestamp = this.finishedJobs[i]["finished_timestamp"];
+        }
+      }
+
+      if (timestamp == 0) {
+        return "N/A";
+      } else {
+        var date = new Date(timestamp * 1000);
+        return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
+      }
     }
   },
   created: function() {
     this.fetchJobs();
   },
   methods: {
-    startSemiphemeral: function() {
+    postDashboard: function(action) {
       var that = this;
       this.loading = true;
       fetch("/api/dashboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "start" })
+        body: JSON.stringify({ action: action })
       })
         .then(function(response) {
           that.fetchJobs();
         })
         .catch(function(err) {
-          console.log("Error starting semiphemeral", err);
+          console.log("Error", err);
           that.loading = false;
         });
+    },
+    startSemiphemeral: function() {
+      this.postDashboard("start");
     },
     pauseSemiphemeral: function() {
-      var that = this;
-      this.loading = true;
-      fetch("/api/dashboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "pause" })
-      })
-        .then(function(response) {
-          that.fetchJobs();
-        })
-        .catch(function(err) {
-          console.log("Error pausing semiphemeral", err);
-          that.loading = false;
-        });
+      this.postDashboard("pause");
     },
     downloadHistory: function() {
-      // TODO: support starting a new pending fetch job
+      this.postDashboard("fetch");
     },
     fetchJobs: function() {
       var that = this;
