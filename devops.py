@@ -62,6 +62,8 @@ def _ansible_variables(deploy_environment):
     terraform_output = _get_terraform_output(deploy_environment)
     ansible_vars.append("-e")
     ansible_vars.append(f"database_uri={terraform_output['database_uri']}")
+    ansible_vars.append("-e")
+    ansible_vars.append(f"database_host={terraform_output['database_host']}")
 
     return ansible_vars
 
@@ -333,7 +335,12 @@ def forward_postgres(deploy_environment):
     """Forward the postgres port to localhost, using SSH"""
     if not _validate_env(deploy_environment):
         return
-    _ssh(deploy_environment, ["-N", "-L", "5432:localhost:5432"])
+
+    terraform_output = _get_terraform_output(deploy_environment)
+    _ssh(
+        deploy_environment,
+        ["-N", "-L", f"5432:{terraform_output['database_host']}:25060"],
+    )
 
 
 if __name__ == "__main__":

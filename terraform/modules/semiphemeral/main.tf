@@ -67,6 +67,14 @@ resource "digitalocean_firewall" "app" {
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
+  # DigitalOcean postgresql database cluster
+  # I can't seem to restrict it to a hostname, and I don't know the cluster's IP
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "25060"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
   outbound_rule {
     protocol              = "udp"
     port_range            = "53"
@@ -113,4 +121,20 @@ output "app_ip" {
 
 output "database_uri" {
   value = digitalocean_database_cluster.db.private_uri
+}
+
+output "database_host" {
+  value = digitalocean_database_cluster.db.private_host
+}
+
+output "database_name" {
+  value = digitalocean_database_cluster.db.database
+}
+
+output "database_user" {
+  value = digitalocean_database_cluster.db.user
+}
+
+output "database_password" {
+  value = digitalocean_database_cluster.db.password
 }

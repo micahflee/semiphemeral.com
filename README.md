@@ -6,6 +6,8 @@ The hosted version of [semiphemeral](https://github.com/micahflee/semiphemeral).
 
 ## Staging and production infrastructure
 
+To backup and restore, you need `postgresql-client` installed.
+
 Install [terraform](https://www.terraform.io/downloads.html) and python 3.7+, and these pip dependencies:
 
 ```sh

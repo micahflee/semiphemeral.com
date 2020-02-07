@@ -25,3 +25,19 @@ output "app_ip" {
 output "database_uri" {
   value = module.semiphemeral.database_uri
 }
+
+output "database_host" {
+  value = module.semiphemeral.database_host
+}
+
+output "database_name" {
+  value = module.semiphemeral.database_name
+}
+
+output "database_user" {
+  value = module.semiphemeral.database_user
+}
+
+output "database_password" {
+  value = module.semiphemeral.database_password
+}
