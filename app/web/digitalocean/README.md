@@ -1,0 +1,1 @@
+`ca-certificate.crt` is DigitalOcean's SSL certificate authority for their managed postgres database.

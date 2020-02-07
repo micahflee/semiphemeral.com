@@ -32,7 +32,11 @@ services:
       - /opt/semiphemeral/data/web:/var/web
     networks:
       - default
+      - host_private
 
 networks:
   default:
     driver: bridge
+  host_private:
+    driver: bridge
+    internal: true
