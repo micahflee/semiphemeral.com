@@ -1,0 +1,30 @@
+/opt/semiphemeral/data/proxy/*.log {
+        daily
+        missingok
+        rotate 7
+        compress
+        delaycompress
+        notifempty
+        create 640 nginx adm
+        sharedscripts
+        postrotate
+                NGINX_PID=$(docker exec app_proxy_1 cat /var/run/nginx.pid)
+                if [ $? -eq 0 ]; then
+                        docker exec app_proxy_1 kill -USR1 $NGINX_PID
+                fi
+        endscript
+}
+
+/opt/semiphemeral/data/web/*.log {
+        daily
+        missingok
+        rotate 7
+        compress
+        delaycompress
+        notifempty
+        create 640 nginx adm
+        sharedscripts
+        postrotate
+                docker exec app_web_1 curl curl http://127.0.0.1:8080/{{ maintenance_secret }}/refresh_logging
+        endscript
+}

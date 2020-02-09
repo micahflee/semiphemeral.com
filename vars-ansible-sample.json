@@ -5,7 +5,8 @@
         "twitter_consumer_secret": "put_consumer_token_secret_here",
         "cookie_fernet_key": "output of: python3 -c 'from cryptography import fernet; print(fernet.Fernet.generate_key().decode())'",
         "stripe_publishable_key": "pk_blahblahblahfromstripe",
-        "stripe_secret_key": "sk_blahblahblahfromstripe"
+        "stripe_secret_key": "sk_blahblahblahfromstripe",
+        "maintenance_secret": "output of: python3 -c 'import secrets; print(secrets.token_hex(16))'"
     },
     "production": {
         "domain": "semiphemeral.com",
@@ -13,6 +14,7 @@
         "twitter_consumer_secret": "put_consumer_token_secret_here",
         "cookie_fernet_key": "output of: python3 -c 'from cryptography import fernet; print(fernet.Fernet.generate_key().decode())'",
         "stripe_publishable_key": "pk_blahblahblahfromstripe",
-        "stripe_secret_key": "sk_blahblahblahfromstripe"
+        "stripe_secret_key": "sk_blahblahblahfromstripe",
+        "maintenance_secret": "output of: python3 -c 'import secrets; print(secrets.token_hex(16))'"
     }
 }

@@ -83,5 +83,10 @@
         owner: "101" # nginx user
         mode: 0700
 
+    - name: /etc/logrotate.d/semiphemeral template
+      template:
+        src: ./etc/logrotate.d/semiphemeral
+        dest: /etc/logrotate.d/semiphemeral
+
     - name: ensure we have a Let's Encrypt certificate
       shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ domain }}

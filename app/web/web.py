@@ -725,11 +725,22 @@ async def app_main(request):
     return {"deploy_environment": os.environ.get("DEPLOY_ENVIRONMENT")}
 
 
+async def maintenance_refresh_logging(request=None):
+    """
+    Refreshes logging. This needs to get run after rotating logs, to re-open the
+    web.log file
+    """
+    logging.basicConfig(filename="/var/web/web.log", level=logging.INFO)
+
+    if request:
+        return web.json_response(True)
+
+
 async def start_web_server():
     # Create the web app
     app = web.Application()
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader("templates"))
-    logging.basicConfig(filename="/var/web/web.log", level=logging.DEBUG)
+    await maintenance_refresh_logging()
 
     # Secret_key must be 32 url-safe base64-encoded bytes
     fernet_key = os.environ.get("COOKIE_FERNET_KEY")
@@ -767,6 +778,11 @@ async def start_web_server():
             web.get("/settings", app_main),
             web.get("/tip", app_main),
             web.get("/thanks", app_main),
+            # Maintenance
+            web.get(
+                f"/{os.environ.get('MAINTENANCE_SECRET')}/refresh_logging",
+                maintenance_refresh_logging,
+            ),
         ]
     )
 
