@@ -321,7 +321,8 @@ async def fetch(job):
             if not tweet:
                 # Save the tweet
                 await save_tweet(user, status)
-                progress["likes"] += 1
+
+            progress["likes"] += 1
 
         await update_progress(job, progress)
 
