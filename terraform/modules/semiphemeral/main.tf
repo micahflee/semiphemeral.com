@@ -101,11 +101,6 @@ resource "digitalocean_database_cluster" "db" {
   node_count = 1
 }
 
-resource "digitalocean_database_user" "user" {
-  cluster_id = digitalocean_database_cluster.db.id
-  name       = "semiphemeral"
-}
-
 resource "digitalocean_database_firewall" "fw" {
   cluster_id = digitalocean_database_cluster.db.id
 
