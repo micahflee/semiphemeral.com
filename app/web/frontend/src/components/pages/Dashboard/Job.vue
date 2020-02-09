@@ -7,13 +7,18 @@
   font-weight: bold;
 }
 
-progress {
-  min-width: 200px;
-}
-
 .status {
   color: #666666;
   font-size: 12px;
+}
+
+.active p.progress {
+  display: inline-block;
+  border: 1px solid #5d8fad;
+  padding: 10px;
+  margin: 0;
+  border-radius: 10px;
+  background-color: #dbf2ff;
 }
 
 .finished .finished-timestamp {
@@ -44,22 +49,13 @@ progress {
       </template>
       <template v-else-if="job.status == 'active'">
         <p class="status">{{ progressStatus }}</p>
-        <div>
-          <span class="label">Tweets</span>
-          <progress
-            v-bind:value="progressTweets"
-            v-bind:max="progressTotalTweets"
-            v-bind:title="progressTweetsTitle"
-          ></progress>
-        </div>
-        <div>
-          <span class="label">Likes</span>
-          <progress
-            v-bind:value="progressLikes"
-            v-bind:max="progressTotalLikes"
-            v-bind:title="progressLikesTitle"
-          ></progress>
-        </div>
+        <p class="progress">
+          Started downloading on
+          <em>{{ humanReadableStartedTimestamp }}</em>
+          <br />Downloaded
+          <strong>{{ progressTweets }} tweets</strong>,
+          <strong>{{ progressLikes }} likes</strong> since then
+        </p>
       </template>
       <template v-else-if="job.status == 'finished'">
         <p class="finished">
@@ -72,18 +68,22 @@ progress {
     <template v-if="job.job_type == 'delete'">
       <template v-if="job.status == 'pending'">
         <p
-          class="progress-text"
+          class="status"
           v-if="scheduledTimestampInThePast"
-        >Waiting to delete your old tweets and likes as soon as it's your turn in the queue.</p>
-        <p class="progress-text" v-else>
+        >Waiting to delete your old tweets and likes as soon as it's your turn in the queue</p>
+        <p class="status" v-else>
           Waiting to delete your old tweets and likes, scheduled for
-          <em>{{ humanReadableScheduledTimestamp }}</em>.
+          <em>{{ humanReadableScheduledTimestamp }}</em>
         </p>
       </template>
       <template v-else-if="job.status == 'active'">
-        <p class="progress-text">
-          Deleting your tweets and likes. Progress:
-          <span class="progress">{{ job.progress }}</span>
+        <p class="status">{{ progressStatus }}</p>
+        <p class="progress">
+          Started deleting on
+          <em>{{ humanReadableStartedTimestamp }}</em>
+          <br />Deleted
+          <strong>{{ progressTweets }} tweets</strong>,
+          <strong>{{ progressLikes }} likes</strong> since then
         </p>
       </template>
       <template v-else-if="job.status == 'finished'">
@@ -103,24 +103,8 @@ export default {
     progressTweets: function() {
       return JSON.parse(this.job.progress).tweets;
     },
-    progressTotalTweets: function() {
-      return JSON.parse(this.job.progress).total_tweets;
-    },
-    progressTweetsTitle: function() {
-      return (
-        "" + this.progressTweets + " / " + this.progressTotalTweets + " tweets"
-      );
-    },
     progressLikes: function() {
       return JSON.parse(this.job.progress).likes;
-    },
-    progressTotalLikes: function() {
-      return JSON.parse(this.job.progress).total_likes;
-    },
-    progressLikesTitle: function() {
-      return (
-        "" + this.progressLikes + " / " + this.progressTotalLikes + " likes"
-      );
     },
     progressStatus: function() {
       return JSON.parse(this.job.progress).status;
@@ -133,11 +117,18 @@ export default {
       return scheduledTimestamp <= nowTimestamp;
     },
     humanReadableScheduledTimestamp: function() {
-      var date = new Date(this.job["scheduled_timestamp"] * 1000);
-      return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
+      return this.humanReadableTimestamp(this.job["scheduled_timestamp"]);
+    },
+    humanReadableStartedTimestamp: function() {
+      return this.humanReadableTimestamp(this.job["started_timestamp"]);
     },
     humanReadableFinishedTimestamp: function() {
-      var date = new Date(this.job["finished_timestamp"] * 1000);
+      return this.humanReadableTimestamp(this.job["finished_timestamp"]);
+    }
+  },
+  methods: {
+    humanReadableTimestamp: function(timestamp) {
+      var date = new Date(timestamp * 1000);
       return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
     }
   }
