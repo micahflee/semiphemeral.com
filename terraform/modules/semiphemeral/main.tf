@@ -23,7 +23,7 @@ resource "digitalocean_droplet" "app" {
 }
 
 resource "digitalocean_firewall" "app" {
-  name        = "only-22-80-and-443"
+  name        = "ssh-http-https-postgresql-${var.deploy_environment}"
   droplet_ids = [digitalocean_droplet.app.id]
 
   inbound_rule {
