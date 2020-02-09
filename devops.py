@@ -2,14 +2,16 @@
 import click
 import subprocess
 import os
-import datetime
 import shutil
 import tempfile
 import tarfile
 import json
 import pipes
-
+import socket
+import random
 import warnings
+import time
+from datetime import datetime
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -21,6 +23,18 @@ def _validate_env(deploy_environment):
         click.echo("The environment must be either 'staging' or 'prod'")
         return False
     return True
+
+
+def _find_available_port():
+    with socket.socket() as tmpsock:
+        while True:
+            try:
+                tmpsock.bind(("127.0.0.1", random.randint(10000, 20000)))
+                break
+            except OSError:
+                pass
+        _, port = tmpsock.getsockname()
+    return port
 
 
 def _get_variables(filename):
@@ -161,7 +175,7 @@ def _ansible_apply(deploy_environment, update_only=False):
     return True
 
 
-def _ssh(deploy_environment, args=None):
+def _ssh(deploy_environment, args=None, use_popen=False):
     ip = _get_ip(deploy_environment)
     if not ip:
         return
@@ -173,10 +187,14 @@ def _ssh(deploy_environment, args=None):
     # SSH into the server
     args_str = " ".join(pipes.quote(s) for s in args)
     print(f"Executing: {args_str}")
-    p = subprocess.run(args)
-    if p.returncode != 0:
-        click.echo("Error SSHing")
-        return
+    if use_popen:
+        p = subprocess.Popen(args)
+        return p
+    else:
+        p = subprocess.run(args)
+        if p.returncode != 0:
+            click.echo("Error SSHing")
+            return
 
 
 def _get_terraform_output(deploy_environment):
@@ -341,6 +359,86 @@ def forward_postgres(deploy_environment):
         deploy_environment,
         ["-N", "-L", f"5432:{terraform_output['database_host']}:25060"],
     )
+
+
+@main.command()
+@click.argument("deploy_environment", nargs=1)
+def backup_save(deploy_environment):
+    """Save a database backup"""
+    if not _validate_env(deploy_environment):
+        return
+
+    postgres_port = _find_available_port()
+    pgpass_filename = os.path.expanduser("~/.pgpass")
+    backup_filename = os.path.join(
+        _get_root_dir(),
+        "backups",
+        f"semiphemeral-{deploy_environment}-{datetime.now().strftime('%Y-%m-%d_%H:%M:%S')}.sql",
+    )
+
+    terraform_output = _get_terraform_output(deploy_environment)
+
+    # First, forward the postgres port
+    click.echo("Starting ssh port forward of postgres port")
+    p = _ssh(
+        deploy_environment,
+        ["-N", "-L", f"{postgres_port}:{terraform_output['database_host']}:25060"],
+        use_popen=True,
+    )
+    time.sleep(1)
+
+    # Write a postgres password to disk
+    # https://www.postgresql.org/docs/current/libpq-pgpass.html
+    with open(pgpass_filename, "w") as f:
+        f.write(
+            ":".join(
+                [
+                    "127.0.0.1",
+                    str(postgres_port),
+                    terraform_output["database_name"],
+                    terraform_output["database_user"],
+                    terraform_output["database_password"],
+                ]
+            )
+        )
+    os.chmod(pgpass_filename, 0o600)
+
+    # Next, dump the database
+    click.echo(f"Backing up to {backup_filename}")
+    subprocess.run(
+        [
+            "pg_dump",
+            "-h",
+            "127.0.0.1",
+            "-p",
+            str(postgres_port),
+            "-U",
+            terraform_output["database_user"],
+            terraform_output["database_name"],
+            "-f",
+            backup_filename,
+        ],
+        env={**os.environ, "PGSSLMODE": "allow"},
+    )
+    os.remove(pgpass_filename)
+
+    # Compress backup
+    click.echo("Compressing")
+    subprocess.run(["gzip", backup_filename])
+
+    # Stop forwarding the postgres port
+    click.echo("Stopping ssh port forward of postgres port")
+    p.kill()
+
+    click.echo(f"Backup complete: {backup_filename}.gz")
+
+
+@main.command()
+@click.argument("deploy_environment", nargs=1)
+def backup_restore(deploy_environment):
+    """Restore a database backup"""
+    if not _validate_env(deploy_environment):
+        return
 
 
 if __name__ == "__main__":
