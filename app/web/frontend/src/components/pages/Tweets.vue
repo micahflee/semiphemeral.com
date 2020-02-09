@@ -49,16 +49,7 @@ li {
 
 <template>
   <div class="page">
-    <h1>
-      Choose which tweets should never get automatically deleted
-      <img
-        class="refresh"
-        v-on:click="fetchTweets()"
-        src="/static/img/refresh.png"
-        alt="Refresh"
-        title="Refresh"
-      />
-    </h1>
+    <h1>Choose which tweets should never get automatically deleted</h1>
 
     <template v-if="loading">
       <p>
