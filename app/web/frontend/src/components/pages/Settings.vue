@@ -30,88 +30,103 @@
 <template>
   <div>
     <h1>Choose what you'd like Semiphemeral to automatically delete</h1>
-    <form v-on:submit.prevent="onSubmit">
+
+    <template v-if="loading">
       <p>
-        <label class="checkbox">
-          <input type="checkbox" v-model="deleteTweets" />
-          Delete old tweets
-        </label>
+        <img src="/static/img/loading.gif" alt="Loading" />
       </p>
-      <fieldset v-if="deleteTweets">
-        <legend>Tweets</legend>
+    </template>
+    <template v-else>
+      <form v-on:submit.prevent="onSubmit">
         <p>
-          Delete tweets older than
-          <input type="number" min="0" v-model="tweetsDaysThreshold" />
-          days
-        </p>
-        <p>
-          Unless they have at least
-          <input type="number" min="0" v-model="tweetsRetweetThreshold" />
-          retweets
-        </p>
-        <p>
-          Or at least
-          <input type="number" min="0" v-model="tweetsLikeThreshold" />
-          likes
-        </p>
-        <p>
-          <label>
-            <input type="checkbox" v-model="tweetsThreadsThreshold" />
-            Don't delete tweets that are part of a thread that contains at least one tweet that meets these thresholds
+          <label class="checkbox">
+            <input type="checkbox" v-model="deleteTweets" />
+            Delete old tweets
           </label>
         </p>
-      </fieldset>
-
-      <p>
-        <label>
-          <input type="checkbox" v-model="retweetsLikes" />
-          Unretweet and unlike old tweets
-        </label>
-      </p>
-
-      <fieldset v-if="retweetsLikes">
-        <legend>Retweets and likes</legend>
+        <fieldset v-if="deleteTweets">
+          <legend>Tweets</legend>
+          <p>
+            Delete tweets older than
+            <input type="number" min="0" v-model="tweetsDaysThreshold" />
+            days
+          </p>
+          <p>
+            Unless they have at least
+            <input type="number" min="0" v-model="tweetsRetweetThreshold" />
+            retweets
+          </p>
+          <p>
+            Or at least
+            <input type="number" min="0" v-model="tweetsLikeThreshold" />
+            likes
+          </p>
+          <p>
+            <label>
+              <input type="checkbox" v-model="tweetsThreadsThreshold" />
+              Don't delete tweets that are part of a thread that contains at least one tweet that meets these thresholds
+            </label>
+          </p>
+        </fieldset>
 
         <p>
           <label>
-            <input type="checkbox" v-model="retweetsLikesDeleteRetweets" />
-            Unretweet tweets
+            <input type="checkbox" v-model="retweetsLikes" />
+            Unretweet and unlike old tweets
           </label>
-          older than
-          <input type="number" min="0" v-model="retweetsLikesRetweetsThreshold" />
-          days
         </p>
 
-        <p>
+        <fieldset v-if="retweetsLikes">
+          <legend>Retweets and likes</legend>
+
+          <p>
+            <label>
+              <input type="checkbox" v-model="retweetsLikesDeleteRetweets" />
+              Unretweet tweets
+            </label>
+            older than
+            <input
+              type="number"
+              min="0"
+              v-model="retweetsLikesRetweetsThreshold"
+            />
+            days
+          </p>
+
+          <p>
+            <label>
+              <input type="checkbox" v-model="retweetsLikesDeleteLikes" />
+              Unlike tweets
+            </label>
+            older than
+            <input
+              type="number"
+              min="0"
+              v-model="retweetsLikesLikesThreshold"
+            />
+            days
+          </p>
+        </fieldset>
+
+        <p v-if="hasFetched">
           <label>
-            <input type="checkbox" v-model="retweetsLikesDeleteLikes" />
-            Unlike tweets
+            <input type="checkbox" v-model="downloadAllTweets" />
+            Force Semiphemeral to download all of my tweets again next time, instead of just the newest ones
           </label>
-          older than
-          <input type="number" min="0" v-model="retweetsLikesLikesThreshold" />
-          days
         </p>
-      </fieldset>
 
-      <p v-if="hasFetched">
-        <label>
-          <input type="checkbox" v-model="downloadAllTweets" />
-          Force Semiphemeral to download all of my tweets again next time, instead of just the newest ones
-        </label>
-      </p>
-
-      <p>
-        <input v-bind:disabled="loading" type="submit" value="Save" />
-        <img v-if="loading" src="/static/img/loading.gif" alt="Loading" />
-      </p>
-
-      <div class="danger">
-        <h2>Danger Zone</h2>
         <p>
-          <button v-on:click="deleteAccount()">Delete my account, and all data associated with it</button>
+          <input v-bind:disabled="loading" type="submit" value="Save" />
         </p>
-      </div>
-    </form>
+
+        <div class="danger">
+          <h2>Danger Zone</h2>
+          <p>
+            <button v-on:click="deleteAccount()">Delete my account, and all data associated with it</button>
+          </p>
+        </div>
+      </form>
+    </template>
   </div>
 </template>
 
