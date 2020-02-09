@@ -1,3 +1,32 @@
+<style scoped>
+.danger {
+  margin-top: 100px;
+  opacity: 80%;
+  border: 2px solid #df2e2e;
+  border-radius: 10px;
+  padding: 5px 10px;
+  display: inline-block;
+}
+.danger button {
+  background-color: #df2e2e;
+  border: none;
+  color: white;
+  padding: 5px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 5px;
+}
+.danger h2 {
+  margin: 5px;
+}
+.danger p {
+  margin: 5px;
+}
+</style>
+
 <template>
   <div>
     <h1>Choose what you'd like Semiphemeral to automatically delete</h1>
@@ -68,6 +97,13 @@
         <input v-bind:disabled="loading" type="submit" value="Save" />
         <img v-if="loading" src="/static/img/loading.gif" alt="Loading" />
       </p>
+
+      <div class="danger">
+        <h2>Danger Zone</h2>
+        <p>
+          <button v-on:click="deleteAccount()">Delete my account, and all data associated with it</button>
+        </p>
+      </div>
     </form>
   </div>
 </template>
@@ -155,6 +191,17 @@ export default {
           console.log("Error updating settings", err);
           that.loading = false;
         });
+    },
+    deleteAccount: function() {
+      if (confirm("All of your data will be deleted. Are you totally sure?")) {
+        fetch("/api/settings/delete_account", { method: "POST" })
+          .then(function(response) {
+            document.location = "/";
+          })
+          .catch(function(err) {
+            console.log("Error deleting account", err);
+          });
+      }
     }
   }
 };
