@@ -114,4 +114,6 @@ terraform.tfstate.backup
 # secrets
 .vars-*
 ansible/inventory-*
-
+backups/*.sql
+backups/*.sql.gz
+.pgpass
