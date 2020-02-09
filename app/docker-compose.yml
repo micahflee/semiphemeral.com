@@ -26,6 +26,7 @@ services:
       - COOKIE_FERNET_KEY={{ cookie_fernet_key }}
       - STRIPE_PUBLISHABLE_KEY={{ stripe_publishable_key }}
       - STRIPE_SECRET_KEY={{ stripe_secret_key }}
+      - MAINTENANCE_SECRET={{ maintenance_secret }}
     expose:
       - "8080"
     volumes:
