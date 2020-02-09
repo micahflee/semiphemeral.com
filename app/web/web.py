@@ -17,7 +17,7 @@ import stripe
 from sqlalchemy import or_
 
 from common import twitter_api, twitter_api_call
-from db import User, Tip, Job, Tweet, Thread
+from db import User, Tip, Nag, Job, Tweet, Thread
 
 
 async def _logged_in_user(session):
@@ -269,6 +269,29 @@ async def api_post_settings(request):
         retweets_likes_delete_likes=data["retweets_likes_delete_likes"],
         retweets_likes_likes_threshold=data["retweets_likes_likes_threshold"],
     ).apply()
+
+    return web.json_response(True)
+
+
+@authentication_required_401
+async def api_post_settings_delete_account(request):
+    """
+    Delete the account and all data associated with the user, and log out
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    # Log the user out
+    session = await get_session(request)
+    del session["twitter_id"]
+
+    # Delete everything
+    await Tip.delete.where(Tip.user_id == user.id).gino.status()
+    await Nag.delete.where(Nag.user_id == user.id).gino.status()
+    await Job.delete.where(Job.user_id == user.id).gino.status()
+    await Thread.delete.where(Thread.user_id == user.id).gino.status()
+    await Tweet.delete.where(Tweet.user_id == user.id).gino.status()
+    await user.delete()
 
     return web.json_response(True)
 
@@ -728,6 +751,7 @@ async def start_web_server():
             web.get("/api/user", api_get_user),
             web.get("/api/settings", api_get_settings),
             web.post("/api/settings", api_post_settings),
+            web.post("/api/settings/delete_account", api_post_settings_delete_account),
             web.get("/api/tip", api_get_tip),
             web.post("/api/tip", api_post_tip),
             web.get("/api/tip/recent", api_get_tip_recent),
