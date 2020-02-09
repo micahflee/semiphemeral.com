@@ -1,3 +1,25 @@
+<style scoped>
+.tweet-wrapper {
+  display: inline-block;
+  width: 380px;
+  max-width: 100%;
+  border: 1px solid #f0f0f0;
+  border-radius: 5px;
+  padding: 5px 5px 0 5px;
+  margin: 0 10px 10px 0;
+}
+.excluded {
+  font-weight: bold;
+}
+.stats {
+  font-size: 0.8em;
+  color: #666666;
+}
+.error {
+  color: #cc0000;
+}
+</style>
+
 <template>
   <div class="tweet-wrapper">
     <div class="info">
@@ -22,24 +44,6 @@
     <div ref="embeddedTweet" v-bind:id="embeddedTweetId"></div>
   </div>
 </template>
-
-<style scoped>
-.tweet-wrapper {
-  display: inline-block;
-  width: 500px;
-  margin-right: 10px;
-}
-.excluded {
-  font-weight: bold;
-}
-.stats {
-  font-size: 0.8em;
-  color: #666666;
-}
-.error {
-  color: #cc0000;
-}
-</style>
 
 <script>
 let addScriptPromise = 0;
