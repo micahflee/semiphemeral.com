@@ -1,4 +1,10 @@
 <style scoped>
+ul.buttons {
+  list-style: none;
+  padding: 0;
+  margin-left: 20px;
+}
+
 button.start,
 button.download {
   background-color: #4caf50;
@@ -11,6 +17,7 @@ button.download {
   cursor: pointer;
   font-weight: bold;
   border-radius: 5px;
+  margin: 0 0 5px 0;
 }
 
 ul.jobs {
@@ -64,15 +71,16 @@ ul.jobs {
           </li>
         </ul>
 
-        <p>
-          When you're ready,
-          <button class="start" v-on:click="startSemiphemeral">Start Semiphemeral</button>
-          or
-          <button
-            class="download"
-            v-on:click="downloadHistory"
-          >Download my Twitter history again</button>
-        </p>
+        <p>When you're ready:</p>
+        <ul class="buttons">
+          <li>
+            <button class="start" v-on:click="startSemiphemeral">Start Semiphemeral</button>
+            or
+          </li>
+          <li>
+            <button class="download" v-on:click="downloadHistory">Download my Twitter history again</button>
+          </li>
+        </ul>
       </div>
 
       <div v-if="state == 'C'">
