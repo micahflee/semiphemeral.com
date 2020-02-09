@@ -169,6 +169,12 @@ async def auth_twitter_callback(request):
             status="pending",
             scheduled_timestamp=datetime.now(),
         )
+    else:
+        # Make sure to update the user's twitter access token and secret
+        await user.update(
+            twitter_access_token=auth.access_token,
+            twitter_access_token_secret=auth.access_token_secret,
+        ).apply()
 
     # Redirect to app
     raise web.HTTPFound(location="/dashboard")
