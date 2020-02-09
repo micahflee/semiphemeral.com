@@ -93,6 +93,13 @@
         </p>
       </fieldset>
 
+      <p v-if="hasFetched">
+        <label>
+          <input type="checkbox" v-model="downloadAllTweets" />
+          Force Semiphemeral to download all of my tweets again next time, instead of just the newest ones
+        </label>
+      </p>
+
       <p>
         <input v-bind:disabled="loading" type="submit" value="Save" />
         <img v-if="loading" src="/static/img/loading.gif" alt="Loading" />
@@ -114,6 +121,7 @@ export default {
   data: function() {
     return {
       loading: false,
+      hasFetched: false,
       deleteTweets: false,
       tweetsDaysThreshold: false,
       tweetsRetweetThreshold: false,
@@ -123,7 +131,8 @@ export default {
       retweetsLikesDeleteRetweets: false,
       retweetsLikesRetweetsThreshold: false,
       retweetsLikesDeleteLikes: false,
-      retweetsLikesLikesThreshold: false
+      retweetsLikesLikesThreshold: false,
+      downloadAllTweets: false
     };
   },
   created: function() {
@@ -141,6 +150,7 @@ export default {
             return;
           }
           response.json().then(function(data) {
+            that.hasFetched = data["has_fetched"];
             that.deleteTweets = data["delete_tweets"];
             that.tweetsDaysThreshold = data["tweets_days_threshold"];
             that.tweetsRetweetThreshold = data["tweets_retweet_threshold"];
@@ -180,7 +190,8 @@ export default {
           retweets_likes_delete_likes: this.retweetsLikesDeleteLikes,
           retweets_likes_likes_threshold: Number(
             this.retweetsLikesLikesThreshold
-          )
+          ),
+          download_all_tweets: this.downloadAllTweets
         })
       })
         .then(function(response) {

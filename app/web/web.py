@@ -214,8 +214,11 @@ async def api_get_settings(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
 
+    has_fetched = user.since_id != None
+
     return web.json_response(
         {
+            "has_fetched": has_fetched,
             "delete_tweets": user.delete_tweets,
             "tweets_days_threshold": user.tweets_days_threshold,
             "tweets_retweet_threshold": user.tweets_retweet_threshold,
@@ -252,6 +255,7 @@ async def api_post_settings(request):
             "retweets_likes_retweets_threshold": int,
             "retweets_likes_delete_likes": bool,
             "retweets_likes_likes_threshold": int,
+            "download_all_tweets": bool,
         },
         data,
     )
@@ -269,6 +273,10 @@ async def api_post_settings(request):
         retweets_likes_delete_likes=data["retweets_likes_delete_likes"],
         retweets_likes_likes_threshold=data["retweets_likes_likes_threshold"],
     ).apply()
+
+    # Does the user want to force downloading all tweets next time?
+    if data["download_all_tweets"]:
+        await user.update(since_id=None).apply()
 
     return web.json_response(True)
 
