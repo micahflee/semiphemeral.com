@@ -3,6 +3,14 @@ body {
   font-family: sans;
 }
 
+p {
+  line-height: 150%;
+}
+
+li {
+  line-height: 150%;
+}
+
 #app {
   max-width: 1000px;
   margin: 0 auto;
