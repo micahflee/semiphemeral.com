@@ -730,7 +730,7 @@ async def maintenance_refresh_logging(request=None):
     Refreshes logging. This needs to get run after rotating logs, to re-open the
     web.log file
     """
-    logging.basicConfig(filename="/var/web/web.log", level=logging.INFO)
+    logging.basicConfig(filename="/var/web/web.log", level=logging.INFO, force=True)
 
     if request:
         return web.json_response(True)
