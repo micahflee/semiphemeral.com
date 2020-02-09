@@ -199,15 +199,10 @@ async def fetch(job):
 
     loop = asyncio.get_running_loop()
 
-    # Load info about the user
-    twitter_user = await twitter_api_call(api, "me")
-
     # Start the progress
     progress = {
         "tweets": 0,
-        "total_tweets": twitter_user.statuses_count,
         "likes": 0,
-        "total_likes": twitter_user.favourites_count,
         "threads": 0,
     }
     if user.since_id:
