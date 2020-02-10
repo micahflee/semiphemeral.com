@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from datetime import datetime, timedelta
 
 import tweepy
@@ -14,6 +15,7 @@ class JobRescheduled(Exception):
 
 async def log(job, s):
     print(f"[{datetime.now().strftime('%c')}] job_id={job.id} {s}")
+    logging.info(s)
 
 
 def ensure_user_follows_us(func):
@@ -387,6 +389,9 @@ async def start_job(job):
 
 
 async def start_jobs():
+    # Initialize logging
+    logging.basicConfig(filename="/var/jobs/jobs.log", level=logging.INFO, force=True)
+
     # In case the app crashed in the middle of any previous jobs, change all "active"
     # jobs to "pending" so they'll start over
     await Job.update.values(status="pending").where(

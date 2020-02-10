@@ -2,7 +2,6 @@
 import os
 import subprocess
 import asyncio
-import stripe
 
 from db import connect_db
 from web import start_web_server
@@ -13,14 +12,14 @@ async def main():
     # Run database migrations
     subprocess.run(["alembic", "upgrade", "head"])
 
-    # Init stripe
-    stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
-
     # Connect to the database
     await connect_db()
 
     # Start
-    await asyncio.gather(start_web_server(), start_jobs())
+    if os.environ.get("SEMIPHEMERAL_WEB") == "1":
+        await start_web_server()
+    elif os.environ.get("SEMIPHEMERAL_JOBS") == "1":
+        await start_jobs()
 
 
 if __name__ == "__main__":
