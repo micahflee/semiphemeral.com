@@ -24,7 +24,7 @@
   <div class="tweet-wrapper">
     <div class="info">
       <label>
-        <input ref="excludeCheckbox" type="checkbox" v-model="exclude" v-on:click="toggleExclude()" />
+        <input ref="excludeCheckbox" type="checkbox" v-model="exclude" />
         <span v-if="exclude" class="excluded">Excluded from deletion</span>
         <span v-else>Staged for deletion</span>
         <span v-if="loading">
@@ -99,41 +99,22 @@ export default {
       return "tweet-" + this.tweet.status_id;
     }
   },
-  methods: {
-    embedTweet: function() {
-      var that = this;
-
-      // If the tweet itself hasn't changed, no need to re-embed it
-      if (this.previousStatusId == this.tweet.status_id) {
+  watch: {
+    exclude: function(newExclude, oldExclude) {
+      // Skip if this is the first time
+      if (newExclude == null || oldExclude == null) {
         return;
       }
-
-      // Delete everything in the tweet div
-      while (this.$refs.embeddedTweet.firstChild) {
-        this.$refs.embeddedTweet.removeChild(
-          this.$refs.embeddedTweet.firstChild
-        );
+      if (newExclude) {
+        this.$emit("exclude-true");
+      } else {
+        this.$emit("exclude-false");
       }
 
-      // Embed the tweet
-      Promise.resolve(window.twttr ? window.twttr : addScript()).then(function(
-        twttr
-      ) {
-        twttr.widgets.createTweetEmbed(
-          that.tweet.status_id,
-          that.$refs.embeddedTweet,
-          { dnt: true }
-        );
-      });
-    },
-    toggleExclude: function() {
-      // Toggle it
-      this.exclude = !this.exclude;
-
       var that = this;
-      this.loading = true;
-      this.error = "";
-      this.$refs.excludeCheckbox.disabled = true;
+      that.loading = true;
+      that.error = "";
+      that.$refs.excludeCheckbox.disabled = true;
 
       fetch("/api/tweets", {
         method: "POST",
@@ -153,9 +134,42 @@ export default {
           that.$refs.excludeCheckbox.disabled = false;
 
           // Toggle back
-          this.exclude = !this.exclude;
-          this.error = "Error toggling exclude";
+          var oldExclude = that.exclude;
+          that.exclude = null;
+          that.exclude = !oldExclude;
+          that.error = "Error toggling exclude";
         });
+    }
+  },
+  methods: {
+    embedTweet: function() {
+      // If the tweet itself hasn't changed, no need to re-embed it
+      if (this.previousStatusId == this.tweet["status_id"]) {
+        return;
+      }
+
+      // Make sure the exclude checkbox is updated
+      this.exclude = null; // set it to null first, to avoid POSTing to the API
+      this.exclude = this.tweet.exclude;
+
+      // Delete everything in the tweet div
+      while (this.$refs.embeddedTweet.firstChild) {
+        this.$refs.embeddedTweet.removeChild(
+          this.$refs.embeddedTweet.firstChild
+        );
+      }
+
+      // Embed the tweet
+      var that = this;
+      Promise.resolve(window.twttr ? window.twttr : addScript()).then(function(
+        twttr
+      ) {
+        twttr.widgets.createTweetEmbed(
+          that.tweet.status_id,
+          that.$refs.embeddedTweet,
+          { dnt: true }
+        );
+      });
     }
   }
 };

@@ -1,4 +1,7 @@
 <style scoped>
+input.small {
+  width: 3em;
+}
 .danger {
   margin-top: 100px;
   opacity: 80%;
@@ -48,17 +51,27 @@
           <legend>Tweets</legend>
           <p>
             Delete tweets older than
-            <input type="number" min="0" v-model="tweetsDaysThreshold" />
+            <input
+              type="number"
+              class="small"
+              min="0"
+              v-model="tweetsDaysThreshold"
+            />
             days
           </p>
           <p>
             Unless they have at least
-            <input type="number" min="0" v-model="tweetsRetweetThreshold" />
+            <input
+              type="number"
+              class="small"
+              min="0"
+              v-model="tweetsRetweetThreshold"
+            />
             retweets
           </p>
           <p>
             Or at least
-            <input type="number" min="0" v-model="tweetsLikeThreshold" />
+            <input type="number" class="small" min="0" v-model="tweetsLikeThreshold" />
             likes
           </p>
           <p>
@@ -87,6 +100,7 @@
             older than
             <input
               type="number"
+              class="small"
               min="0"
               v-model="retweetsLikesRetweetsThreshold"
             />
@@ -101,6 +115,7 @@
             older than
             <input
               type="number"
+              class="small"
               min="0"
               v-model="retweetsLikesLikesThreshold"
             />
