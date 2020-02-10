@@ -25,10 +25,10 @@
         src: ../app/proxy/etc/nginx/conf.d/semiphemeral.conf
         dest: /opt/semiphemeral/app/proxy/etc/nginx/conf.d/semiphemeral.conf
 
-    - name: /opt/semiphemeral/web/alembic.ini template
+    - name: /opt/semiphemeral/src/alembic.ini template
       template:
-        src: ../app/web/alembic.ini
-        dest: /opt/semiphemeral/app/web/alembic.ini
+        src: ../app/src/alembic.ini
+        dest: /opt/semiphemeral/app/src/alembic.ini
 
     - name: ensure containers are up
       docker_compose:

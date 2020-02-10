@@ -16,10 +16,10 @@ services:
 
   web:
     restart: always
-    build: "web"
+    build: "src"
     environment:
+      - SEMIPHEMERAL_WEB=1
       - DEPLOY_ENVIRONMENT={{ deploy_environment }}
-      - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
       - DATABASE_URI={{ database_uri }}
@@ -31,6 +31,23 @@ services:
       - "8080"
     volumes:
       - /opt/semiphemeral/data/web:/var/web
+    networks:
+      - default
+      - host_private
+
+  jobs:
+    restart: always
+    build: "src"
+    environment:
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - DATABASE_URI={{ database_uri }}
+    expose:
+      - "8080"
+    volumes:
+      - /opt/semiphemeral/data/jobs:/var/jobs
     networks:
       - default
       - host_private

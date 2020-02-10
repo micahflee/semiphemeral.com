@@ -751,6 +751,9 @@ async def maintenance_refresh_logging(request=None):
 
 
 async def start_web_server():
+    # Init stripe
+    stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+
     # Create the web app
     app = web.Application()
     aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader("templates"))
