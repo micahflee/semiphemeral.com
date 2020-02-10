@@ -87,6 +87,8 @@ li {
               tweet: tweets[id],
               userScreenName: userScreenName
             }"
+            v-on:exclude-true="changeExclude(id, true)"
+            v-on:exclude-false="changeExclude(id, false)"
           ></Tweet>
         </li>
       </ul>
@@ -228,10 +230,23 @@ export default {
       } else {
         this.info += this.tweets.length + " tweets | ";
       }
-      this.info += this.tweets.length + " tweets staged for deletion";
+      this.info +=
+        this.numberOfTweetsStagedForDeletion() + " tweets staged for deletion";
     },
     commaFormatted: function(x) {
       return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    },
+    numberOfTweetsStagedForDeletion: function() {
+      var count = 0;
+      for (var i = 0; i < this.tweets.length; i++) {
+        if (!this.tweets[i].exclude) {
+          count++;
+        }
+      }
+      return count;
+    },
+    changeExclude: function(id, exclude) {
+      this.tweets[id].exclude = exclude;
     }
   },
   components: {
