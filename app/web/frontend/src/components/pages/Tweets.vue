@@ -117,6 +117,17 @@ export default {
       info: ""
     };
   },
+  computed: {
+    numberOfTweetsStagedForDeletion: function() {
+      var count = 0;
+      for (var i = 0; i < this.tweets.length; i++) {
+        if (!this.tweets[i].exclude) {
+          count++;
+        }
+      }
+      return count;
+    }
+  },
   created: function() {
     this.fetchTweets();
   },
@@ -214,6 +225,9 @@ export default {
       }
 
       // The info text box
+      this.updateInfo();
+    },
+    updateInfo: function() {
       this.info =
         "Page " +
         this.commaFormatted(this.page) +
@@ -231,22 +245,14 @@ export default {
         this.info += this.tweets.length + " tweets | ";
       }
       this.info +=
-        this.numberOfTweetsStagedForDeletion() + " tweets staged for deletion";
+        this.numberOfTweetsStagedForDeletion + " tweets staged for deletion";
     },
     commaFormatted: function(x) {
       return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     },
-    numberOfTweetsStagedForDeletion: function() {
-      var count = 0;
-      for (var i = 0; i < this.tweets.length; i++) {
-        if (!this.tweets[i].exclude) {
-          count++;
-        }
-      }
-      return count;
-    },
     changeExclude: function(id, exclude) {
       this.tweets[id].exclude = exclude;
+      this.updateInfo();
     }
   },
   components: {
