@@ -1,11 +1,11 @@
 import asyncio
 import json
-import logging
+import os
 from datetime import datetime, timedelta
 
 import tweepy
 
-from common import twitter_api, twitter_api_call
+from common import twitter_api, twitter_api_call, twitter_dm_api
 from db import Job, User, Tweet, Thread
 
 
@@ -52,6 +52,13 @@ def ensure_user_follows_us(func):
         return await func(job)
 
     return wrapper
+
+
+async def send_dm(dest_twitter_id, message):
+    api = await twitter_dm_api()
+
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, api.send_direct_message, dest_twitter_id, message)
 
 
 async def reschedule_job(job, timedelta_in_the_future):
@@ -198,6 +205,7 @@ async def fetch(job):
 
     user = await User.query.where(User.id == job.user_id).gino.first()
     api = await twitter_api(user)
+    since_id = user.since_id
 
     loop = asyncio.get_running_loop()
 
@@ -207,7 +215,7 @@ async def fetch(job):
         "likes": 0,
         "threads": 0,
     }
-    if user.since_id:
+    if since_id:
         progress["status"] = "Downloading all recent tweets"
     else:
         progress[
@@ -221,7 +229,7 @@ async def fetch(job):
         tweepy.Cursor(
             api.user_timeline,
             id=user.twitter_screen_name,
-            since_id=user.since_id,
+            since_id=since_id,
             tweet_mode="extended",
         ).pages,
     )
@@ -299,7 +307,7 @@ async def fetch(job):
         tweepy.Cursor(
             api.favorites,
             id=user.twitter_screen_name,
-            since_id=user.since_id,
+            since_id=since_id,
             tweet_mode="extended",
         ).pages,
     )
@@ -348,9 +356,18 @@ async def fetch(job):
 
     await log(job, "Fetch finished")
 
-    # If semiphemeral is paused, then we're done. If it's not paused, then schedule
-    # a delete job
-    if not user.paused:
+    # Fetch is done! If semiphemeral is paused, send a DM
+    if user.paused:
+        if not since_id:
+            message = f"Good news! Semiphemeral finished downloading a copy of all {progress['tweets']} of your tweets and all {progress['likes']} of your likes.\n\n"
+        else:
+            message = f"Semiphemeral finished downloading {progress['tweets']} new tweets and {progress['likes']} new likes.\n\n"
+
+        message += f"The next step is look through your tweets and manually mark which ones you want to make sure never get deleted. Visit https://{os.environ.get('DOMAIN')}/tweets to finish.\n\nWhen you're done, you can start deleting your tweets from the dashboard."
+
+        await send_dm(user.twitter_id, message)
+    # If it's not paused, then schedule a delete job
+    else:
         # Create a new delete job
         await Job.create(
             user_id=user.id,
@@ -362,7 +379,45 @@ async def fetch(job):
 
 @ensure_user_follows_us
 async def delete(job):
-    pass
+    # Nothing for now
+    return
+
+    await log(job, "Delete started")
+
+    user = await User.query.where(User.id == job.user_id).gino.first()
+    api = await twitter_api(user)
+    since_id = user.since_id
+
+    loop = asyncio.get_running_loop()
+
+    # Start the progress
+    progress = {"tweets": 0, "retweets": 0, "likes": 0}
+
+    # Unretweet and unlike tweets
+    if user.retweets_likes:
+
+        # Unretweet
+        if user.retweets_likes_delete_retweets:
+            datetime_threshold = datetime.utcnow() - timedelta(
+                days=user.retweets_likes_retweets_threshold
+            )
+            tweets = (
+                await Tweet.query.where(Tweet.user_id == user.id)
+                .where(Tweet.twitter_user_id == user.twitter_id)
+                .where(Tweet.is_deleted == False)
+                .where(Tweet.is_retweet == True)
+                .where(Tweet.created_at < datetime_threshold)
+                .order_by(Tweet.created_at)
+                .gino.all()
+            )
+
+            progress[
+                "status"
+            ] = f"Deleting {len(tweets)} retweets, starting with the earliest"
+            await update_progress(job, progress)
+
+            for tweet in tweets:
+                pass
 
 
 async def start_job(job):
@@ -389,8 +444,9 @@ async def start_job(job):
 
 
 async def start_jobs():
-    # Initialize logging
-    logging.basicConfig(filename="/var/jobs/jobs.log", level=logging.INFO, force=True)
+    # Initialize logging -- commented out because I don't want to have to deal with figuring out how to
+    # restart logging in logrotate, especially since I may never need these logs
+    # logging.basicConfig(filename="/var/jobs/jobs.log", level=logging.INFO, force=True)
 
     # In case the app crashed in the middle of any previous jobs, change all "active"
     # jobs to "pending" so they'll start over
