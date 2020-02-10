@@ -83,13 +83,16 @@
           <em>{{ humanReadableStartedTimestamp }}</em>
           <br />Deleted
           <strong>{{ progressTweets }} tweets</strong>,
+          <strong>{{ progressRetweets }} retweets</strong>,
           <strong>{{ progressLikes }} likes</strong> since then
         </p>
       </template>
       <template v-else-if="job.status == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{ humanReadableFinishedTimestamp}}</span>
-          <span class="progress">Deleted {{ progressTweets }} tweets, {{ progressLikes }} likes</span>
+          <span
+            class="progress"
+          >Deleted {{ progressTweets }} tweets, {{ progressRetweets }} retweets, {{ progressLikes }} likes</span>
         </p>
       </template>
     </template>
@@ -102,6 +105,9 @@ export default {
   computed: {
     progressTweets: function() {
       return JSON.parse(this.job.progress).tweets;
+    },
+    progressRetweets: function() {
+      return JSON.parse(this.job.progress).retweets;
     },
     progressLikes: function() {
       return JSON.parse(this.job.progress).likes;
