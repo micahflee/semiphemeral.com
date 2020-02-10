@@ -16,7 +16,7 @@ import stripe
 
 from sqlalchemy import or_
 
-from common import twitter_api, twitter_api_call
+from common import twitter_api, twitter_api_call, tweets_to_delete
 from db import User, Tip, Nag, Job, Tweet, Thread
 
 
@@ -647,56 +647,27 @@ async def api_get_tweets(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
 
-    datetime_threshold = datetime.utcnow() - timedelta(days=user.tweets_days_threshold)
+    tweets = await tweets_to_delete(user)
+    tweets_for_client = []
 
-    # Select tweets from threads to exclude
-    tweets_to_exclude = []
-    threads = (
-        await Thread.query.where(Thread.user_id == user.id)
-        .where(Thread.should_exclude == True)
-        .gino.all()
-    )
-    for thread in threads:
-        for tweet in (
-            await Tweet.query.where(Tweet.user_id == user.id)
-            .where(Tweet.thread_id == thread.id)
-            .where(Tweet.is_deleted == False)
-            .order_by(Tweet.created_at)
-            .gino.all()
-        ):
-            tweets_to_exclude.append(tweet.status_id)
+    for tweet in tweets:
+        created_at = tweet.created_at.timestamp()
+        is_reply = tweet.in_reply_to_status_id is not None
+        tweets_for_client.append(
+            {
+                "created_at": created_at,
+                "status_id": str(
+                    tweet.status_id
+                ),  # Typecast it to a string, to avoid javascript issues
+                "text": tweet.text,
+                "is_reply": is_reply,
+                "retweet_count": tweet.retweet_count,
+                "like_count": tweet.favorite_count,
+                "exclude": tweet.exclude_from_delete,
+            }
+        )
 
-    # Select tweets that we will delete
-    tweets_to_delete = []
-    for tweet in (
-        await Tweet.query.where(Tweet.user_id == user.id)
-        .where(Tweet.twitter_user_id == user.twitter_id)
-        .where(Tweet.is_deleted == False)
-        .where(Tweet.is_retweet == False)
-        .where(Tweet.created_at < datetime_threshold)
-        .where(Tweet.retweet_count < user.tweets_retweet_threshold)
-        .where(Tweet.favorite_count < user.tweets_like_threshold)
-        .order_by(Tweet.created_at)
-        .gino.all()
-    ):
-        if tweet.status_id not in tweets_to_exclude:
-            created_at = tweet.created_at.timestamp()
-            is_reply = tweet.in_reply_to_status_id is not None
-            tweets_to_delete.append(
-                {
-                    "created_at": created_at,
-                    "status_id": str(
-                        tweet.status_id
-                    ),  # Typecast it to a string, to avoid javascript issues
-                    "text": tweet.text,
-                    "is_reply": is_reply,
-                    "retweet_count": tweet.retweet_count,
-                    "like_count": tweet.favorite_count,
-                    "exclude": tweet.exclude_from_delete,
-                }
-            )
-
-    return web.json_response({"tweets": tweets_to_delete})
+    return web.json_response({"tweets": tweets_for_client})
 
 
 @authentication_required_401

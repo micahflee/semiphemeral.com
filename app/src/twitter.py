@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 
 import tweepy
 
-from common import twitter_api, twitter_api_call, twitter_dm_api
-from db import Job, User, Tweet, Thread
+from common import twitter_api, twitter_api_call, twitter_dm_api, tweets_to_delete
+from db import Job, User, Tip, Nag, Tweet, Thread
 
 
 class JobRescheduled(Exception):
@@ -15,7 +15,7 @@ class JobRescheduled(Exception):
 
 async def log(job, s):
     print(f"[{datetime.now().strftime('%c')}] job_id={job.id} {s}")
-    logging.info(s)
+    # logging.info(s)
 
 
 def ensure_user_follows_us(func):
@@ -366,8 +366,9 @@ async def fetch(job):
         message += f"The next step is look through your tweets and manually mark which ones you want to make sure never get deleted. Visit https://{os.environ.get('DOMAIN')}/tweets to finish.\n\nWhen you're done, you can start deleting your tweets from the dashboard."
 
         await send_dm(user.twitter_id, message)
-    # If it's not paused, then schedule a delete job
     else:
+        # If it's not paused, then schedule a delete job
+
         # Create a new delete job
         await Job.create(
             user_id=user.id,
@@ -379,14 +380,10 @@ async def fetch(job):
 
 @ensure_user_follows_us
 async def delete(job):
-    # Nothing for now
-    return
-
     await log(job, "Delete started")
 
     user = await User.query.where(User.id == job.user_id).gino.first()
     api = await twitter_api(user)
-    since_id = user.since_id
 
     loop = asyncio.get_running_loop()
 
@@ -417,7 +414,203 @@ async def delete(job):
             await update_progress(job, progress)
 
             for tweet in tweets:
-                pass
+                # Try deleting the tweet, in a while loop in case it gets rate limited and
+                # needs to try again
+                while True:
+                    try:
+                        # await loop.run_in_executor(
+                        #     None, api.destroy_status, tweet.status_id
+                        # )
+                        # await tweet.update(is_delete=True).apply()
+                        print(f"deleting retweet {tweet.status_id}")
+                        break
+                    except tweepy.error.TweepError as e:
+                        if e.api_code == 144:
+                            # Already deleted
+                            await tweet.update(is_deleted=True).apply()
+                            break
+                        elif e.api_code == 429:
+                            await update_progress_rate_limit(job, progress)
+                            # Don't break -- this will wait 15 minutes and try again
+                        else:
+                            # Unknown error
+                            break
+
+            progress["retweets"] += 1
+            await update_progress(job, progress)
+
+        # Unlike
+        if user.retweets_likes_delete_likes:
+            datetime_threshold = datetime.utcnow() - timedelta(
+                days=user.retweets_likes_likes_threshold
+            )
+            tweets = (
+                await Tweet.query.where(Tweet.user_id == user.id)
+                .where(Tweet.twitter_user_id != user.twitter_id)
+                .where(Tweet.is_unliked == False)
+                .where(Tweet.favorited == True)
+                .where(Tweet.created_at < datetime_threshold)
+                .order_by(Tweet.created_at)
+                .gino.all()
+            )
+
+            progress[
+                "status"
+            ] = f"Unliking {len(tweets)} tweets, starting with the earliest"
+            await update_progress(job, progress)
+
+            for tweet in tweets:
+                # Try unliking the tweet, in a while loop in case it gets rate limited and
+                # needs to try again
+                while True:
+                    try:
+                        # await loop.run_in_executor(
+                        #     None, api.destroy_favorite, tweet.status_id
+                        # )
+                        print(f"unliking tweet {tweet.status_id}")
+                        await tweet.update(is_unliked=True).apply()
+                        break
+                    except tweepy.error.TweepError as e:
+                        if e.api_code == 144:
+                            # Already unliked
+                            await tweet.update(is_unliked=True).apply()
+                            break
+                        elif e.api_code == 429:
+                            await update_progress_rate_limit(job, progress)
+                            # Don't break -- this will wait 15 minutes and try again
+                        else:
+                            # Unknown error
+                            break
+
+            progress["likes"] += 1
+            await update_progress(job, progress)
+
+    # Deleting tweets
+    if user.delete_tweets:
+        tweets = tweets = await tweets_to_delete(user)
+
+        progress[
+            "status"
+        ] = f"Deleting {len(tweets)} tweets, starting with the earliest"
+        await update_progress(job, progress)
+
+    for tweet in tweets:
+        # Try deleting the tweet, in a while loop in case it gets rate limited and
+        # needs to try again
+        while True:
+            try:
+                # await loop.run_in_executor(None, api.destroy_status, tweet.status_id)
+                print(f"deleting tweet {tweet.status_id}")
+                await tweet.update(is_deleted=True).apply()
+                break
+            except tweepy.error.TweepError as e:
+                if e.api_code == 144:
+                    # Already deleted
+                    await tweet.update(is_deleted=True).apply()
+                    break
+                elif e.api_code == 429:
+                    await update_progress_rate_limit(job, progress)
+                    # Don't break -- this will wait 15 minutes and try again
+                else:
+                    # Unknown error
+                    break
+
+        progress["tweets"] += 1
+        await update_progress(job, progress)
+
+    progress["status"] = "Finished"
+    await update_progress(job, progress)
+
+    await log(job, "Delete finished")
+
+    # Delete is done!
+
+    # Schedule the next fetch job
+    tomorrow = datetime.now() + timedelta(days=1)
+    await Job.create(
+        user_id=user.id,
+        job_type="fetch",
+        status="pending",
+        scheduled_timestamp=tomorrow,
+    )
+
+    # When was the last time?
+    one_year = timedelta(days=365)
+    tipped_in_the_last_year = (
+        await Tip.query.where(Tip.user_id == user.id)
+        .where(Tip.paid == True)
+        .where(Tip.refunded == False)
+        .where(Tip.timestamp > datetime.now() - one_year)
+        .order_by(Tip.timestamp.desc())
+        .gino.first()
+    )
+
+    # Should we nag the user?
+    one_month_ago = datetime.now() + timedelta(days=30)
+    last_nag = (
+        await Nag.query.where(Nag.user_id == user.id)
+        .order_by(Nag.timestamp.desc())
+        .gino.first()
+    )
+
+    should_nag = False
+    if not tipped_in_the_last_year:
+        if not last_nag:
+            should_nag = True
+        elif last_nag.timestamp < one_month_ago and not tipped_in_the_last_year:
+            should_nag = True
+
+    # Go ahead and create the nag early
+    # In case the following code crashes, I don't want to accidentally trigger tons of nags
+    if should_nag:
+        await Nag.create(
+            user_id=user.id, timestamp=datetime.now(),
+        )
+
+    if not last_nag:
+        # The user has never been nagged, so this is the first delete
+        message = f"Congratulations! Semiphemeral has deleted {progress['tweets']} tweets, unretweeted {progress['retweets']} tweets, and unliked  {progress['likes']} tweets. Doesn't that feel nice?\n\nEach day, I will download your latest tweets and likes and then delete the old ones based on your settings. You can sit back, relax, and enjoy the privacy.\n\nYou can always change your settings, mark new tweets to never delete, and pause Semiphemeral from the website https://{os.environ.get('DOMAIN')}/dashboard."
+        await send_dm(user.twitter_id, message)
+
+        if should_nag:
+            await asyncio.sleep(30)
+
+            message = f"Semiphemeral is free, but running this service costs money. Care to chip in?\n\nIf you tip any amount, even just $1, I will stop nagging you for a year. Otherwise, I'll gently remind you once a month.\n\n(It's fine if you want to ignore these DMs. I won't care. I'm a bot, so I don't have feelings).\n\nVisit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
+            await send_dm(user.twitter_id, message)
+
+    else:
+        if should_nag:
+            # The user has been nagged before -- do some math to get the totals
+
+            # Get all the delete jobs
+            total_progress = {"tweets": 0, "retweets": 0, "likes": 0}
+            total_progress_since_last_nag = {"tweets": 0, "retweets": 0, "likes": 0}
+            jobs = (
+                await Job.query.where(Job.user_id == user.id)
+                .where(Job.job_type == "delete")
+                .where(Job.status == "finished")
+                .gino.all()
+            )
+            for job in jobs:
+                p = json.loads(job.progress)
+
+                if "tweets" in p:
+                    total_progress["tweets"] += p["tweets"]
+                if "retweets" in p:
+                    total_progress["retweets"] += p["retweets"]
+                if "likes" in p:
+                    total_progress["likes"] += p["likes"]
+
+                if job.finished_timestamp > last_nag.timestamp:
+                    if "tweets" in p:
+                        total_progress_since_last_nag["tweets"] += p["tweets"]
+                    if "retweets" in p:
+                        total_progress_since_last_nag["retweets"] += p["retweets"]
+                    if "likes" in p:
+                        total_progress_since_last_nag["likes"] += p["likes"]
+
+            message = f"Since you've been using Semiphemeral, I have deleted {total_progress['tweets']} tweets, unretweeted {total_progress['retweets']} tweets, and unliked {total_progress['likes']} tweets for you.\n\nJust since last month, I've deleted {total_progress_since_last_nag['tweets']} tweets, unretweeted {total_progress_since_last_nag['retweets']} tweets, and unliked {total_progress_since_last_nag['likes']} tweets.\n\nSemiphemeral is free, but running this service costs money. Care to chip in? Visit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
+            await send_dm(user.twitter_id, message)
 
 
 async def start_job(job):
