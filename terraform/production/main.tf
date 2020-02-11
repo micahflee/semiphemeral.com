@@ -30,6 +30,10 @@ output "database_host" {
   value = module.semiphemeral.database_host
 }
 
+output "database_port" {
+  value = module.semiphemeral.database_port
+}
+
 output "database_name" {
   value = module.semiphemeral.database_name
 }

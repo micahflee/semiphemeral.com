@@ -379,9 +379,16 @@ def forward_postgres(deploy_environment):
         return
 
     terraform_output = _get_terraform_output(deploy_environment)
+    click.echo(
+        f"postbird connection URL: postgresql://{terraform_output['database_user']}:{terraform_output['database_password']}@localhost:5432/{terraform_output['database_name']}?ssl=true"
+    )
     _ssh(
         deploy_environment,
-        ["-N", "-L", f"5432:{terraform_output['database_host']}:25060"],
+        [
+            "-N",
+            "-L",
+            f"5432:{terraform_output['database_host']}:{terraform_output['database_port']}",
+        ],
     )
 
 
@@ -405,7 +412,11 @@ def backup_save(deploy_environment):
     click.echo("Starting forwarding postgres port")
     p = _ssh(
         deploy_environment,
-        ["-N", "-L", f"{postgres_port}:{terraform_output['database_host']}:25060"],
+        [
+            "-N",
+            "-L",
+            f"{postgres_port}:{terraform_output['database_host']}:{terraform_output['database_port']}",
+        ],
         use_popen=True,
     )
     time.sleep(1)
@@ -475,7 +486,11 @@ def backup_restore(deploy_environment, backup_filename):
     click.echo("Starting forwarding of postgres port")
     p = _ssh(
         deploy_environment,
-        ["-N", "-L", f"{postgres_port}:{terraform_output['database_host']}:25060"],
+        [
+            "-N",
+            "-L",
+            f"{postgres_port}:{terraform_output['database_host']}:{terraform_output['database_port']}",
+        ],
         use_popen=True,
     )
     time.sleep(1)

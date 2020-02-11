@@ -67,11 +67,11 @@ resource "digitalocean_firewall" "app" {
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
-  # DigitalOcean postgresql database cluster
+  # DigitalOcean postgresql database cluster's connection pool
   # I can't seem to restrict it to a hostname, and I don't know the cluster's IP
   outbound_rule {
     protocol              = "tcp"
-    port_range            = "25060"
+    port_range            = "25061"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
@@ -146,7 +146,7 @@ resource "digitalocean_database_firewall" "fw" {
 resource "digitalocean_database_connection_pool" "pool" {
   cluster_id = digitalocean_database_cluster.db.id
   name       = "pool-01-${var.deploy_environment}"
-  mode       = "session"
+  mode       = "transaction"
   size       = 20
   db_name    = digitalocean_database_cluster.db.database
   user       = digitalocean_database_cluster.db.user
@@ -157,21 +157,25 @@ output "app_ip" {
 }
 
 output "database_uri" {
-  value = digitalocean_database_cluster.db.private_uri
+  value = digitalocean_database_connection_pool.pool.private_uri
 }
 
 output "database_host" {
-  value = digitalocean_database_cluster.db.private_host
+  value = digitalocean_database_connection_pool.pool.private_host
+}
+
+output "database_port" {
+  value = digitalocean_database_connection_pool.pool.port
 }
 
 output "database_name" {
-  value = digitalocean_database_cluster.db.database
+  value = digitalocean_database_connection_pool.pool.name
 }
 
 output "database_user" {
-  value = digitalocean_database_cluster.db.user
+  value = digitalocean_database_connection_pool.pool.user
 }
 
 output "database_password" {
-  value = digitalocean_database_cluster.db.password
+  value = digitalocean_database_connection_pool.pool.password
 }
