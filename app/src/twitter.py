@@ -361,7 +361,7 @@ async def fetch(job):
         await DirectMessageJob.create(
             dest_twitter_id=user.twitter_id,
             message=message,
-            status="status",
+            status="pending",
             scheduled_timestamp=datetime.now(),
         )
     else:
@@ -572,7 +572,7 @@ async def delete(job):
         await DirectMessageJob.create(
             dest_twitter_id=user.twitter_id,
             message=message,
-            status="status",
+            status="pending",
             scheduled_timestamp=datetime.now(),
         )
 
@@ -581,7 +581,7 @@ async def delete(job):
         await DirectMessageJob.create(
             dest_twitter_id=user.twitter_id,
             message=message,
-            status="status",
+            status="pending",
             scheduled_timestamp=datetime.now(),
         )
 
@@ -621,7 +621,7 @@ async def delete(job):
             await DirectMessageJob.create(
                 dest_twitter_id=user.twitter_id,
                 message=message,
-                status="status",
+                status="pending",
                 scheduled_timestamp=datetime.now(),
             )
 
@@ -661,11 +661,19 @@ async def start_dm_job(dm_job):
 
         # Success, update dm_job as sent
         await dm_job.update(status="sent", sent_timestamp=datetime.now()).apply()
+
+        print(
+            f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sent DM to twitter_id={dm_job.dest_twitter_id}"
+        )
     except:
         # If sending the DM failed, try again in 5 minutes
         await dm_job.update(
             status="pending", scheduled_timestamp=datetime.now() + timedelta(minutes=5)
         ).apply()
+
+        print(
+            f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM, delaying 5 minutes"
+        )
 
 
 async def start_jobs():
