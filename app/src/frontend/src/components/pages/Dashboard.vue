@@ -20,6 +20,20 @@ button.download {
   margin: 0 0 5px 0;
 }
 
+button.pause {
+  background-color: #624caf;
+  border: none;
+  color: white;
+  padding: 5px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 5px;
+  margin: 0 0 5px 0;
+}
+
 ul.jobs {
   list-style: none;
   padding: 0;
@@ -87,7 +101,7 @@ ul.jobs {
         <p>
           Semiphemeral is
           <strong>active</strong>.
-          <button v-on:click="pauseSemiphemeral">Pause Semiphemeral</button>
+          <button class="pause" v-on:click="pauseSemiphemeral">Pause Semiphemeral</button>
         </p>
       </div>
 
