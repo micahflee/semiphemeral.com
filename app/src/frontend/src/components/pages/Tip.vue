@@ -74,9 +74,8 @@ form #card-errors {
   <div>
     <script src="https://js.stripe.com/v3/"></script>
     <h1>Care to chip in?</h1>
-    <p>Semiphemeral is free. Every day a bot will automatically delete your old tweets and likes except for the ones you want to keep, keeping your social media presence a bit more private. Hosting this service costs money though, so tips are appreciated.</p>
-
-    <p>As long as you're using this service, the @semiphemeral Twitter account will gently ask you for a tip, via Twitter DM, once a month. If you tip any amount, even just $1, it will stop nagging you for a year.</p>
+    <p>Semiphemeral is free. Every day a bot will automatically delete your old tweets and likes (except for the ones you want to keep), keeping your social media presence a bit more private.</p>
+    <p>Hosting this service costs money though, so tips are appreciated.</p>
 
     <form action="/api/tip" method="post" v-on:submit.prevent="onSubmit">
       <fieldset>
