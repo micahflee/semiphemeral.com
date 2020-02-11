@@ -419,7 +419,7 @@ async def delete(job):
                         # await loop.run_in_executor(
                         #     None, api.destroy_status, tweet.status_id
                         # )
-                        # await tweet.update(is_delete=True).apply()
+                        await tweet.update(is_deleted=True).apply()
                         print(f"deleting retweet {tweet.status_id}")
                         break
                     except tweepy.error.TweepError as e:
