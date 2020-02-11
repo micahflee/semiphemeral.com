@@ -379,16 +379,10 @@ def forward_postgres(deploy_environment):
         return
 
     terraform_output = _get_terraform_output(deploy_environment)
-    click.echo(
-        f"postbird connection URL: postgresql://{terraform_output['database_user']}:{terraform_output['database_password']}@localhost:5432/{terraform_output['database_name']}?ssl=true"
-    )
+    click.echo(f"postbird connection URL: {terraform_output['postbird_url']}")
     _ssh(
         deploy_environment,
-        [
-            "-N",
-            "-L",
-            f"5432:{terraform_output['database_host']}:{terraform_output['database_port']}",
-        ],
+        ["-N", "-L", f"5432:{terraform_output['database_host']}:25060",],
     )
 
 

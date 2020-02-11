@@ -45,3 +45,7 @@ output "database_user" {
 output "database_password" {
   value = module.semiphemeral.database_password
 }
+
+output "postbird_url" {
+  value = module.semiphemeral.postbird_url
+}

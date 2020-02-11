@@ -71,6 +71,12 @@ resource "digitalocean_firewall" "app" {
   # I can't seem to restrict it to a hostname, and I don't know the cluster's IP
   outbound_rule {
     protocol              = "tcp"
+    port_range            = "25060"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "tcp"
     port_range            = "25061"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
@@ -178,4 +184,8 @@ output "database_user" {
 
 output "database_password" {
   value = digitalocean_database_connection_pool.pool.password
+}
+
+output "postbird_url" {
+  value = "postgresql://doadmin:${digitalocean_database_cluster.db.password}@localhost:5432/defaultdb?ssl=true"
 }
