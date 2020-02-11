@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import tweepy
 
 from common import twitter_api, twitter_api_call, twitter_dm_api, tweets_to_delete
-from db import Job, User, Tip, Nag, Tweet, Thread
+from db import Job, DirectMessageJob, User, Tip, Nag, Tweet, Thread
 
 
 class JobRescheduled(Exception):
@@ -52,13 +52,6 @@ def ensure_user_follows_us(func):
         return await func(job)
 
     return wrapper
-
-
-async def send_dm(dest_twitter_id, message):
-    api = await twitter_dm_api()
-
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, api.send_direct_message, dest_twitter_id, message)
 
 
 async def reschedule_job(job, timedelta_in_the_future):
@@ -365,7 +358,12 @@ async def fetch(job):
 
         message += f"The next step is look through your tweets and manually mark which ones you want to make sure never get deleted. Visit https://{os.environ.get('DOMAIN')}/tweets to finish.\n\nWhen you're done, you can start deleting your tweets from the dashboard."
 
-        await send_dm(user.twitter_id, message)
+        await DirectMessageJob.create(
+            dest_twitter_id=user.twitter_id,
+            message=message,
+            status="status",
+            scheduled_timestamp=datetime.now(),
+        )
     else:
         # If it's not paused, then schedule a delete job
 
@@ -570,13 +568,22 @@ async def delete(job):
     if not last_nag:
         # The user has never been nagged, so this is the first delete
         message = f"Congratulations! Semiphemeral has deleted {progress['tweets']} tweets, unretweeted {progress['retweets']} tweets, and unliked  {progress['likes']} tweets. Doesn't that feel nice?\n\nEach day, I will download your latest tweets and likes and then delete the old ones based on your settings. You can sit back, relax, and enjoy the privacy.\n\nYou can always change your settings, mark new tweets to never delete, and pause Semiphemeral from the website https://{os.environ.get('DOMAIN')}/dashboard."
-        await send_dm(user.twitter_id, message)
 
-        if should_nag:
-            await asyncio.sleep(30)
+        await DirectMessageJob.create(
+            dest_twitter_id=user.twitter_id,
+            message=message,
+            status="status",
+            scheduled_timestamp=datetime.now(),
+        )
 
-            message = f"Semiphemeral is free, but running this service costs money. Care to chip in?\n\nIf you tip any amount, even just $1, I will stop nagging you for a year. Otherwise, I'll gently remind you once a month.\n\n(It's fine if you want to ignore these DMs. I won't care. I'm a bot, so I don't have feelings).\n\nVisit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
-            await send_dm(user.twitter_id, message)
+        message = f"Semiphemeral is free, but running this service costs money. Care to chip in?\n\nIf you tip any amount, even just $1, I will stop nagging you for a year. Otherwise, I'll gently remind you once a month.\n\n(It's fine if you want to ignore these DMs. I won't care. I'm a bot, so I don't have feelings).\n\nVisit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
+
+        await DirectMessageJob.create(
+            dest_twitter_id=user.twitter_id,
+            message=message,
+            status="status",
+            scheduled_timestamp=datetime.now(),
+        )
 
     else:
         if should_nag:
@@ -610,7 +617,13 @@ async def delete(job):
                         total_progress_since_last_nag["likes"] += p["likes"]
 
             message = f"Since you've been using Semiphemeral, I have deleted {total_progress['tweets']} tweets, unretweeted {total_progress['retweets']} tweets, and unliked {total_progress['likes']} tweets for you.\n\nJust since last month, I've deleted {total_progress_since_last_nag['tweets']} tweets, unretweeted {total_progress_since_last_nag['retweets']} tweets, and unliked {total_progress_since_last_nag['likes']} tweets.\n\nSemiphemeral is free, but running this service costs money. Care to chip in? Visit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
-            await send_dm(user.twitter_id, message)
+
+            await DirectMessageJob.create(
+                dest_twitter_id=user.twitter_id,
+                message=message,
+                status="status",
+                scheduled_timestamp=datetime.now(),
+            )
 
 
 async def start_job(job):
@@ -636,6 +649,25 @@ async def start_job(job):
             pass
 
 
+async def start_dm_job(dm_job):
+    api = await twitter_dm_api()
+
+    try:
+        # Send the DM
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None, api.send_direct_message, dm_job.dest_twitter_id, dm_job.message
+        )
+
+        # Success, update dm_job as sent
+        await dm_job.update(status="sent", sent_timestamp=datetime.now()).apply()
+    except:
+        # If sending the DM failed, try again in 5 minutes
+        await dm_job.update(
+            status="pending", scheduled_timestamp=datetime.now() + timedelta(minutes=5)
+        ).apply()
+
+
 async def start_jobs():
     # Initialize logging -- commented out because I don't want to have to deal with figuring out how to
     # restart logging in logrotate, especially since I may never need these logs
@@ -649,11 +681,20 @@ async def start_jobs():
 
     # Infinitely loop looking for pending jobs
     while True:
+        # Fetch and delete jobs
         for job in (
             await Job.query.where(Job.status == "pending")
             .where(Job.scheduled_timestamp <= datetime.now())
             .gino.all()
         ):
             await start_job(job)
+
+        # Direct message jobs
+        for dm_job in (
+            await DirectMessageJob.query.where(DirectMessageJob.status == "pending")
+            .where(DirectMessageJob.scheduled_timestamp <= datetime.now())
+            .gino.all()
+        ):
+            await start_dm_job(dm_job)
 
         await asyncio.sleep(60)

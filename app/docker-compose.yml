@@ -1,19 +1,6 @@
 version: '3'
 services:
 
-  proxy:
-    restart: always
-    build: "proxy"
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /etc/letsencrypt/live/{{ domain }}/fullchain.pem:/etc/nginx/ssl/fullchain.pem
-      - /etc/letsencrypt/live/{{ domain }}/privkey.pem:/etc/nginx/ssl/privkey.pem
-      - /opt/semiphemeral/data/proxy:/var/log/nginx
-    networks:
-      - default
-
   web:
     restart: always
     build: "src"
@@ -56,6 +43,23 @@ services:
     networks:
       - default
       - host_private
+    depends_on:
+      - web
+
+  proxy:
+    restart: always
+    build: "proxy"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt/live/{{ domain }}/fullchain.pem:/etc/nginx/ssl/fullchain.pem
+      - /etc/letsencrypt/live/{{ domain }}/privkey.pem:/etc/nginx/ssl/privkey.pem
+      - /opt/semiphemeral/data/proxy:/var/log/nginx
+    networks:
+      - default
+    depends_on:
+      - web
 
 networks:
   default:
