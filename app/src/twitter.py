@@ -434,8 +434,8 @@ async def delete(job):
                             # Unknown error
                             break
 
-            progress["retweets"] += 1
-            await update_progress(job, progress)
+                progress["retweets"] += 1
+                await update_progress(job, progress)
 
         # Unlike
         if user.retweets_likes_delete_likes:
@@ -480,8 +480,8 @@ async def delete(job):
                             # Unknown error
                             break
 
-            progress["likes"] += 1
-            await update_progress(job, progress)
+                progress["likes"] += 1
+                await update_progress(job, progress)
 
     # Deleting tweets
     if user.delete_tweets:

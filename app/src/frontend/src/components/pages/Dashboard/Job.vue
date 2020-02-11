@@ -24,7 +24,6 @@
 .finished .finished-timestamp {
   margin-right: 0.5em;
   display: inline-block;
-  width: 160px;
   font-size: 0.8em;
   color: #666666;
 }
