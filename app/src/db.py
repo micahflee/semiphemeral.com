@@ -65,6 +65,17 @@ class Job(db.Model):
     finished_timestamp = db.Column(db.DateTime)
 
 
+class DirectMessageJob(db.Model):
+    __tablename__ = "direct_message_jobs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    dest_twitter_id = db.Column(db.BigInteger)
+    message = db.Column(db.String)
+    status = db.Column(db.String)  # "pending", "sent"
+    scheduled_timestamp = db.Column(db.DateTime)
+    sent_timestamp = db.Column(db.DateTime)
+
+
 class Thread(db.Model):
     __tablename__ = "threads"
 
