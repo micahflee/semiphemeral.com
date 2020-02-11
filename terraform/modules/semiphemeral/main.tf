@@ -146,7 +146,7 @@ resource "digitalocean_database_firewall" "fw" {
 resource "digitalocean_database_connection_pool" "pool" {
   cluster_id = digitalocean_database_cluster.db.id
   name       = "pool-01-${var.deploy_environment}"
-  mode       = "transaction"
+  mode       = "session"
   size       = 20
   db_name    = digitalocean_database_cluster.db.database
   user       = digitalocean_database_cluster.db.user
