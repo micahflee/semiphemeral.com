@@ -95,5 +95,10 @@
         src: ./etc/logrotate.d/semiphemeral
         dest: /etc/logrotate.d/semiphemeral
 
-    - name: ensure we have a Let's Encrypt certificate
+    - name: ensure we have a Let's Encrypt certificate (staging)
+      shell: certbot certonly --staging --standalone -n --agree-tos --email micah@micahflee.com -d {{ domain }}
+      when: deploy_environment == "staging"
+
+    - name: ensure we have a Let's Encrypt certificate (production)
       shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ domain }}
+      when: deploy_environment == "production"
