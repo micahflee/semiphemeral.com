@@ -92,6 +92,39 @@ resource "digitalocean_domain" "domain" {
   ip_address = digitalocean_droplet.app.ipv4_address
 }
 
+resource "digitalocean_record" "helm_txt1" {
+  domain = digitalocean_domain.domain.name
+  type   = "TXT"
+  name   = "@"
+  value  = "v=spf1 include:micahflee.com -all"
+  ttl    = "3600"
+}
+
+resource "digitalocean_record" "helm_txt2" {
+  domain = digitalocean_domain.domain.name
+  type   = "TXT"
+  name   = "_dmarc"
+  value  = "v=DMARC1; p=reject; sp=reject; pct=100; aspf=r; fo=0; rua=mailto:postmaster@semiphemeral.com"
+  ttl    = "3600"
+}
+
+resource "digitalocean_record" "helm_mx" {
+  domain   = digitalocean_domain.domain.name
+  type     = "MX"
+  name     = "@"
+  value    = "helm.micahflee.com."
+  priority = 10
+  ttl      = "3600"
+}
+
+resource "digitalocean_record" "helm_cname" {
+  domain = digitalocean_domain.domain.name
+  type   = "CNAME"
+  name   = "mail._domainkey"
+  value  = "mail._domainkey.micahflee.com."
+  ttl    = "3600"
+}
+
 resource "digitalocean_database_cluster" "db" {
   name       = "db-${var.deploy_environment}"
   engine     = "pg"
