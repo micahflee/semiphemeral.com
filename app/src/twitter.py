@@ -22,6 +22,11 @@ async def log(job, s):
 def ensure_user_follows_us(func):
     async def wrapper(job):
         user = await User.query.where(User.id == job.user_id).gino.first()
+
+        # Make an exception for semiphemeral user, because semiphemeral can't follow semiphemeral
+        if user.twitter_screen_name == "semiphemeral":
+            return await func(job)
+
         api = await twitter_api(user)
 
         # Is the user following us?
