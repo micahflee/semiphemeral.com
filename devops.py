@@ -208,8 +208,9 @@ def _get_terraform_output(deploy_environment):
         return
     for line in out.split("\n"):
         if "=" in line:
-            parts = line.split("=")
-            terraform_output[parts[0].strip()] = parts[1].strip()
+            key = line.split("=")[0].strip()
+            val = "=".join(line.split("=")[1:]).strip()
+            terraform_output[key] = val
 
     return terraform_output
 
