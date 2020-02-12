@@ -31,9 +31,14 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  deploy   Deploy and configure infrastructure
-  destroy  Destroy infrastructure
-  ssh      SSH to server
+  backup-restore    Restore a database backup
+  backup-save       Save a database backup
+  deploy            Deploy and configure infrastructure
+  destroy           Destroy infrastructure
+  forward-postgres  Forward the postgres port to localhost, using SSH
+  ssh               SSH to server
+  terraform         Re-apply terraform (uses current IP for devops IP)
+  update-app        Just update the app on already-deployed infrastructure
 ```
 
 When you run deploy, it will use terraform to deploy/update DigitalOcean infrastructure, and then use ansible to ensure the server is configured.
