@@ -202,9 +202,9 @@ async def calculate_excluded_threads(user):
 
     # Set should_exclude for all threads based on the settings
     if user.tweets_threads_threshold:
-        for thread in (
-            await Thread.join(Tweet, Thread.id == Tweet.thread_id)
-            .select()
+        threads = (
+            await Thread.query.select_from(Thread.join(Tweet))
+            .where(Thread.id == Tweet.thread_id)
             .where(Thread.user_id == user.id)
             .where(Tweet.user_id == user.id)
             .where(Tweet.is_deleted == False)
@@ -212,7 +212,8 @@ async def calculate_excluded_threads(user):
             .where(Tweet.retweet_count >= user.tweets_retweet_threshold)
             .where(Tweet.favorite_count >= user.tweets_like_threshold)
             .gino.all()
-        ):
+        )
+        for thread in threads:
             await thread.update(should_exclude=True).apply()
 
 
@@ -676,14 +677,14 @@ async def start_dm_job(dm_job):
         print(
             f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sent DM to twitter_id={dm_job.dest_twitter_id}"
         )
-    except:
+    except Exception as e:
         # If sending the DM failed, try again in 5 minutes
         await dm_job.update(
             status="pending", scheduled_timestamp=datetime.now() + timedelta(minutes=5)
         ).apply()
 
         print(
-            f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM, delaying 5 minutes"
+            f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), delaying 5 minutes"
         )
 
 

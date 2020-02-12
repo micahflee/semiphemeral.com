@@ -106,7 +106,7 @@ class Tweet(db.Model):
     is_deleted = db.Column(db.Boolean)
     is_unliked = db.Column(db.Boolean)
     exclude_from_delete = db.Column(db.Boolean)
-    thread_id = db.Column(db.Integer)
+    thread_id = db.Column(db.Integer, db.ForeignKey("threads.id"))
 
 
 async def connect_db():
