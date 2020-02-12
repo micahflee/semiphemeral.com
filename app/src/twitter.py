@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta
 
 import tweepy
+from sqlalchemy import and_
 
 from common import twitter_api, twitter_api_call, twitter_dm_api, tweets_to_delete
 from db import Job, DirectMessageJob, User, Tip, Nag, Tweet, Thread
@@ -52,6 +53,24 @@ def ensure_user_follows_us(func):
         return await func(job)
 
     return wrapper
+
+
+async def create_job(user, job_type, scheduled_timestamp):
+    # If this user does not already have a pending or active job of this type,
+    # then schedule it
+    existing_jobs = (
+        await Job.query.where(Job.user_id == user.id)
+        .where(Job.job_type == job_type)
+        .where(and_(Job.status != "pending", Job.status != "active"))
+        .gino.first()
+    )
+    if not existing_jobs:
+        await Job.create(
+            user_id=user.id,
+            job_type=job_type,
+            status="pending",
+            scheduled_timestamp=scheduled_timestamp,
+        )
 
 
 async def reschedule_job(job, timedelta_in_the_future):
@@ -368,12 +387,7 @@ async def fetch(job):
         # If it's not paused, then schedule a delete job
 
         # Create a new delete job
-        await Job.create(
-            user_id=user.id,
-            job_type="delete",
-            status="pending",
-            scheduled_timestamp=datetime.now(),
-        )
+        await create_job(user, "delete", datetime.now())
 
 
 @ensure_user_follows_us
@@ -524,13 +538,7 @@ async def delete(job):
     # Delete is done!
 
     # Schedule the next fetch job
-    tomorrow = datetime.now() + timedelta(days=1)
-    await Job.create(
-        user_id=user.id,
-        job_type="fetch",
-        status="pending",
-        scheduled_timestamp=tomorrow,
-    )
+    await create_job(user, "fetch", datetime.now() + timedelta(days=1))
 
     # When was the last time?
     one_year = timedelta(days=365)
