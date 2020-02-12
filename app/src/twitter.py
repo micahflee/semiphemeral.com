@@ -299,18 +299,16 @@ async def fetch(job):
                 thread = await Thread.create(
                     user_id=user.id, root_status_id=root_status_id, should_exclude=False
                 )
-                progress["threads"] += 1
 
             # Add all of the thread's tweets to the thread
             for status_id in status_ids:
                 tweet = (
                     await Tweet.query.where(Tweet.user_id == user.id)
                     .where(Tweet.status_id == status_id)
-                    .where(Tweet.thread_id != thread.id)
                     .gino.first()
                 )
                 if tweet:
-                    await Tweet.update(thread_id=thread.id).apply()
+                    await tweet.update(thread_id=thread.id).apply()
 
         await update_progress(job, progress)
 
