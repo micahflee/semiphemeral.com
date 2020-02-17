@@ -4,7 +4,6 @@ import os
 from datetime import datetime, timedelta
 
 import tweepy
-from sqlalchemy import and_
 
 from common import twitter_api, twitter_api_call, twitter_dm_api, tweets_to_delete
 from db import Job, DirectMessageJob, User, Tip, Nag, Tweet, Thread
@@ -66,7 +65,7 @@ async def create_job(user, job_type, scheduled_timestamp):
     existing_jobs = (
         await Job.query.where(Job.user_id == user.id)
         .where(Job.job_type == job_type)
-        .where(and_(Job.status != "pending", Job.status != "active"))
+        .where(Job.status != "pending")
         .gino.first()
     )
     if not existing_jobs:
@@ -89,17 +88,19 @@ async def update_progress(job, progress):
     await job.update(progress=json.dumps(progress)).apply()
 
 
-async def update_progress_rate_limit(job, progress):
-    await log(job, "Hit twitter rate limit, waiting 15 minutes")
+async def update_progress_rate_limit(job, progress, minutes):
+    await log(job, f"Hit twitter rate limit, waiting {minutes} minutes")
 
     old_status = progress["status"]
 
     # Change status message
-    progress["status"] = "Not so fast... I hit Twitter's rate limit, waiting 15 minutes"
+    progress[
+        "status"
+    ] = f"Not so fast... I hit Twitter's rate limit, waiting {minutes} minutes"
     await update_progress(job, progress)
 
-    # Wait 15 minutes
-    await asyncio.sleep(15 * 60)
+    # Wait
+    await asyncio.sleep(minutes * 60)
 
     # Change status message back
     progress["status"] = old_status
@@ -130,13 +131,14 @@ async def save_tweet(user, status):
     )
 
 
-async def import_tweet_and_thread(user, api, status):
+async def import_tweet_and_thread(user, api, job, progress, status):
     """
     This imports a tweet, and recursively imports all tweets that it's in reply to,
     and returns the number of tweets fetched
     """
-    fetched_count = 0
-
+    # print(
+    #     f"job_id={job.id} Importing tweet and thread https://twitter.com/{status.author.screen_name}/status/{status.id}"
+    # )
     # Is the tweet already saved?
     tweet = await (
         Tweet.query.where(Tweet.user_id == user.id)
@@ -145,32 +147,49 @@ async def import_tweet_and_thread(user, api, status):
     )
     if not tweet:
         # Save the tweet
+        # print(
+        #     f"job_id={job.id} Saving tweet https://twitter.com/{status.author.screen_name}/status/{status.id}"
+        # )
         tweet = await save_tweet(user, status)
-        fetched_count += 1
 
     # Is this tweet a reply?
     if tweet.in_reply_to_status_id:
         # Do we already have the parent tweet?
+        # print(
+        #     f"job_id={job.id} Tweet has a parent https://twitter.com/{tweet.in_reply_to_screen_name}/status/{tweet.in_reply_to_status_id}"
+        # )
         parent_tweet = await (
             Tweet.query.where(Tweet.user_id == user.id)
             .where(Tweet.status_id == tweet.in_reply_to_status_id)
             .gino.first()
         )
         if not parent_tweet:
-            # If not, import it
-            try:
-                parent_status = await twitter_api_call(
-                    api,
-                    "get_status",
-                    id=tweet.in_reply_to_status_id,
-                    tweet_mode="extended",
-                )
-                fetched_count += await import_tweet_and_thread(user, api, parent_status)
-            except tweepy.error.TweepError:
-                # If it's been deleted, ignore
-                pass
+            # If we don't have the parent tweet, import it
+            while True:  # loop in case we get rate-limited
+                try:
+                    parent_status = await twitter_api_call(
+                        api,
+                        "get_status",
+                        id=tweet.in_reply_to_status_id,
+                        tweet_mode="extended",
+                    )
+                    await import_tweet_and_thread(
+                        user, api, job, progress, parent_status
+                    )
+                    break
+                except tweepy.error.TweepError as e:
+                    try:
+                        error_code = e.args[0][0]["code"]
+                    except:
+                        error_code = e.api_code
 
-    return fetched_count
+                    # On rate limit, try again
+                    if error_code == 88:  # 88 = Rate limit exceeded
+                        await update_progress_rate_limit(job, progress, 2)
+                    else:
+                        # Otherwise (it's been deleted, the user is suspended, unauthorized, blocked), ignore
+                        print(f"job_id={job.id} Error importing parent tweet: {e}")
+                        break
 
 
 async def calculate_thread(user, status_id):
@@ -263,13 +282,11 @@ async def fetch(job):
         except StopIteration:
             break
         except tweepy.TweepError:
-            await update_progress_rate_limit(job, progress)
-
-        fetched_count = 0
+            await update_progress_rate_limit(job, progress, 15)
 
         # Import these tweets, and all their threads
         for status in page:
-            fetched_count += await import_tweet_and_thread(user, api, status)
+            await import_tweet_and_thread(user, api, job, progress, status)
             progress["tweets"] += 1
 
         await update_progress(job, progress)
@@ -333,7 +350,7 @@ async def fetch(job):
         except StopIteration:
             break
         except tweepy.TweepError:
-            await update_progress_rate_limit(job, progress)
+            await update_progress_rate_limit(job, progress, 15)
 
         # Import these tweets
         for status in page:
@@ -445,9 +462,9 @@ async def delete(job):
                             # Already deleted
                             await tweet.update(is_deleted=True).apply()
                             break
-                        elif e.api_code == 429:
-                            await update_progress_rate_limit(job, progress)
-                            # Don't break -- this will wait 15 minutes and try again
+                        elif e.api_code == 429:  # 429 = Too Many Requests
+                            await update_progress_rate_limit(job, progress, 15)
+                            # Don't break, so it tries again
                         else:
                             # Unknown error
                             break
@@ -487,13 +504,13 @@ async def delete(job):
                         await tweet.update(is_unliked=True).apply()
                         break
                     except tweepy.error.TweepError as e:
-                        if e.api_code == 144:
+                        if e.api_code == 144:  # 144 = No status found with that ID
                             # Already unliked
                             await tweet.update(is_unliked=True).apply()
                             break
-                        elif e.api_code == 429:
-                            await update_progress_rate_limit(job, progress)
-                            # Don't break -- this will wait 15 minutes and try again
+                        elif e.api_code == 429:  # 429 = Too Many Requests
+                            await update_progress_rate_limit(job, progress, 15)
+                            # Don't break, so it tries again
                         else:
                             # Unknown error
                             break
@@ -517,16 +534,16 @@ async def delete(job):
             try:
                 # await loop.run_in_executor(None, api.destroy_status, tweet.status_id)
                 print(f"deleting tweet {tweet.status_id}")
-                await tweet.update(is_deleted=True).apply()
+                await tweet.update(is_deleted=True, text=None).apply()
                 break
             except tweepy.error.TweepError as e:
-                if e.api_code == 144:
+                if e.api_code == 144:  # No status found with that ID
                     # Already deleted
-                    await tweet.update(is_deleted=True).apply()
+                    await tweet.update(is_deleted=True, text=None).apply()
                     break
-                elif e.api_code == 429:
-                    await update_progress_rate_limit(job, progress)
-                    # Don't break -- this will wait 15 minutes and try again
+                elif e.api_code == 429:  # 429 = Too Many Requests
+                    await update_progress_rate_limit(job, progress, 15)
+                    # Don't break, so it tries again
                 else:
                     # Unknown error
                     break
