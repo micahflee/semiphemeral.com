@@ -47,7 +47,7 @@ async def twitter_dm_api():
     return api
 
 
-async def tweets_to_delete(user):
+async def tweets_to_delete(user, include_manually_excluded=False):
     """
     Return the tweets that are staged for deletion for this user
     """
@@ -72,17 +72,18 @@ async def tweets_to_delete(user):
 
     # Select tweets that we will delete
     tweets_to_delete = []
-    for tweet in (
-        await Tweet.query.where(Tweet.user_id == user.id)
+    query = (
+        Tweet.query.where(Tweet.user_id == user.id)
         .where(Tweet.twitter_user_id == user.twitter_id)
         .where(Tweet.is_deleted == False)
         .where(Tweet.is_retweet == False)
         .where(Tweet.created_at < datetime_threshold)
         .where(Tweet.retweet_count < user.tweets_retweet_threshold)
         .where(Tweet.favorite_count < user.tweets_like_threshold)
-        .order_by(Tweet.created_at)
-        .gino.all()
-    ):
+    )
+    if not include_manually_excluded:
+        query = query.where(Tweet.exclude_from_delete == False)
+    for tweet in await query.order_by(Tweet.created_at).gino.all():
         if tweet.status_id not in tweets_to_exclude:
             tweets_to_delete.append(tweet)
 
