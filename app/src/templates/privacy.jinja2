@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Semiphemeral Privacy Information</title>
+    <link rel="icon" type="image/png" href="/static/img/logo-small.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        #privacy {
+            font-family: sans;
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 150%;
+        }
+
+        #privacy img {
+            width: 200px;
+            max-width: 100%;
+        }
+
+        a:link,
+        a:visited {
+            text-decoration: none;
+            color: #517cfa;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="privacy">
+        <p class="logo"><a href="/"><img src="/static/img/logo.png" alt="Semiphemeral" /></a></p>
+
+        <h1>Semiphemeral Privacy Information</h1>
+
+        <p>This service avoids collecting more information than necessary</p>
+        <ul>
+            <li>It doesn't use any analytics service or trackers</li>
+            <li>It doesn't log IP addresses (except for error logs, but mostly because it's hard to configure nginx to
+                not log IPs in error logs)</li>
+            <li>It stores a copy of the text of your your tweets when you download them in order to make them easier to
+                search, but once a tweet is deleted, the text of that tweet is deleted as well</li>
+            <li>If you delete your Semiphemeral account, all information related to your account is deleted as well</li>
+            <li>It automatically keeps 7 days of database backups (in case something breaks and I need to restore from
+                backup), so data isn't fully deleted for a week &mdash; and additionally, I reserve the right to make
+                occasional database backups and keep them for a limited time if there's a good technical reason
+                to do so
+            </li>
+        </ul>
+
+        <p>This service avoids loading third-party resources</p>
+        <ul>
+            <li>When you're viewing your tweets, your browser loads a javascript file from twitter.com, and tweets are
+                embedded
+                from Twitter's service, but each embedded tweet <a
+                    href="https://developer.twitter.com/en/docs/twitter-for-websites/embedded-tweets/guides/embedded-tweet-parameter-reference">requests</a>
+                that Twitter not use data from the embed "for
+                purposes that include personalized suggestions and personalized ads"</li>
+            <li>When you're viewing the tips page, your browser loads a javascript file from stripe.com, and if you
+                choose to send a tip because you &lt;3 this service so much, all payment processing is handled by Stripe
+            </li>
+            <li>That's it, all other resources are loaded directly from semiphemeral.com</li>
+        </ul>
+
+        <p>Semiphemeral is hosted on DigitalOcean</p>
+        <ul>
+            <li>Therefore, DigitalOcean (a cloud hosting provider in the US) has the technical ability to access all of
+                the data that the Semiphemeral service itself can access</li>
+        </ul>
+    </div>
+</body>
+
+</html>

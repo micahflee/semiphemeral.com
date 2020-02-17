@@ -1,5 +1,12 @@
 <style>
+html {
+  position: relative;
+  min-height: 100%;
+}
+
 body {
+  margin: 0 0 25px;
+  padding: 10px;
   font-family: sans;
 }
 
@@ -42,6 +49,21 @@ a:hover {
   color: #5d8fad;
   text-decoration: none;
 }
+
+footer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 25px;
+  width: 100%;
+  overflow: hidden;
+  text-align: right;
+  font-size: 0.7em;
+}
+
+footer p {
+  margin: 0 10px;
+}
 </style>
 
 <template>
@@ -56,6 +78,11 @@ a:hover {
     <router-view v-bind="{
       userScreenName: userScreenName
     }"></router-view>
+    <footer>
+      <p>
+        <a href="/privacy">Privacy</a>
+      </p>
+    </footer>
   </div>
 </template>
 
