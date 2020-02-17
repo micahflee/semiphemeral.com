@@ -29,12 +29,10 @@ def test_api_creds(func):
             await twitter_api_call(api, "me")
         except tweepy.error.TweepError as e:
             print(
-                f"User {user.id} API creds failed ({e}), canceling jobs and pausing user"
+                f"User {user.id} API creds failed ({e}), canceling job and pausing user"
             )
             await user.update(paused=True).apply()
-            await Job.update.values(status="canceled").where(
-                Job.user_id == user.id
-            ).gino.status()
+            await job.update(status="canceled").apply()
             return False
 
         return await func(job)
