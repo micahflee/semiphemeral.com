@@ -15,7 +15,31 @@ class JobRescheduled(Exception):
 
 async def log(job, s):
     print(f"[{datetime.now().strftime('%c')}] job_id={job.id} {s}")
-    # logging.info(s)
+
+
+def test_api_creds(func):
+    async def wrapper(job):
+        """
+        Make sure the API creds work, and if not pause semiphemeral for the user
+        """
+        user = await User.query.where(User.id == job.user_id).gino.first()
+        api = await twitter_api(user)
+        try:
+            # Make an API request
+            await twitter_api_call(api, "me")
+        except tweepy.error.TweepError as e:
+            print(
+                f"User {user.id} API creds failed ({e}), canceling jobs and pausing user"
+            )
+            await user.update(paused=True).apply()
+            await Job.update.values(status="canceled").where(
+                Job.user_id == user.id
+            ).gino.status()
+            return False
+
+        return await func(job)
+
+    return wrapper
 
 
 def ensure_user_follows_us(func):
@@ -236,13 +260,15 @@ async def calculate_excluded_threads(user):
             await thread.update(should_exclude=True).apply()
 
 
+@test_api_creds
 @ensure_user_follows_us
 async def fetch(job):
-    await log(job, "Fetch started")
-
     user = await User.query.where(User.id == job.user_id).gino.first()
     api = await twitter_api(user)
+
     since_id = user.since_id
+
+    await log(job, "Fetch started")
 
     loop = asyncio.get_running_loop()
 
@@ -411,14 +437,17 @@ async def fetch(job):
         await create_job(user, "delete", datetime.now())
 
 
+@test_api_creds
 @ensure_user_follows_us
 async def delete(job):
-    await log(job, "Delete started")
-
     user = await User.query.where(User.id == job.user_id).gino.first()
     api = await twitter_api(user)
+    if not await test_api_creds(user, api):
+        return
 
     loop = asyncio.get_running_loop()
+
+    await log(job, "Delete started")
 
     # Start the progress
     progress = {"tweets": 0, "retweets": 0, "likes": 0}
@@ -706,10 +735,6 @@ async def start_dm_job(dm_job):
 
 
 async def start_jobs():
-    # Initialize logging -- commented out because I don't want to have to deal with figuring out how to
-    # restart logging in logrotate, especially since I may never need these logs
-    # logging.basicConfig(filename="/var/jobs/jobs.log", level=logging.INFO, force=True)
-
     # In case the app crashed in the middle of any previous jobs, change all "active"
     # jobs to "pending" so they'll start over
     await Job.update.values(status="pending").where(
