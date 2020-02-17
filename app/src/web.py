@@ -539,7 +539,9 @@ async def api_get_dashboard(request):
             "pending_jobs": to_client(pending_jobs),
             "active_jobs": to_client(active_jobs),
             "finished_jobs": to_client(finished_jobs),
-            "paused": user.paused,
+            "setting_paused": user.paused,
+            "setting_delete_tweets": user.delete_tweets,
+            "setting_retweets_likes": user.retweets_likes,
         }
     )
 

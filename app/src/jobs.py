@@ -82,20 +82,26 @@ def ensure_user_follows_us(func):
 
 
 async def create_job(user, job_type, scheduled_timestamp):
-    # If this user does not already have a pending or active job of this type,
-    # then schedule it
-    existing_jobs = (
+    # If this user does not already have a pending job of this type, then schedule it
+    existing_job = (
         await Job.query.where(Job.user_id == user.id)
         .where(Job.job_type == job_type)
-        .where(Job.status != "pending")
+        .where(Job.status == "pending")
         .gino.first()
     )
-    if not existing_jobs:
+    if not existing_job:
+        print(
+            f"Scheduling {job_type} for user_id={user.id} at at {scheduled_timestamp}"
+        )
         await Job.create(
             user_id=user.id,
             job_type=job_type,
             status="pending",
             scheduled_timestamp=scheduled_timestamp,
+        )
+    else:
+        print(
+            f"Pending job already exists (existing_job_id={existing_job.id}), skipping scheduling {job_type} for user_id={user.id} at at {scheduled_timestamp}"
         )
 
 
@@ -414,6 +420,7 @@ async def fetch(job):
     await log(job, "Fetch finished")
 
     # Fetch is done! If semiphemeral is paused, send a DM
+    # (If it's not paused, then this should actually be a delete job, and delete will run next)
     if user.paused:
         if not since_id:
             message = f"Good news! Semiphemeral finished downloading a copy of all {progress['tweets']} of your tweets and all {progress['likes']} of your likes.\n\n"
@@ -428,11 +435,6 @@ async def fetch(job):
             status="pending",
             scheduled_timestamp=datetime.now(),
         )
-    else:
-        # If it's not paused, then schedule a delete job
-
-        # Create a new delete job
-        await create_job(user, "delete", datetime.now())
 
 
 @test_api_creds
@@ -440,8 +442,6 @@ async def fetch(job):
 async def delete(job):
     user = await User.query.where(User.id == job.user_id).gino.first()
     api = await twitter_api(user)
-    if not await test_api_creds(user, api):
-        return
 
     loop = asyncio.get_running_loop()
 
@@ -554,29 +554,29 @@ async def delete(job):
         ] = f"Deleting {len(tweets)} tweets, starting with the earliest"
         await update_progress(job, progress)
 
-    for tweet in tweets:
-        # Try deleting the tweet, in a while loop in case it gets rate limited and
-        # needs to try again
-        while True:
-            try:
-                # await loop.run_in_executor(None, api.destroy_status, tweet.status_id)
-                print(f"deleting tweet {tweet.status_id}")
-                await tweet.update(is_deleted=True, text=None).apply()
-                break
-            except tweepy.error.TweepError as e:
-                if e.api_code == 144:  # No status found with that ID
-                    # Already deleted
+        for tweet in tweets:
+            # Try deleting the tweet, in a while loop in case it gets rate limited and
+            # needs to try again
+            while True:
+                try:
+                    # await loop.run_in_executor(None, api.destroy_status, tweet.status_id)
+                    print(f"deleting tweet {tweet.status_id}")
                     await tweet.update(is_deleted=True, text=None).apply()
                     break
-                elif e.api_code == 429:  # 429 = Too Many Requests
-                    await update_progress_rate_limit(job, progress, 15)
-                    # Don't break, so it tries again
-                else:
-                    # Unknown error
-                    break
+                except tweepy.error.TweepError as e:
+                    if e.api_code == 144:  # No status found with that ID
+                        # Already deleted
+                        await tweet.update(is_deleted=True, text=None).apply()
+                        break
+                    elif e.api_code == 429:  # 429 = Too Many Requests
+                        await update_progress_rate_limit(job, progress, 15)
+                        # Don't break, so it tries again
+                    else:
+                        # Unknown error
+                        break
 
-        progress["tweets"] += 1
-        await update_progress(job, progress)
+            progress["tweets"] += 1
+            await update_progress(job, progress)
 
     progress["status"] = "Finished"
     await update_progress(job, progress)
@@ -585,10 +585,10 @@ async def delete(job):
 
     # Delete is done!
 
-    # Schedule the next fetch job
-    await create_job(user, "fetch", datetime.now() + timedelta(days=1))
+    # Schedule the next delete job
+    await create_job(user, "delete", datetime.now() + timedelta(days=1))
 
-    # When was the last time?
+    # Has the user tipped in the last year?
     one_year = timedelta(days=365)
     tipped_in_the_last_year = (
         await Tip.query.where(Tip.user_id == user.id)

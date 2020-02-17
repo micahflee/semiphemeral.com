@@ -38,6 +38,12 @@ ul.jobs {
   list-style: none;
   padding: 0;
 }
+
+.warning {
+  color: #624caf;
+  font-weight: bold;
+  font-style: italic;
+}
 </style>
 
 <template>
@@ -103,6 +109,10 @@ ul.jobs {
           <strong>active</strong>.
           <button class="pause" v-on:click="pauseSemiphemeral">Pause Semiphemeral</button>
         </p>
+        <p v-if="!settingDeleteTweets && !settingRetweetsLikes" class="warning">
+          Warning: Your settings are configured to not delete any tweets, retweets, or likes. Go
+          <router-link to="/settings">change your settings</router-link>&nbsp;if you want Semiphemeral to delete your old tweets.
+        </p>
       </div>
 
       <h2 v-if="activeJobs.length > 0 || pendingJobs.length > 0">Current status</h2>
@@ -135,10 +145,12 @@ export default {
   data: function() {
     return {
       loading: false,
-      paused: null,
       activeJobs: [],
       pendingJobs: [],
-      finishedJobs: []
+      finishedJobs: [],
+      settingPaused: null,
+      settingDeleteTweets: null,
+      settingRetweetsLikes: null
     };
   },
   computed: {
@@ -148,7 +160,7 @@ export default {
       // B: paused, with only finished or cancelled jobs
       // C: not paused
       // More info: https://github.com/micahflee/semiphemeral.com/issues/8
-      if (this.paused) {
+      if (this.settingPaused) {
         if (this.activeJobs.length > 0 || this.pendingJobs.length > 0) {
           return "A";
         } else {
@@ -230,7 +242,9 @@ export default {
               that.finishedJobs = data["finished_jobs"];
             else that.finishedJobs = [];
 
-            that.paused = data["paused"];
+            that.settingPaused = data["setting_paused"];
+            that.settingDeleteTweets = data["setting_delete_tweets"];
+            that.settingRetweetsLikes = data["setting_retweet_likes"];
           });
         })
         .catch(function(err) {

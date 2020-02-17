@@ -103,16 +103,36 @@ export default {
   props: ["job"],
   computed: {
     progressTweets: function() {
-      return JSON.parse(this.job.progress).tweets;
+      var progress = JSON.parse(this.job.progress);
+      if (progress) {
+        return progress.tweets;
+      } else {
+        return "";
+      }
     },
     progressRetweets: function() {
-      return JSON.parse(this.job.progress).retweets;
+      var progress = JSON.parse(this.job.progress);
+      if (progress) {
+        return progress.retweets;
+      } else {
+        return "";
+      }
     },
     progressLikes: function() {
-      return JSON.parse(this.job.progress).likes;
+      var progress = JSON.parse(this.job.progress);
+      if (progress) {
+        return progress.likes;
+      } else {
+        return "";
+      }
     },
     progressStatus: function() {
-      return JSON.parse(this.job.progress).status;
+      var progress = JSON.parse(this.job.progress);
+      if (progress) {
+        return progress.status;
+      } else {
+        return "";
+      }
     },
     scheduledTimestampInThePast: function() {
       var scheduledTimestamp = Math.floor(
