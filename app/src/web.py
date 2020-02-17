@@ -706,6 +706,11 @@ async def index(request):
     return {"logged_in": logged_in}
 
 
+@aiohttp_jinja2.template("privacy.jinja2")
+async def privacy(request):
+    return {}
+
+
 @aiohttp_jinja2.template("app.jinja2")
 @authentication_required_302
 async def app_main(request):
@@ -763,6 +768,7 @@ async def start_web_server():
             web.post("/api/tweets", api_post_tweets),
             # Web
             web.get("/", index),
+            web.get("/privacy", privacy),
             web.get("/dashboard", app_main),
             web.get("/tweets", app_main),
             web.get("/settings", app_main),
