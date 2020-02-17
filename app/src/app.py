@@ -5,7 +5,7 @@ import asyncio
 
 from db import connect_db
 from web import start_web_server
-from twitter import start_jobs
+from jobs import start_jobs
 
 
 async def main():
