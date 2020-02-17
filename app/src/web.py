@@ -649,7 +649,7 @@ async def api_get_tweets(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
 
-    tweets = await tweets_to_delete(user)
+    tweets = await tweets_to_delete(user, include_manually_excluded=True)
     tweets_for_client = []
 
     for tweet in tweets:
