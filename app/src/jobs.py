@@ -616,7 +616,7 @@ async def delete(job):
 
     if not last_nag:
         # The user has never been nagged, so this is the first delete
-        message = f"Congratulations! Semiphemeral has deleted {progress['tweets']} tweets, unretweeted {progress['retweets']} tweets, and unliked  {progress['likes']} tweets. Doesn't that feel nice?\n\nEach day, I will download your latest tweets and likes and then delete the old ones based on your settings. You can sit back, relax, and enjoy the privacy.\n\nYou can always change your settings, mark new tweets to never delete, and pause Semiphemeral from the website https://{os.environ.get('DOMAIN')}/dashboard."
+        message = f"Congratulations! Semiphemeral has deleted {progress['tweets']} tweets, unretweeted {progress['retweets']} tweets, and unliked {progress['likes']} tweets. Doesn't that feel nice?\n\nEach day, I will download your latest tweets and likes and then delete the old ones based on your settings. You can sit back, relax, and enjoy the privacy.\n\nYou can always change your settings, mark new tweets to never delete, and pause Semiphemeral from the website https://{os.environ.get('DOMAIN')}/dashboard."
 
         await DirectMessageJob.create(
             dest_twitter_id=user.twitter_id,
