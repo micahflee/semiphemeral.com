@@ -164,9 +164,6 @@ async def import_tweet_and_thread(user, api, job, progress, status):
     This imports a tweet, and recursively imports all tweets that it's in reply to,
     and returns the number of tweets fetched
     """
-    # print(
-    #     f"job_id={job.id} Importing tweet and thread https://twitter.com/{status.author.screen_name}/status/{status.id}"
-    # )
     # Is the tweet already saved?
     tweet = await (
         Tweet.query.where(Tweet.user_id == user.id)
@@ -175,17 +172,11 @@ async def import_tweet_and_thread(user, api, job, progress, status):
     )
     if not tweet:
         # Save the tweet
-        # print(
-        #     f"job_id={job.id} Saving tweet https://twitter.com/{status.author.screen_name}/status/{status.id}"
-        # )
         tweet = await save_tweet(user, status)
 
     # Is this tweet a reply?
     if tweet.in_reply_to_status_id:
         # Do we already have the parent tweet?
-        # print(
-        #     f"job_id={job.id} Tweet has a parent https://twitter.com/{tweet.in_reply_to_screen_name}/status/{tweet.in_reply_to_status_id}"
-        # )
         parent_tweet = await (
             Tweet.query.where(Tweet.user_id == user.id)
             .where(Tweet.status_id == tweet.in_reply_to_status_id)
@@ -478,11 +469,10 @@ async def delete(job):
                 # needs to try again
                 while True:
                     try:
-                        # await loop.run_in_executor(
-                        #     None, api.destroy_status, tweet.status_id
-                        # )
+                        await loop.run_in_executor(
+                            None, api.destroy_status, tweet.status_id
+                        )
                         await tweet.update(is_deleted=True).apply()
-                        print(f"deleting retweet {tweet.status_id}")
                         break
                     except tweepy.error.TweepError as e:
                         if e.api_code == 144:
@@ -494,6 +484,7 @@ async def delete(job):
                             # Don't break, so it tries again
                         else:
                             # Unknown error
+                            print(f"job_id={job.id} Error deleting retweet {e}")
                             break
 
                 progress["retweets"] += 1
@@ -524,10 +515,9 @@ async def delete(job):
                 # needs to try again
                 while True:
                     try:
-                        # await loop.run_in_executor(
-                        #     None, api.destroy_favorite, tweet.status_id
-                        # )
-                        print(f"unliking tweet {tweet.status_id}")
+                        await loop.run_in_executor(
+                            None, api.destroy_favorite, tweet.status_id
+                        )
                         await tweet.update(is_unliked=True).apply()
                         break
                     except tweepy.error.TweepError as e:
@@ -540,6 +530,7 @@ async def delete(job):
                             # Don't break, so it tries again
                         else:
                             # Unknown error
+                            print(f"job_id={job.id} Error unliking tweet {e}")
                             break
 
                 progress["likes"] += 1
@@ -559,8 +550,9 @@ async def delete(job):
             # needs to try again
             while True:
                 try:
-                    # await loop.run_in_executor(None, api.destroy_status, tweet.status_id)
-                    print(f"deleting tweet {tweet.status_id}")
+                    await loop.run_in_executor(
+                        None, api.destroy_status, tweet.status_id
+                    )
                     await tweet.update(is_deleted=True, text=None).apply()
                     break
                 except tweepy.error.TweepError as e:
@@ -573,6 +565,7 @@ async def delete(job):
                         # Don't break, so it tries again
                     else:
                         # Unknown error
+                        print(f"job_id={job.id} Error deleting tweet {e}")
                         break
 
             progress["tweets"] += 1
