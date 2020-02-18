@@ -485,21 +485,21 @@ async def api_get_dashboard(request):
     user = await _logged_in_user(session)
 
     pending_jobs = (
-        await Job.query.where(User.id == user.id)
+        await Job.query.where(Job.user_id == user.id)
         .where(Job.status == "pending")
         .order_by(Job.scheduled_timestamp)
         .gino.all()
     )
 
     active_jobs = (
-        await Job.query.where(User.id == user.id)
+        await Job.query.where(Job.user_id == user.id)
         .where(Job.status == "active")
         .order_by(Job.started_timestamp)
         .gino.all()
     )
 
     finished_jobs = (
-        await Job.query.where(User.id == user.id)
+        await Job.query.where(Job.user_id == user.id)
         .where(Job.status == "finished")
         .order_by(Job.finished_timestamp.desc())
         .gino.all()
