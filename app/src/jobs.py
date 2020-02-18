@@ -204,7 +204,7 @@ async def import_tweet_and_thread(user, api, job, progress, status):
 
                     # On rate limit, try again
                     if error_code == 88:  # 88 = Rate limit exceeded
-                        await update_progress_rate_limit(job, progress, 2)
+                        await update_progress_rate_limit(job, progress, 5)
                     else:
                         # Otherwise (it's been deleted, the user is suspended, unauthorized, blocked), ignore
                         print(f"job_id={job.id} Error importing parent tweet: {e}")
