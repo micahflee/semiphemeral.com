@@ -268,11 +268,7 @@ async def fetch(job):
     loop = asyncio.get_running_loop()
 
     # Start the progress
-    progress = {
-        "tweets": 0,
-        "likes": 0,
-        "threads": 0,
-    }
+    progress = {"tweets_fetched": 0, "likes_fetched": 0}
     if since_id:
         progress["status"] = "Downloading all recent tweets"
     else:
@@ -308,7 +304,7 @@ async def fetch(job):
         # Import these tweets, and all their threads
         for status in page:
             await import_tweet_and_thread(user, api, job, progress, status)
-            progress["tweets"] += 1
+            progress["tweets_fetched"] += 1
 
         await update_progress(job, progress)
 
@@ -386,7 +382,7 @@ async def fetch(job):
                 # Save the tweet
                 await save_tweet(user, status)
 
-            progress["likes"] += 1
+            progress["likes_fetched"] += 1
 
         await update_progress(job, progress)
 
@@ -414,9 +410,9 @@ async def fetch(job):
     # (If it's not paused, then this should actually be a delete job, and delete will run next)
     if user.paused:
         if not since_id:
-            message = f"Good news! Semiphemeral finished downloading a copy of all {progress['tweets']} of your tweets and all {progress['likes']} of your likes.\n\n"
+            message = f"Good news! Semiphemeral finished downloading a copy of all {progress['tweets_fetched']} of your tweets and all {progress['likes_fetched']} of your likes.\n\n"
         else:
-            message = f"Semiphemeral finished downloading {progress['tweets']} new tweets and {progress['likes']} new likes.\n\n"
+            message = f"Semiphemeral finished downloading {progress['tweets_fetched']} new tweets and {progress['likes_fetched']} new likes.\n\n"
 
         message += f"The next step is look through your tweets and manually mark which ones you want to make sure never get deleted. Visit https://{os.environ.get('DOMAIN')}/tweets to finish.\n\nWhen you're done, you can start deleting your tweets from the dashboard."
 
@@ -439,7 +435,10 @@ async def delete(job):
     await log(job, "Delete started")
 
     # Start the progress
-    progress = {"tweets": 0, "retweets": 0, "likes": 0}
+    progress = json.loads(job.progress)
+    progress["tweets_deleted"] = 0
+    progress["retweets_deleted"] = 0
+    progress["likes_deleted"] = 0
 
     # Unretweet and unlike tweets
     if user.retweets_likes:
@@ -487,7 +486,7 @@ async def delete(job):
                             print(f"job_id={job.id} Error deleting retweet {e}")
                             break
 
-                progress["retweets"] += 1
+                progress["retweets_deleted"] += 1
                 await update_progress(job, progress)
 
         # Unlike
@@ -533,7 +532,7 @@ async def delete(job):
                             print(f"job_id={job.id} Error unliking tweet {e}")
                             break
 
-                progress["likes"] += 1
+                progress["likes_deleted"] += 1
                 await update_progress(job, progress)
 
     # Deleting tweets
@@ -568,7 +567,7 @@ async def delete(job):
                         print(f"job_id={job.id} Error deleting tweet {e}")
                         break
 
-            progress["tweets"] += 1
+            progress["tweets_deleted"] += 1
             await update_progress(job, progress)
 
     progress["status"] = "Finished"
@@ -616,7 +615,7 @@ async def delete(job):
 
     if not last_nag:
         # The user has never been nagged, so this is the first delete
-        message = f"Congratulations! Semiphemeral has deleted {progress['tweets']} tweets, unretweeted {progress['retweets']} tweets, and unliked {progress['likes']} tweets. Doesn't that feel nice?\n\nEach day, I will download your latest tweets and likes and then delete the old ones based on your settings. You can sit back, relax, and enjoy the privacy.\n\nYou can always change your settings, mark new tweets to never delete, and pause Semiphemeral from the website https://{os.environ.get('DOMAIN')}/dashboard."
+        message = f"Congratulations! Semiphemeral has deleted {progress['tweets_deleted']} tweets, unretweeted {progress['retweets_deleted']} tweets, and unliked {progress['likes_deleted']} tweets. Doesn't that feel nice?\n\nEach day, I will download your latest tweets and likes and then delete the old ones based on your settings. You can sit back, relax, and enjoy the privacy.\n\nYou can always change your settings, mark new tweets to never delete, and pause Semiphemeral from the website https://{os.environ.get('DOMAIN')}/dashboard."
 
         await DirectMessageJob.create(
             dest_twitter_id=user.twitter_id,
@@ -639,8 +638,16 @@ async def delete(job):
             # The user has been nagged before -- do some math to get the totals
 
             # Get all the delete jobs
-            total_progress = {"tweets": 0, "retweets": 0, "likes": 0}
-            total_progress_since_last_nag = {"tweets": 0, "retweets": 0, "likes": 0}
+            total_progress = {
+                "tweets_deleted": 0,
+                "retweets_deleted": 0,
+                "likes_deleted": 0,
+            }
+            total_progress_since_last_nag = {
+                "tweets_deleted": 0,
+                "retweets_deleted": 0,
+                "likes_deleted": 0,
+            }
             jobs = (
                 await Job.query.where(Job.user_id == user.id)
                 .where(Job.job_type == "delete")
@@ -650,22 +657,28 @@ async def delete(job):
             for job in jobs:
                 p = json.loads(job.progress)
 
-                if "tweets" in p:
-                    total_progress["tweets"] += p["tweets"]
-                if "retweets" in p:
-                    total_progress["retweets"] += p["retweets"]
-                if "likes" in p:
-                    total_progress["likes"] += p["likes"]
+                if "tweets_deleted" in p:
+                    total_progress["tweets"] += p["tweets_deleted"]
+                if "retweets_deleted" in p:
+                    total_progress["retweets"] += p["retweets_deleted"]
+                if "likes_deleted" in p:
+                    total_progress["likes"] += p["likes_deleted"]
 
                 if job.finished_timestamp > last_nag.timestamp:
-                    if "tweets" in p:
-                        total_progress_since_last_nag["tweets"] += p["tweets"]
-                    if "retweets" in p:
-                        total_progress_since_last_nag["retweets"] += p["retweets"]
-                    if "likes" in p:
-                        total_progress_since_last_nag["likes"] += p["likes"]
+                    if "tweets_deleted" in p:
+                        total_progress_since_last_nag["tweets_deleted"] += p[
+                            "tweets_deleted"
+                        ]
+                    if "retweets_deleted" in p:
+                        total_progress_since_last_nag["retweets_deleted"] += p[
+                            "retweets_deleted"
+                        ]
+                    if "likes_deleted" in p:
+                        total_progress_since_last_nag["likes_deleted"] += p[
+                            "likes_deleted"
+                        ]
 
-            message = f"Since you've been using Semiphemeral, I have deleted {total_progress['tweets']} tweets, unretweeted {total_progress['retweets']} tweets, and unliked {total_progress['likes']} tweets for you.\n\nJust since last month, I've deleted {total_progress_since_last_nag['tweets']} tweets, unretweeted {total_progress_since_last_nag['retweets']} tweets, and unliked {total_progress_since_last_nag['likes']} tweets.\n\nSemiphemeral is free, but running this service costs money. Care to chip in? Visit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
+            message = f"Since you've been using Semiphemeral, I have deleted {total_progress['tweets_deleted']} tweets, unretweeted {total_progress['retweets_deleted']} tweets, and unliked {total_progress['likes_deleted']} tweets for you.\n\nJust since last month, I've deleted {total_progress_since_last_nag['tweets_deleted']} tweets, unretweeted {total_progress_since_last_nag['retweets_deleted']} tweets, and unliked {total_progress_since_last_nag['likes_deleted']} tweets.\n\nSemiphemeral is free, but running this service costs money. Care to chip in? Visit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
 
             await DirectMessageJob.create(
                 dest_twitter_id=user.twitter_id,
