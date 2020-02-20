@@ -658,11 +658,11 @@ async def delete(job):
                 p = json.loads(job.progress)
 
                 if "tweets_deleted" in p:
-                    total_progress["tweets"] += p["tweets_deleted"]
+                    total_progress["tweets_deleted"] += p["tweets_deleted"]
                 if "retweets_deleted" in p:
-                    total_progress["retweets"] += p["retweets_deleted"]
+                    total_progress["retweets_deleted"] += p["retweets_deleted"]
                 if "likes_deleted" in p:
-                    total_progress["likes"] += p["likes_deleted"]
+                    total_progress["likes_deleted"] += p["likes_deleted"]
 
                 if job.finished_timestamp > last_nag.timestamp:
                     if "tweets_deleted" in p:
