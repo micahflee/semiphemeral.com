@@ -52,14 +52,16 @@
           Started downloading on
           <em>{{ humanReadableStartedTimestamp }}</em>
           <br />Downloaded
-          <strong>{{ progressTweets }} tweets</strong>,
-          <strong>{{ progressLikes }} likes</strong> since then
+          <strong>{{ progressTweetsFetched }} tweets</strong>,
+          <strong>{{ progressLikesFetched }} likes</strong> since then
         </p>
       </template>
       <template v-else-if="job.status == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{ humanReadableFinishedTimestamp}}</span>
-          <span class="progress">Downloaded {{ progressTweets }} tweets, {{ progressLikes }} likes</span>
+          <span
+            class="progress"
+          >Downloaded {{ progressTweetsFetched }} tweets, {{ progressLikesFetched }} likes</span>
         </p>
       </template>
     </template>
@@ -80,10 +82,13 @@
         <p class="progress">
           Started deleting on
           <em>{{ humanReadableStartedTimestamp }}</em>
+          <br />Downloaded
+          <strong>{{ progressTweetsFetched }} tweets</strong>,
+          <strong>{{ progressLikesFetched }} likes</strong>
           <br />Deleted
-          <strong>{{ progressTweets }} tweets</strong>,
-          <strong>{{ progressRetweets }} retweets</strong>,
-          <strong>{{ progressLikes }} likes</strong> since then
+          <strong>{{ progressTweetsDeleted }} tweets</strong>,
+          <strong>{{ progressRetweetsDeleted }} retweets</strong>,
+          <strong>{{ progressLikesDeleted }} likes</strong>
         </p>
       </template>
       <template v-else-if="job.status == 'finished'">
@@ -91,7 +96,7 @@
           <span class="finished-timestamp">{{ humanReadableFinishedTimestamp}}</span>
           <span
             class="progress"
-          >Deleted {{ progressTweets }} tweets, {{ progressRetweets }} retweets, {{ progressLikes }} likes</span>
+          >Downloaded {{ progressTweetsFetched }} tweets, {{ progressLikesFetched }} likes and deleted {{ progressTweetsDeleted }} tweets, {{ progressRetweetsDeleted }} retweets, {{ progressLikesDeleted }} likes</span>
         </p>
       </template>
     </template>
@@ -102,37 +107,23 @@
 export default {
   props: ["job"],
   computed: {
-    progressTweets: function() {
-      var progress = JSON.parse(this.job.progress);
-      if (progress) {
-        return progress.tweets;
-      } else {
-        return "";
-      }
+    progressTweetsFetched: function() {
+      return this.getProgressVal(this.job.progress, "tweets_fetched");
     },
-    progressRetweets: function() {
-      var progress = JSON.parse(this.job.progress);
-      if (progress) {
-        return progress.retweets;
-      } else {
-        return "";
-      }
+    progressLikesFetched: function() {
+      return this.getProgressVal(this.job.progress, "likes_fetched");
     },
-    progressLikes: function() {
-      var progress = JSON.parse(this.job.progress);
-      if (progress) {
-        return progress.likes;
-      } else {
-        return "";
-      }
+    progressTweetsDeleted: function() {
+      return this.getProgressVal(this.job.progress, "tweets_deleted");
+    },
+    progressRetweetsDeleted: function() {
+      return this.getProgressVal(this.job.progress, "retweets_deleted");
+    },
+    progressLikesDeleted: function() {
+      return this.getProgressVal(this.job.progress, "likes_deleted");
     },
     progressStatus: function() {
-      var progress = JSON.parse(this.job.progress);
-      if (progress) {
-        return progress.status;
-      } else {
-        return "";
-      }
+      return this.getProgressVal(this.job.progress, "status");
     },
     scheduledTimestampInThePast: function() {
       var scheduledTimestamp = Math.floor(
@@ -155,6 +146,14 @@ export default {
     humanReadableTimestamp: function(timestamp) {
       var date = new Date(timestamp * 1000);
       return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
+    },
+    getProgressVal: function(progress, key) {
+      var p = JSON.parse(progress);
+      if (p) {
+        return p[key];
+      } else {
+        return "";
+      }
     }
   }
 };
