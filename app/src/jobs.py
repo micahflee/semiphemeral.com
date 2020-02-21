@@ -65,16 +65,29 @@ def ensure_user_follows_us(func):
 
             # If we've already sent a follow request but it still hasn't been accepted
             if friendship.following_requested:
+                await user.update(following=False).apply()
+                print(f"user_id={user.id} waiting on follow request to get accepted")
                 await reschedule_job(job, reschedule_timedelta_in_the_future)
+                return False
 
             # Follow
+            print(f"user_id={user.id} not following, making follow request")
             followed_user = await twitter_api_call(
                 api, "create_friendship", screen_name="semiphemeral", follow=True
             )
+            if followed_user.following:
+                await user.update(following=True).apply()
 
             # If we're still not following but have now sent a follow request
             if not followed_user.following and followed_user.follow_request_sent:
+                await user.update(following=False).apply()
+                print(f"user_id={user.id} waiting on follow request to get accepted")
                 await reschedule_job(job, reschedule_timedelta_in_the_future)
+                return False
+        else:
+            # Make sure we've recorded that the user is a follower
+            if not user.following:
+                await user.update(following=True).apply()
 
         return await func(job)
 
