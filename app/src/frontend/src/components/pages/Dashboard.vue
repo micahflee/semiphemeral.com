@@ -65,74 +65,91 @@ ul.jobs {
       </p>
     </template>
     <template v-else>
-      <div v-if="state == 'A'">
+      <div v-if="!settingFollowing">
         <p>
-          Before you delete your old tweets, Semiphemeral needs to download a copy of your Twitter history. While you're waiting, make sure your
-          <router-link to="/settings">settings</router-link>&nbsp;are exactly as you want them.
+          In order to use Semiphemeral, you need to be following
+          <a
+            href="https://twitter.com/semiphemeral"
+          >@semiphemeral</a> on Twitter. A follow request has already been sent, but that account is protected at the moment, so you'll have to wait for it to accept you as a follower before you can start deleting your tweets.
+        </p>
+        <p>
+          So, hang tight. If it's taking way too long, feel free to contact
+          <a href="https://twitter.com/semiphemeral">@semiphemeral</a>. DMs are open.
         </p>
       </div>
+      <div v-else>
+        <div v-if="state == 'A'">
+          <p>
+            Before you delete your old tweets, Semiphemeral needs to download a copy of your Twitter history. While you're waiting, make sure your
+            <router-link to="/settings">settings</router-link>&nbsp;are exactly as you want them.
+          </p>
+        </div>
 
-      <div v-if="state == 'B'">
-        <p>
-          You finished downloading a copy of your Twitter history on
-          <em>{{ mostRecentFetchFinished }}</em>, and Semiphemeral is currently
-          <strong>paused</strong>. Before you proceed:
-        </p>
-        <ul>
-          <li v-if="state == 'B'">
-            If you haven't already, make sure your
-            <router-link to="/settings">settings</router-link>&nbsp;are exactly as you want them
+        <div v-if="state == 'B'">
+          <p>
+            You finished downloading a copy of your Twitter history on
+            <em>{{ mostRecentFetchFinished }}</em>, and Semiphemeral is currently
+            <strong>paused</strong>. Before you proceed:
+          </p>
+          <ul>
+            <li v-if="state == 'B'">
+              If you haven't already, make sure your
+              <router-link to="/settings">settings</router-link>&nbsp;are exactly as you want them
+            </li>
+            <li>
+              <strong>
+                Make sure you have manually chosen which of your old
+                <router-link to="/tweets">tweets</router-link>&nbsp;you want to prevent from getting deleted
+              </strong>
+            </li>
+          </ul>
+
+          <p>When you're ready:</p>
+          <ul class="buttons">
+            <li>
+              <button class="start" v-on:click="startSemiphemeral">Start Semiphemeral</button>
+              or
+            </li>
+            <li>
+              <button
+                class="download"
+                v-on:click="downloadHistory"
+              >Download my Twitter history again</button>
+            </li>
+          </ul>
+        </div>
+
+        <div v-if="state == 'C'">
+          <p>
+            Semiphemeral is
+            <strong>active</strong>.
+            <button class="pause" v-on:click="pauseSemiphemeral">Pause Semiphemeral</button>
+          </p>
+          <p v-if="!settingDeleteTweets && !settingRetweetsLikes" class="warning">
+            Warning: Your settings are configured to not delete any tweets, retweets, or likes. Go
+            <router-link to="/settings">change your settings</router-link>&nbsp;if you want Semiphemeral to delete your old tweets.
+          </p>
+        </div>
+
+        <h2 v-if="activeJobs.length > 0 || pendingJobs.length > 0">Current status</h2>
+        <ul v-if="activeJobs.length > 0" class="jobs">
+          <li v-for="job in activeJobs">
+            <Job v-bind:job="job"></Job>
           </li>
-          <li>
-            <strong>
-              Make sure you have manually chosen which of your old
-              <router-link to="/tweets">tweets</router-link>&nbsp;you want to prevent from getting deleted
-            </strong>
+        </ul>
+        <ul v-if="pendingJobs.length > 0" class="jobs">
+          <li v-for="job in pendingJobs">
+            <Job v-bind:job="job"></Job>
           </li>
         </ul>
 
-        <p>When you're ready:</p>
-        <ul class="buttons">
-          <li>
-            <button class="start" v-on:click="startSemiphemeral">Start Semiphemeral</button>
-            or
-          </li>
-          <li>
-            <button class="download" v-on:click="downloadHistory">Download my Twitter history again</button>
+        <h2 v-if="finishedJobs.length > 0">Log</h2>
+        <ul v-if="finishedJobs.length > 0" class="jobs">
+          <li v-for="job in finishedJobs">
+            <Job v-bind:job="job"></Job>
           </li>
         </ul>
       </div>
-
-      <div v-if="state == 'C'">
-        <p>
-          Semiphemeral is
-          <strong>active</strong>.
-          <button class="pause" v-on:click="pauseSemiphemeral">Pause Semiphemeral</button>
-        </p>
-        <p v-if="!settingDeleteTweets && !settingRetweetsLikes" class="warning">
-          Warning: Your settings are configured to not delete any tweets, retweets, or likes. Go
-          <router-link to="/settings">change your settings</router-link>&nbsp;if you want Semiphemeral to delete your old tweets.
-        </p>
-      </div>
-
-      <h2 v-if="activeJobs.length > 0 || pendingJobs.length > 0">Current status</h2>
-      <ul v-if="activeJobs.length > 0" class="jobs">
-        <li v-for="job in activeJobs">
-          <Job v-bind:job="job"></Job>
-        </li>
-      </ul>
-      <ul v-if="pendingJobs.length > 0" class="jobs">
-        <li v-for="job in pendingJobs">
-          <Job v-bind:job="job"></Job>
-        </li>
-      </ul>
-
-      <h2 v-if="finishedJobs.length > 0">Log</h2>
-      <ul v-if="finishedJobs.length > 0" class="jobs">
-        <li v-for="job in finishedJobs">
-          <Job v-bind:job="job"></Job>
-        </li>
-      </ul>
     </template>
   </div>
 </template>
@@ -149,6 +166,7 @@ export default {
       pendingJobs: [],
       finishedJobs: [],
       settingPaused: null,
+      settingFollowing: null,
       settingDeleteTweets: null,
       settingRetweetsLikes: null
     };
@@ -243,6 +261,7 @@ export default {
             else that.finishedJobs = [];
 
             that.settingPaused = data["setting_paused"];
+            that.settingFollowing = data["setting_following"];
             that.settingDeleteTweets = data["setting_delete_tweets"];
             that.settingRetweetsLikes = data["setting_retweet_likes"];
           });
