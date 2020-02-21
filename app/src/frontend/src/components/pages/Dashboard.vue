@@ -20,7 +20,7 @@ button.download {
   margin: 0 0 5px 0;
 }
 
-button.pause {
+button.pause, button.reactivate {
   background-color: #624caf;
   border: none;
   color: white;
@@ -65,7 +65,14 @@ ul.jobs {
       </p>
     </template>
     <template v-else>
-      <div v-if="!settingFollowing">
+      <div v-if="settingBlocked">
+        <h2>Semiphemeral is an antifascist service</h2>
+        <p>While everyone deserves privacy on social media, not everyone is entitled to get that privacy by using the resources of this free service. You have been blocked by <A href="https://twitter.com/semiphemeral">@semiphemeral</a>, so your account has been disabled.</p>
+        <p>Semiphemeral keeps track of the Twitter accounts of prominent authoritarian anti-democratic demagogues and dictators, racists, misogynists, Islamophobes, anti-Semites, homophobes, transphobes, neo-Nazis, hate groups, and otherwise fascists and fascist sympathizers. You were probably blocked because you liked a tweet from one of these accounts within the last 6 months.</p>
+        <p>If you oppose fascism and think that you've been blocked unfairly or by mistake, you can appeal by writing an email to hi@semiphemeral.com.</p>
+        <p><button class="reactivate" v-on:click="reactivateAccount">I'm no longer blocked</button></p>
+      </div>
+      <div v-else-if="!settingFollowing">
         <p>
           In order to use Semiphemeral, you need to be following
           <a
@@ -74,7 +81,9 @@ ul.jobs {
         </p>
         <p>
           So, hang tight. If it's taking way too long, feel free to contact
-          <a href="https://twitter.com/semiphemeral">@semiphemeral</a>. DMs are open.
+          <a
+            href="https://twitter.com/semiphemeral"
+          >@semiphemeral</a>. DMs are open.
         </p>
       </div>
       <div v-else>
@@ -167,6 +176,7 @@ export default {
       finishedJobs: [],
       settingPaused: null,
       settingFollowing: null,
+      settingBlocked: null,
       settingDeleteTweets: null,
       settingRetweetsLikes: null
     };
@@ -236,6 +246,35 @@ export default {
     downloadHistory: function() {
       this.postDashboard("fetch");
     },
+    reactivateAccount: function(){
+      var that = this;
+      this.loading = true;
+      fetch("/api/dashboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reactivate" })
+      })
+        .then(function(response) {
+          if (response.status !== 200) {
+            console.log("Error reactivating, status code: " + response.status);
+            that.loading = false;
+            return;
+          }
+          response.json().then(function(data) {
+            console.log(data);
+            that.loading = false;
+            if(!data["unblocked"]) {
+              alert("Nope, you're still blocked");
+            } else {
+              that.fetchJobs();
+            }
+          });
+        })
+        .catch(function(err) {
+          console.log("Error", err);
+          that.loading = false;
+        });
+    },
     fetchJobs: function() {
       var that = this;
       this.loading = true;
@@ -262,6 +301,7 @@ export default {
 
             that.settingPaused = data["setting_paused"];
             that.settingFollowing = data["setting_following"];
+            that.settingBlocked = data["setting_blocked"];
             that.settingDeleteTweets = data["setting_delete_tweets"];
             that.settingRetweetsLikes = data["setting_retweet_likes"];
           });
