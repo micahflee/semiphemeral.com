@@ -541,6 +541,7 @@ async def api_get_dashboard(request):
             "finished_jobs": to_client(finished_jobs),
             "setting_paused": user.paused,
             "setting_following": user.following,
+            "setting_blocked": user.blocked,
             "setting_delete_tweets": user.delete_tweets,
             "setting_retweets_likes": user.retweets_likes,
         }
@@ -558,6 +559,8 @@ async def api_post_dashboard(request):
       cancel any active or pending jobs and pause
     If action is fetch, the user is paused, and there are no pending or active jobs:
       create a fetch job
+    If action is reactivate and the user is blocked:
+      see if the user is still blocked, and if not set blocked=False and create a fetch job
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
@@ -569,76 +572,113 @@ async def api_post_dashboard(request):
         data["action"] != "start"
         and data["action"] != "pause"
         and data["action"] != "fetch"
+        and data["action"] != "reactivate"
     ):
-        raise web.HTTPBadRequest(text="action must be 'start', 'pause', or 'fetch'")
-
-    # Get pending and active jobs
-    pending_jobs = (
-        await Job.query.where(Job.user_id == user.id)
-        .where(Job.status == "pending")
-        .gino.all()
-    )
-    active_jobs = (
-        await Job.query.where(Job.user_id == user.id)
-        .where(Job.status == "active")
-        .gino.all()
-    )
-    jobs = pending_jobs + active_jobs
-
-    if data["action"] == "start":
-        if not user.paused:
-            raise web.HTTPBadRequest(
-                text="Cannot 'start' unless semiphemeral is paused"
-            )
-        if len(jobs) > 0:
-            raise web.HTTPBadRequest(
-                text="Cannot 'start' when there are pending or active jobs"
-            )
-
-        # Unpause
-        await user.update(paused=False).apply()
-
-        # Create a new fetch job
-        await Job.create(
-            user_id=user.id,
-            job_type="delete",
-            status="pending",
-            scheduled_timestamp=datetime.now(),
+        raise web.HTTPBadRequest(
+            text="action must be 'start', 'pause', 'fetch', or 'reactivate'"
         )
 
-    elif data["action"] == "pause":
-        if user.paused:
+    if data["action"] == "reactivate":
+        if not user.blocked:
             raise web.HTTPBadRequest(
-                text="Cannot 'pause' when semiphemeral is already paused"
+                text="Can only 'reactivate' if the user is blocked"
             )
 
-        # Cancel jobs
-        for job in jobs:
-            await job.update(status="canceled").apply()
+        # Are we still blocked?
+        api = await twitter_api(user)
+        friendship = (
+            await twitter_api_call(
+                api,
+                "show_friendship",
+                source_id=user.twitter_id,
+                target_screen_name="semiphemeral",
+            )
+        )[0]
 
-        # Pause
-        await user.update(paused=True).apply()
+        if friendship.blocked_by:
+            return web.json_response({"unblocked": False})
+        else:
+            # User has been unblocked
+            await user.update(blocked=False).apply()
 
-    elif data["action"] == "fetch":
-        if not user.paused:
-            raise web.HTTPBadRequest(
-                text="Cannot 'fetch' unless semiphemeral is paused"
+            # Create a new fetch job
+            await Job.create(
+                user_id=user.id,
+                job_type="fetch",
+                status="pending",
+                scheduled_timestamp=datetime.now(),
             )
 
-        if len(jobs) > 0:
-            raise web.HTTPBadRequest(
-                text="Cannot 'fetch' when there are pending or active jobs"
-            )
+            return web.json_response({"unblocked": True})
 
-        # Create a new fetch job
-        await Job.create(
-            user_id=user.id,
-            job_type="fetch",
-            status="pending",
-            scheduled_timestamp=datetime.now(),
+    else:
+        # Get pending and active jobs
+        pending_jobs = (
+            await Job.query.where(Job.user_id == user.id)
+            .where(Job.status == "pending")
+            .gino.all()
         )
+        active_jobs = (
+            await Job.query.where(Job.user_id == user.id)
+            .where(Job.status == "active")
+            .gino.all()
+        )
+        jobs = pending_jobs + active_jobs
 
-    return web.json_response(True)
+        if data["action"] == "start":
+            if not user.paused:
+                raise web.HTTPBadRequest(
+                    text="Cannot 'start' unless semiphemeral is paused"
+                )
+            if len(jobs) > 0:
+                raise web.HTTPBadRequest(
+                    text="Cannot 'start' when there are pending or active jobs"
+                )
+
+            # Unpause
+            await user.update(paused=False).apply()
+
+            # Create a new delete job
+            await Job.create(
+                user_id=user.id,
+                job_type="delete",
+                status="pending",
+                scheduled_timestamp=datetime.now(),
+            )
+
+        elif data["action"] == "pause":
+            if user.paused:
+                raise web.HTTPBadRequest(
+                    text="Cannot 'pause' when semiphemeral is already paused"
+                )
+
+            # Cancel jobs
+            for job in jobs:
+                await job.update(status="canceled").apply()
+
+            # Pause
+            await user.update(paused=True).apply()
+
+        elif data["action"] == "fetch":
+            if not user.paused:
+                raise web.HTTPBadRequest(
+                    text="Cannot 'fetch' unless semiphemeral is paused"
+                )
+
+            if len(jobs) > 0:
+                raise web.HTTPBadRequest(
+                    text="Cannot 'fetch' when there are pending or active jobs"
+                )
+
+            # Create a new fetch job
+            await Job.create(
+                user_id=user.id,
+                job_type="fetch",
+                status="pending",
+                scheduled_timestamp=datetime.now(),
+            )
+
+        return web.json_response(True)
 
 
 @authentication_required_401

@@ -60,7 +60,15 @@ def ensure_user_follows_us(func):
             )
         )[0]
 
-        if not friendship.following:
+        if friendship.blocked_by:
+            # The semiphemeral user has blocked this user, so they're not allowed
+            # to use this service
+            print(f"user_id={user.id} is blocked, canceling job and updating user")
+            await job.update(status="canceled").apply()
+            await user.update(paused=True, following=False, blocked=True).apply()
+            return False
+
+        elif not friendship.following:
             reschedule_timedelta_in_the_future = timedelta(minutes=30)
 
             # If we've already sent a follow request but it still hasn't been accepted
