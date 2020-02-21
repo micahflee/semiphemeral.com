@@ -68,7 +68,7 @@ ul.jobs {
       <div v-if="settingBlocked">
         <h2>Semiphemeral is an antifascist service</h2>
         <p>While everyone deserves privacy on social media, not everyone is entitled to get that privacy by using the resources of this free service. You have been blocked by <A href="https://twitter.com/semiphemeral">@semiphemeral</a>, so your account has been disabled.</p>
-        <p>Semiphemeral keeps track of the Twitter accounts of prominent authoritarian anti-democratic demagogues and dictators, racists, misogynists, Islamophobes, anti-Semites, homophobes, transphobes, neo-Nazis, hate groups, and otherwise fascists and fascist sympathizers. You were probably blocked because you liked a tweet from one of these accounts within the last 6 months.</p>
+        <p>Semiphemeral keeps track of the Twitter accounts of prominent authoritarian anti-democratic demagogues and dictators, racists, misogynists, Islamophobes, anti-Semites, homophobes, transphobes, neo-Nazis, hate groups, and fascists and fascist sympathizers. You were probably blocked because you liked a tweet from one of these accounts within the last 6 months.</p>
         <p>If you oppose fascism and think that you've been blocked unfairly or by mistake, you can appeal by writing an email to hi@semiphemeral.com.</p>
         <p><button class="reactivate" v-on:click="reactivateAccount">I'm no longer blocked</button></p>
       </div>
