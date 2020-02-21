@@ -28,6 +28,10 @@ input.small {
 .danger p {
   margin: 5px;
 }
+
+fieldset.disabled {
+  opacity: 50%;
+}
 </style>
 
 <template>
@@ -47,7 +51,7 @@ input.small {
             Delete old tweets
           </label>
         </p>
-        <fieldset v-if="deleteTweets">
+        <fieldset v-bind:class="deleteTweets ? '' : 'disabled'">
           <legend>Tweets</legend>
           <p>
             Delete tweets older than
@@ -56,6 +60,7 @@ input.small {
               class="small"
               min="0"
               v-model="tweetsDaysThreshold"
+              v-bind:disabled="!deleteTweets"
             />
             days
           </p>
@@ -66,17 +71,28 @@ input.small {
               class="small"
               min="0"
               v-model="tweetsRetweetThreshold"
+              v-bind:disabled="!deleteTweets"
             />
             retweets
           </p>
           <p>
             Or at least
-            <input type="number" class="small" min="0" v-model="tweetsLikeThreshold" />
+            <input
+              type="number"
+              class="small"
+              min="0"
+              v-model="tweetsLikeThreshold"
+              v-bind:disabled="!deleteTweets"
+            />
             likes
           </p>
           <p>
             <label>
-              <input type="checkbox" v-model="tweetsThreadsThreshold" />
+              <input
+                type="checkbox"
+                v-model="tweetsThreadsThreshold"
+                v-bind:disabled="!deleteTweets"
+              />
               Don't delete tweets that are part of a thread that contains at least one tweet that meets these thresholds
             </label>
           </p>
@@ -89,12 +105,16 @@ input.small {
           </label>
         </p>
 
-        <fieldset v-if="retweetsLikes">
+        <fieldset v-bind:class="retweetsLikes ? '' : 'disabled'">
           <legend>Retweets and likes</legend>
 
           <p>
             <label>
-              <input type="checkbox" v-model="retweetsLikesDeleteRetweets" />
+              <input
+                type="checkbox"
+                v-model="retweetsLikesDeleteRetweets"
+                v-bind:disabled="!retweetsLikes"
+              />
               Unretweet tweets
             </label>
             older than
@@ -103,13 +123,18 @@ input.small {
               class="small"
               min="0"
               v-model="retweetsLikesRetweetsThreshold"
+              v-bind:disabled="!retweetsLikes"
             />
             days
           </p>
 
           <p>
             <label>
-              <input type="checkbox" v-model="retweetsLikesDeleteLikes" />
+              <input
+                type="checkbox"
+                v-model="retweetsLikesDeleteLikes"
+                v-bind:disabled="!retweetsLikes"
+              />
               Unlike tweets
             </label>
             older than
@@ -118,6 +143,7 @@ input.small {
               class="small"
               min="0"
               v-model="retweetsLikesLikesThreshold"
+              v-bind:disabled="!retweetsLikes"
             />
             days
           </p>
