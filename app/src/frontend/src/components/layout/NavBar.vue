@@ -83,7 +83,7 @@ span.user span a {
 
 <script>
 export default {
-  props: ["currentPageComponent", "userScreenName", "userProfileUrl"],
+  props: ["userScreenName", "userProfileUrl"],
   computed: {
     logoutTitle: function() {
       return "Logged in as @" + this.userScreenName;
