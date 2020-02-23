@@ -74,6 +74,17 @@ def authentication_required_302(func):
     return wrapper
 
 
+def admin_required(func):
+    async def wrapper(request):
+        session = await get_session(request)
+        user = await _logged_in_user(session)
+        if not user or user.twitter_screen_name != os.environ.get("ADMIN_USERNAME"):
+            raise web.HTTPNotFound()
+        return await func(request)
+
+    return wrapper
+
+
 async def auth_login(request):
     session = await new_session(request)
     user = await _logged_in_user(session)
@@ -758,6 +769,17 @@ async def app_main(request):
     return {"deploy_environment": os.environ.get("DEPLOY_ENVIRONMENT")}
 
 
+@aiohttp_jinja2.template("admin.jinja2")
+@admin_required
+async def app_admin(request):
+    return {"deploy_environment": os.environ.get("DEPLOY_ENVIRONMENT")}
+
+
+@admin_required
+async def app_admin_redirect(request):
+    raise web.HTTPFound(location="/admin/users")
+
+
 async def maintenance_refresh_logging(request=None):
     """
     Refreshes logging. This needs to get run after rotating logs, to re-open the
@@ -815,6 +837,10 @@ async def start_web_server():
             web.get("/settings", app_main),
             web.get("/tip", app_main),
             web.get("/thanks", app_main),
+            # Admin
+            web.get("/admin", app_admin_redirect),
+            web.get("/admin/users", app_admin),
+            web.get("/admin/fascists", app_admin),
             # Maintenance
             web.get(
                 f"/{os.environ.get('MAINTENANCE_SECRET')}/refresh_logging",
