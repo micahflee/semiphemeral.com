@@ -613,7 +613,7 @@ async def delete(job):
     )
 
     # Should we nag the user?
-    one_month_ago = datetime.now() + timedelta(days=30)
+    one_month_ago = datetime.now() - timedelta(days=30)
     last_nag = (
         await Nag.query.where(Nag.user_id == user.id)
         .order_by(Nag.timestamp.desc())
