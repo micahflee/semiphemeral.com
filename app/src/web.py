@@ -780,6 +780,63 @@ async def app_admin_redirect(request):
     raise web.HTTPFound(location="/admin/users")
 
 
+@admin_required
+async def admin_api_get_users(request):
+    active_users = (
+        await User.query.where(User.blocked == False)
+        .where(User.following == True)
+        .where(User.paused == False)
+        .order_by(User.twitter_screen_name)
+        .gino.all()
+    )
+
+    paused_users = (
+        await User.query.where(User.blocked == False)
+        .where(User.following == True)
+        .where(User.paused == True)
+        .order_by(User.twitter_screen_name)
+        .gino.all()
+    )
+
+    pending_users = (
+        await User.query.where(User.blocked == False)
+        .where(User.following == False)
+        .order_by(User.twitter_screen_name)
+        .gino.all()
+    )
+
+    blocked_users = (
+        await User.query.where(User.blocked == True)
+        .order_by(User.twitter_screen_name)
+        .gino.all()
+    )
+
+    def to_client(users):
+        users_json = []
+        for user in users:
+            if user.last_fetch:
+                last_fetch = user.last_fetch.timestamp()
+            else:
+                last_fetch = None
+            users_json.append(
+                {
+                    "twitter_id": user.twitter_id,
+                    "twitter_screen_name": user.twitter_screen_name,
+                    "last_fetch": last_fetch,
+                }
+            )
+        return users_json
+
+    return web.json_response(
+        {
+            "active_users": to_client(active_users),
+            "paused_users": to_client(paused_users),
+            "pending_users": to_client(pending_users),
+            "blocked_users": to_client(blocked_users),
+        }
+    )
+
+
 async def maintenance_refresh_logging(request=None):
     """
     Refreshes logging. This needs to get run after rotating logs, to re-open the
@@ -841,6 +898,7 @@ async def start_web_server():
             web.get("/admin", app_admin_redirect),
             web.get("/admin/users", app_admin),
             web.get("/admin/fascists", app_admin),
+            web.get("/admin_api/users", admin_api_get_users),
             # Maintenance
             web.get(
                 f"/{os.environ.get('MAINTENANCE_SECRET')}/refresh_logging",

@@ -69,7 +69,6 @@ footer p {
 <template>
   <div>
     <NavBar
-      v-on:select-page="selectPage"
       v-bind="{
             userScreenName: userScreenName,
             userProfileUrl: userProfileUrl }"

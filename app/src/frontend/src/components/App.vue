@@ -69,9 +69,7 @@ footer p {
 <template>
   <div>
     <NavBar
-      v-on:select-page="selectPage"
       v-bind="{
-            currentPageComponent: currentPageComponent,
             userScreenName: userScreenName,
             userProfileUrl: userProfileUrl }"
     ></NavBar>
@@ -102,9 +100,6 @@ export default {
     this.getUser();
   },
   methods: {
-    selectPage: function(pageComponent) {
-      this.currentPageComponent = pageComponent;
-    },
     getUser: function() {
       var that = this;
       fetch("/api/user")
