@@ -444,7 +444,7 @@ async def api_get_tip_recent(request):
     user = await _logged_in_user(session)
 
     tip = (
-        await Tip.query.where(User.id == user.id)
+        await Tip.query.where(Tip.id == user.id)
         .where(Tip.paid == True)
         .where(Tip.refunded == False)
         .order_by(Tip.timestamp.desc())
@@ -468,7 +468,7 @@ async def api_get_tip_history(request):
     user = await _logged_in_user(session)
 
     tips = (
-        await Tip.query.where(User.id == user.id)
+        await Tip.query.where(Tip.user_id == user.id)
         .order_by(Tip.timestamp.desc())
         .gino.all()
     )
@@ -887,6 +887,7 @@ async def start_web_server():
             web.get("/admin", app_admin_redirect),
             web.get("/admin/users", app_admin),
             web.get("/admin/fascists", app_admin),
+            web.get("/admin/tips", app_admin),
             web.get("/admin_api/users", admin_api_get_users),
             # Maintenance
             web.get(
