@@ -18,13 +18,31 @@
             font-family: sans;
         }
 
-        #index {
+        header {
             text-align: center;
         }
 
-        #index img {
+        header img {
             width: 200px;
             max-width: 100%;
+        }
+
+        article {
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 150%;
+        }
+
+        article h1 {
+            font-size: 1.3em;
+            line-height: 150%;
+            color: #333333;
+        }
+
+        article h2 {
+            font-size: 1.05em;
+            line-height: 150%;
+            color: #333333;
         }
 
         footer {
@@ -51,18 +69,49 @@
 </head>
 
 <body>
-    <div id="index">
-        <p><img src="/static/img/logo.png" alt="Semiphemeral" /></p>
+    <header>
+        <p><img src="/static/img/logo.png" alt="Semiphemeral" title="Semiphemeral" /></p>
         {% if logged_in %}
         <p><a href="/dashboard">Go to dashboard</a></p>
         {% else %}
         <p><a href="/auth/login">Login with Twitter</a></p>
         {% endif %}
+    </header>
+    <article>
+        <h1>Automatically delete your old tweets, except for the ones you want to keep</h1>
 
-        <footer>
-            <p><a href="/privacy">Privacy</a></p>
-        </footer>
-    </div>
+        <p>Semiphemeral protects your privacy by making it easy for you to automatically delete years of old tweets
+            while giving you control over exactly which tweets you want to make sure you keep.</p>
+        <p>For example, you can set it to automatically delete tweets that are older than 30 days unless they have at
+            least 20 retweets or at least 20 likes (all these numbers are configurable). You can also:</p>
+        <ul>
+            <li>Keep all tweets that are <em>part of the same thread</em> as a tweet that meets those RT and like
+                thresholds</li>
+            <li>Search through all of your tweets and <em>pick which ones to exclude</em> from automatic deletion, so
+                that Semiphemeral will never delete them</li>
+            <li><em>Unretweet</em> tweets after a number of days</li>
+            <li><em>Unlike</em> tweets after a number of days</li>
+        </ul>
+
+        <p><small><em>
+                    Semiphemeral started in June 2019 as an open source project (read the <a
+                        href="https://micahflee.com/2019/06/semiphemeral-automatically-delete-your-old-tweets-except-for-the-ones-you-want-to-keep/">blog
+                        post</a> and see the <a href="https://github.com/micahflee/semiphemeral">github project</a> for
+                    the open source version).</em></small></p>
+
+        <h2>Semiphemeral is an antifascist service</h2>
+
+        <p>In order to use Semiphemeral, you must follow <a href="https://twitter.com/semiphemeral"
+                target="_blank">@semiphemeral</a> on Twitter. Supporters of dictators and anti-democratic demagogues,
+            racists, or other types of fascists will be blocked, and blocked users are ineligible to use Semiphemeral.
+            While everyone deserves privacy on social media, not everyone is entitled to get that
+            privacy by using the resources of this free service.
+        </p>
+    </article>
+
+    <footer>
+        <p><a href="/privacy">Privacy</a></p>
+    </footer>
 </body>
 
 </html>
