@@ -782,34 +782,23 @@ async def app_admin_redirect(request):
 
 @admin_required
 async def admin_api_get_users(request):
-    active_users = (
-        await User.query.where(User.blocked == False)
-        .where(User.following == True)
-        .where(User.paused == False)
-        .order_by(User.twitter_screen_name)
-        .gino.all()
-    )
+    users = await User.query.order_by(User.twitter_screen_name).gino.all()
+    active_users = []
+    paused_users = []
+    pending_users = []
+    blocked_users = []
 
-    paused_users = (
-        await User.query.where(User.blocked == False)
-        .where(User.following == True)
-        .where(User.paused == True)
-        .order_by(User.twitter_screen_name)
-        .gino.all()
-    )
-
-    pending_users = (
-        await User.query.where(User.blocked == False)
-        .where(User.following == False)
-        .order_by(User.twitter_screen_name)
-        .gino.all()
-    )
-
-    blocked_users = (
-        await User.query.where(User.blocked == True)
-        .order_by(User.twitter_screen_name)
-        .gino.all()
-    )
+    for user in users:
+        if user.blocked:
+            blocked_users.append(user)
+        else:
+            if user.following:
+                if user.paused:
+                    paused_users.append(user)
+                else:
+                    active_users.append(user)
+            else:
+                pending_users.append(user)
 
     def to_client(users):
         users_json = []
