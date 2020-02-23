@@ -22,6 +22,7 @@ COPY . .
 # Webpack the js
 USER root:root
 RUN cd frontend && ./build.js
+RUN cd admin-frontend && ./build.js
 USER user:user
 
 EXPOSE 8080
