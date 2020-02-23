@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1>Fascists</h1>
+    <h1>Tips</h1>
     <p>Not implemented yet</p>
   </div>
 </template>

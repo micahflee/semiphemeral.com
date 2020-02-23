@@ -65,6 +65,9 @@ span.user span a {
       <li>
         <router-link to="/admin/fascists">Fascists</router-link>
       </li>
+      <li>
+        <router-link to="/admin/tips">Tips</router-link>
+      </li>
     </ul>
     <span class="user">
       <img v-if="userScreenName" v-bind:src="userProfileUrl" v-bind:title="logoutTitle" />
