@@ -20,7 +20,7 @@ def upgrade():
     op.create_table(
         "fascists",
         sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("twitter_user_screen_name", sa.String),
+        sa.Column("username", sa.String),
         sa.Column("comment", sa.String),
     )
     op.add_column("tweets", sa.Column("is_fascist", sa.Boolean, default=False))

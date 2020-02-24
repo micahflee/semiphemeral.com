@@ -115,7 +115,7 @@ class Tweet(db.Model):
 class Fascist(db.Model):
     __tablename__ = "fascists"
     id = db.Column(db.Integer, primary_key=True)
-    twitter_user_screen_name = db.Column(db.String)
+    username = db.Column(db.String)
     comment = db.Column(db.String)
 
 

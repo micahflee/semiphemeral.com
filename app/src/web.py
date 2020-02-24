@@ -17,7 +17,7 @@ import stripe
 from sqlalchemy import or_
 
 from common import twitter_api, twitter_api_call, tweets_to_delete
-from db import User, Tip, Nag, Job, Tweet, Thread
+from db import User, Tip, Nag, Job, Tweet, Thread, Fascist
 
 
 async def _logged_in_user(session):
@@ -311,7 +311,7 @@ async def api_post_settings_delete_account(request):
     del session["twitter_id"]
 
     # Delete everything
-    await Tip.delete.where(Tip.user_id == user.id).gino.status()
+    # await Tip.delete.where(Tip.user_id == user.id).gino.status()
     await Nag.delete.where(Nag.user_id == user.id).gino.status()
     await Job.delete.where(Job.user_id == user.id).gino.status()
     await Thread.delete.where(Thread.user_id == user.id).gino.status()
@@ -826,6 +826,75 @@ async def admin_api_get_users(request):
     )
 
 
+@admin_required
+async def admin_api_get_fascists(request):
+    fascists = await Fascist.query.order_by(Fascist.username).gino.all()
+
+    def to_client(fascists):
+        fascists_json = []
+        for fascist in fascists:
+            fascists_json.append(
+                {"username": fascist.username, "comment": fascist.comment,}
+            )
+        return fascists_json
+
+    return web.json_response({"fascists": to_client(fascists)})
+
+
+@admin_required
+async def admin_api_post_fascists(request):
+    data = await request.json()
+
+    # Validate
+    await _api_validate({"action": str}, data)
+    if data["action"] != "create" and data["action"] != "delete":
+        raise web.HTTPBadRequest(text="action must be 'create' or 'delete'")
+
+    if data["action"] == "create":
+        await _api_validate({"action": str, "username": str, "comment": str}, data)
+
+        # If a fascist with this username already exists, just update the comment
+        fascist = await Fascist.query.where(
+            Fascist.username == data["username"]
+        ).gino.first()
+        if fascist:
+            await fascist.update(comment=data["comment"]).apply()
+            return web.json_response(True)
+
+        # Create the fascist
+        fascist = await Fascist.create(
+            username=data["username"], comment=data["comment"]
+        )
+
+        # Mark all the tweets from this user as is_fascist=True
+        await Tweet.update.values(is_fascist=True).where(
+            Tweet.twitter_user_screen_name == data["username"]
+        ).gino.status()
+
+        # todo: Make sure the facist is blocked
+
+        # todo: For each user, search last 6 months of likes for is_fascist=True, and if there are any, block the user
+
+        return web.json_response(True)
+
+    elif data["action"] == "delete":
+        await _api_validate({"action": str, "username": str}, data)
+
+        # Delete the fascist
+        fascist = await Fascist.query.where(
+            Fascist.username == data["username"]
+        ).gino.first()
+        if fascist:
+            await fascist.delete()
+
+        # Mark all the tweets from this user as is_fascist=False
+        await Tweet.update.values(is_fascist=False).where(
+            Tweet.twitter_user_screen_name == data["username"]
+        ).gino.status()
+
+        return web.json_response(True)
+
+
 async def maintenance_refresh_logging(request=None):
     """
     Refreshes logging. This needs to get run after rotating logs, to re-open the
@@ -889,6 +958,8 @@ async def start_web_server():
             web.get("/admin/fascists", app_admin),
             web.get("/admin/tips", app_admin),
             web.get("/admin_api/users", admin_api_get_users),
+            web.get("/admin_api/fascists", admin_api_get_fascists),
+            web.post("/admin_api/fascists", admin_api_post_fascists),
             # Maintenance
             web.get(
                 f"/{os.environ.get('MAINTENANCE_SECRET')}/refresh_logging",
