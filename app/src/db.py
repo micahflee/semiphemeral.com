@@ -108,7 +108,15 @@ class Tweet(db.Model):
     is_deleted = db.Column(db.Boolean)
     is_unliked = db.Column(db.Boolean)
     exclude_from_delete = db.Column(db.Boolean)
+    is_fascist = db.Column(db.Boolean, default=False)
     thread_id = db.Column(db.Integer, db.ForeignKey("threads.id"))
+
+
+class Fascist(db.Model):
+    __tablename__ = "fascists"
+    id = db.Column(db.Integer, primary_key=True)
+    twitter_user_screen_name = db.Column(db.String)
+    comment = db.Column(db.String)
 
 
 async def connect_db():
