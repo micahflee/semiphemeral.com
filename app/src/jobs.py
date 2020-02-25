@@ -6,10 +6,24 @@ from datetime import datetime, timedelta
 import tweepy
 
 from common import twitter_api, twitter_api_call, twitter_dm_api, tweets_to_delete
-from db import Job, DirectMessageJob, User, Tip, Nag, Tweet, Thread
+from db import (
+    Job,
+    DirectMessageJob,
+    BlockJob,
+    UnblockJob,
+    User,
+    Tip,
+    Nag,
+    Tweet,
+    Thread,
+)
 
 
 class JobRescheduled(Exception):
+    pass
+
+
+class UserBlocked(Exception):
     pass
 
 
@@ -427,6 +441,27 @@ async def fetch(job):
 
     await log(job, "Fetch finished")
 
+    # Has this user liked any fascist tweets?
+    six_months_ago = datetime.now() - timedelta(days=180)
+    fascist_tweets = (
+        await Tweet.query.where(Tweet.user_id == user.id)
+        .where(Tweet.favorited == True)
+        .where(Tweet.is_fascist == True)
+        .where(Tweet.created_at > six_months_ago)
+        .gino.all()
+    )
+    if len(fascist_tweets) > 0:
+        # Create a block job
+        await BlockJob.create(
+            user_id=user.id,
+            twitter_username=user.twitter_screen_name,
+            status="pending",
+            scheduled_timestamp=datetime.now(),
+        )
+        # Don't send any DMs
+        await log(job, "Blocking user")
+        raise UserBlocked
+
     # Fetch is done! If semiphemeral is paused, send a DM
     # (If it's not paused, then this should actually be a delete job, and delete will run next)
     if user.paused:
@@ -720,6 +755,10 @@ async def start_job(job):
             ).apply()
         except JobRescheduled:
             pass
+        except UserBlocked:
+            await job.update(
+                status="blocked", finished_timestamp=datetime.now()
+            ).apply()
 
     elif job.job_type == "delete":
         try:
@@ -730,6 +769,10 @@ async def start_job(job):
             ).apply()
         except JobRescheduled:
             pass
+        except UserBlocked:
+            await job.update(
+                status="blocked", finished_timestamp=datetime.now()
+            ).apply()
 
 
 async def start_dm_job(dm_job):
@@ -759,6 +802,152 @@ async def start_dm_job(dm_job):
         )
 
 
+async def start_block_job(block_job):
+    api = await twitter_dm_api()
+
+    try:
+        # Are they already blocked?
+        friendship = (
+            await twitter_api_call(
+                api,
+                "show_friendship",
+                source_screen_name="semiphemeral",
+                target_screen_name=block_job.twitter_username,
+            )
+        )[0]
+
+        if friendship.blocking:
+            # Already blocked, so our work here is done
+            await block_job.update(
+                status="blocked", blocked_timestamp=datetime.now()
+            ).apply()
+            print(
+                f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} already blocked {block_job.twitter_username}"
+            )
+            return
+
+        # If we're blocking a semiphemeral user, and not just a fascist influencer
+        if block_job.user_id:
+            user = await User.query.where(User.id == block_job.user_id).gino.first()
+            if user and not user.blocked:
+                # When do we unblock them?
+                last_fascist_tweet = (
+                    await Tweet.query.where(Tweet.user_id == user.id)
+                    .where(Tweet.is_fascist == True)
+                    .order_by(Tweet.created_at.desc())
+                    .gino.first()
+                )
+                if last_fascist_tweet:
+                    unblock_timestamp = last_fascist_tweet.created_at + timedelta(
+                        days=180
+                    )
+                else:
+                    unblock_timestamp = datetime.now() + timedelta(days=180)
+                unblock_timestamp_formatted = unblock_timestamp.strftime("%B %-d, %Y")
+
+                # Send the DM
+                message = f"You have liked at least one tweet from a fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated. See https://{os.environ.get('DOMAIN')}/dashboard for more information.\n\nYou will get automatically unblocked on {unblock_timestamp_formatted}. You can try logging in to reactivate your account then, so long as you stop liking tweets from fascists."
+
+                await twitter_api_call(
+                    api,
+                    "send_direct_message",
+                    recipient_id=user.twitter_id,
+                    text=message,
+                )
+                print(
+                    f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} sent DM to {user}"
+                )
+
+                # Update the user
+                await user.update(paused=True, following=False, blocked=True).apply()
+
+                # Create the unblock job
+                await UnblockJob.create(
+                    user_id=block_job.user_id,
+                    twitter_username=block_job.twitter_username,
+                    status="pending",
+                    scheduled_timestamp=unblock_timestamp,
+                )
+
+        # Block the user
+        await twitter_api_call(
+            api, "create_block", screen_name=block_job.twitter_username
+        )
+
+        # Success, update block_job
+        await block_job.update(
+            status="blocked", blocked_timestamp=datetime.now()
+        ).apply()
+
+        print(
+            f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} blocked user {block_job.twitter_username}"
+        )
+    except Exception as e:
+        # Try again in 5 minutes
+        await block_job.update(
+            status="pending", scheduled_timestamp=datetime.now() + timedelta(minutes=5)
+        ).apply()
+
+        print(
+            f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} failed ({e}), delaying 5 minutes"
+        )
+
+
+async def start_unblock_job(unblock_job):
+    api = await twitter_dm_api()
+
+    try:
+        # Are they already unblocked?
+        friendship = (
+            await twitter_api_call(
+                api,
+                "show_friendship",
+                source_screen_name="semiphemeral",
+                target_screen_name=unblock_job.twitter_username,
+            )
+        )[0]
+
+        if not friendship.blocking:
+            # Already unblocked, so our work here is done
+            await unblock_job.update(
+                status="unblocked", unblocked_timestamp=datetime.now()
+            ).apply()
+            print(
+                f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} already unblocked {unblock_job.twitter_username}"
+            )
+            return
+
+        # Unblock them
+        await twitter_api_call(
+            api, "destroy_block", screen_name=unblock_job.twitter_username
+        )
+
+        # If we're unblocking a semiphemeral user
+        if unblock_job.user_id:
+            user = await User.query.where(id=unblock_job.user_id).gino.first()
+            if user and user.blocked:
+                # Update the user
+                await user.update(paused=True, following=False, blocked=False).apply()
+
+        # Success, update block_job
+        await unblock_job.update(
+            status="unblocked", unblocked_timestamp=datetime.now()
+        ).apply()
+
+        print(
+            f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} unblocked user {unblock_job.twitter_username}"
+        )
+    except Exception as e:
+        # Try again in 5 minutes
+        await unblock_job.update(
+            status="pending", scheduled_timestamp=datetime.now() + timedelta(minutes=5)
+        ).apply()
+
+        print(
+            f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} failed ({e}), delaying 5 minutes"
+        )
+
+
 async def start_jobs():
     # In case the app crashed in the middle of any previous jobs, change all "active"
     # jobs to "pending" so they'll start over
@@ -785,3 +974,19 @@ async def start_jobs():
             await start_dm_job(dm_job)
 
         await asyncio.sleep(60)
+
+        # Block jobs
+        for block_job in (
+            await BlockJob.query.where(BlockJob.status == "pending")
+            .where(BlockJob.scheduled_timestamp <= datetime.now())
+            .gino.all()
+        ):
+            await start_block_job(block_job)
+
+        # Unblock jobs
+        for unblock_job in (
+            await UnblockJob.query.where(UnblockJob.status == "pending")
+            .where(UnblockJob.scheduled_timestamp <= datetime.now())
+            .gino.all()
+        ):
+            await start_unblock_job(unblock_job)

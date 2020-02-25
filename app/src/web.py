@@ -17,7 +17,7 @@ import stripe
 from sqlalchemy import or_
 
 from common import twitter_api, twitter_api_call, tweets_to_delete
-from db import User, Tip, Nag, Job, Tweet, Thread, Fascist
+from db import User, Tip, Nag, Job, BlockJob, Tweet, Thread, Fascist
 
 
 async def _logged_in_user(session):
@@ -871,9 +871,12 @@ async def admin_api_post_fascists(request):
             Tweet.twitter_user_screen_name == data["username"]
         ).gino.status()
 
-        # todo: Make sure the facist is blocked
-
-        # todo: For each user, search last 6 months of likes for is_fascist=True, and if there are any, block the user
+        # Make sure the facist is blocked
+        await BlockJob.create(
+            twitter_username=data["username"],
+            status="pending",
+            scheduled_timestamp=datetime.now(),
+        )
 
         return web.json_response(True)
 

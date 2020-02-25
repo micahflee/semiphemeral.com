@@ -60,7 +60,9 @@ class Job(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
     job_type = db.Column(db.String)  # "fetch", "delete"
-    status = db.Column(db.String)  # "pending", "active", "finished", "canceled"
+    status = db.Column(
+        db.String
+    )  # "pending", "active", "finished", "canceled", "blocked"
     progress = db.Column(db.String)  # JSON object
     scheduled_timestamp = db.Column(db.DateTime)
     started_timestamp = db.Column(db.DateTime)
@@ -76,6 +78,28 @@ class DirectMessageJob(db.Model):
     status = db.Column(db.String)  # "pending", "sent"
     scheduled_timestamp = db.Column(db.DateTime)
     sent_timestamp = db.Column(db.DateTime)
+
+
+class BlockJob(db.Model):
+    __tablename__ = "block_jobs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer)  # optional
+    twitter_username = db.Column(db.String)
+    status = db.Column(db.String)  # "pending", "blocked"
+    scheduled_timestamp = db.Column(db.DateTime)
+    blocked_timestamp = db.Column(db.DateTime)
+
+
+class UnblockJob(db.Model):
+    __tablename__ = "unblock_jobs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer)  # optional
+    twitter_username = db.Column(db.String)
+    status = db.Column(db.String)  # "pending", "unblocked"
+    scheduled_timestamp = db.Column(db.DateTime)
+    unblocked_timestamp = db.Column(db.DateTime)
 
 
 class Thread(db.Model):
