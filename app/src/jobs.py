@@ -870,6 +870,9 @@ async def start_block_job(block_job):
                     scheduled_timestamp=unblock_timestamp,
                 )
 
+                # Wait one minute before blocking, to ensure they receive the DM
+                await async.sleep(60)
+
         # Block the user
         await twitter_api_call(
             api, "create_block", screen_name=block_job.twitter_username
