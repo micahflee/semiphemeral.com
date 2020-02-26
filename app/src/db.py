@@ -37,7 +37,7 @@ class Tip(db.Model):
     __tablename__ = "tips"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer)
+    user_id = db.Column(db.Integer, db.ForeignKey("threads.id"))
     charge_id = db.Column(db.String)
     receipt_url = db.Column(db.String)
     paid = db.Column(db.Boolean)
@@ -50,7 +50,7 @@ class Nag(db.Model):
     __tablename__ = "nags"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer)
+    user_id = db.Column(db.Integer, db.ForeignKey("threads.id"))
     timestamp = db.Column(db.DateTime)
 
 
@@ -58,7 +58,7 @@ class Job(db.Model):
     __tablename__ = "jobs"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer)
+    user_id = db.Column(db.Integer, db.ForeignKey("threads.id"))
     job_type = db.Column(db.String)  # "fetch", "delete"
     status = db.Column(
         db.String
@@ -106,7 +106,7 @@ class Thread(db.Model):
     __tablename__ = "threads"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer)
+    user_id = db.Column(db.Integer, db.ForeignKey("threads.id"))
     root_status_id = db.Column(db.BigInteger)
     should_exclude = db.Column(db.Boolean)
 
@@ -115,7 +115,7 @@ class Tweet(db.Model):
     __tablename__ = "tweets"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer)
+    user_id = db.Column(db.Integer, db.ForeignKey("threads.id"))
     created_at = db.Column(db.DateTime)
     twitter_user_id = db.Column(db.BigInteger)
     twitter_user_screen_name = db.Column(db.String)
