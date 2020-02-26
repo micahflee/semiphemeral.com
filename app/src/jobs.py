@@ -83,7 +83,7 @@ def ensure_user_follows_us(func):
             return False
 
         elif not friendship.following:
-            reschedule_timedelta_in_the_future = timedelta(minutes=30)
+            reschedule_timedelta_in_the_future = timedelta(minutes=5)
 
             # If we've already sent a follow request but it still hasn't been accepted
             if friendship.following_requested:
@@ -141,10 +141,11 @@ async def create_job(user, job_type, scheduled_timestamp):
 
 
 async def reschedule_job(job, timedelta_in_the_future):
+    await log(job, f"rescheduling to +{timedelta_in_the_future}")
     await job.update(
         status="pending", scheduled_timestamp=datetime.now() + timedelta_in_the_future
     ).apply()
-    raise JobRescheduled()
+    raise JobRescheduled
 
 
 async def update_progress(job, progress):
@@ -753,12 +754,12 @@ async def start_job(job):
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
-        except JobRescheduled:
-            pass
         except UserBlocked:
             await job.update(
                 status="blocked", finished_timestamp=datetime.now()
             ).apply()
+        except JobRescheduled:
+            pass
 
     elif job.job_type == "delete":
         try:
@@ -767,12 +768,12 @@ async def start_job(job):
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
-        except JobRescheduled:
-            pass
         except UserBlocked:
             await job.update(
                 status="blocked", finished_timestamp=datetime.now()
             ).apply()
+        except JobRescheduled:
+            pass
 
 
 async def start_dm_job(dm_job):
