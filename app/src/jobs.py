@@ -16,6 +16,7 @@ from db import (
     Nag,
     Tweet,
     Thread,
+    Fascist,
 )
 
 
@@ -174,6 +175,15 @@ async def update_progress_rate_limit(job, progress, minutes):
 
 
 async def save_tweet(user, status):
+    # Mark any new fascist tweets as fascist
+    fascist = await Fascist.query.where(
+        Fascist.username == status.author.screen_name
+    ).gino.first()
+    if fascist:
+        is_fascist = True
+    else:
+        is_fascist = False
+
     return await Tweet.create(
         user_id=user.id,
         created_at=status.created_at,
@@ -192,6 +202,7 @@ async def save_tweet(user, status):
         is_deleted=False,
         is_unliked=False,
         exclude_from_delete=False,
+        is_fascist=is_fascist,
     )
 
 
@@ -870,8 +881,8 @@ async def start_block_job(block_job):
                     scheduled_timestamp=unblock_timestamp,
                 )
 
-                # Wait one minute before blocking, to ensure they receive the DM
-                await async.sleep(60)
+                # Wait 10 seconds before blocking, to ensure they receive the DM
+                await asyncio.sleep(10)
 
         # Block the user
         await twitter_api_call(
