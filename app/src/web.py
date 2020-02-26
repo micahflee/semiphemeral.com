@@ -898,6 +898,41 @@ async def admin_api_post_fascists(request):
         return web.json_response(True)
 
 
+@admin_required
+async def admin_api_get_tips(request):
+    users = {}
+    tips = await Tip.query.order_by(Tip.timestamp.desc()).gino.all()
+
+    for tip in tips:
+        if tip.user_id not in users:
+            user = await User.query.where(User.id == tip.user_id).gino.first()
+            if user:
+                users[tip.user_id] = {
+                    "twitter_username": user.twitter_screen_name,
+                    "twitter_link": f"https://twitter.com/{user.twitter_screen_name}",
+                }
+            else:
+                users[tip.user_id] = {"twitter_username": "", "twitter_link": ""}
+
+    def to_client(tips):
+        tips_json = []
+        for tip in tips:
+            tips_json.append(
+                {
+                    "twitter_username": users[tip.user_id]["twitter_username"],
+                    "twitter_link": users[tip.user_id]["twitter_link"],
+                    "timestamp": tip.timestamp.timestamp(),
+                    "amount": tip.amount,
+                    "paid": tip.paid,
+                    "refunded": tip.refunded,
+                    "receipt_url": tip.receipt_url,
+                }
+            )
+        return tips_json
+
+    return web.json_response({"tips": to_client(tips)})
+
+
 async def maintenance_refresh_logging(request=None):
     """
     Refreshes logging. This needs to get run after rotating logs, to re-open the
@@ -963,6 +998,7 @@ async def start_web_server():
             web.get("/admin_api/users", admin_api_get_users),
             web.get("/admin_api/fascists", admin_api_get_fascists),
             web.post("/admin_api/fascists", admin_api_post_fascists),
+            web.get("/admin_api/tips", admin_api_get_tips),
             # Maintenance
             web.get(
                 f"/{os.environ.get('MAINTENANCE_SECRET')}/refresh_logging",
