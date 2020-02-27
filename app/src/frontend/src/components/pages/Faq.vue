@@ -30,7 +30,7 @@
     </p>
 
     <h2>Can I tell my friends?</h2>
-    <p>Yes! This is a free service and everyone is welcome to use it so long as they don't support fascists (who will get automatically detected and blocked). For now, each new user needs to get manually approved (hopefully promptly), but when Semiphemeral is out of beta, the @semiphemeral account will no longer be locked.</p>
+    <p>Yes! This is a free service and everyone is welcome to use it so long as they don't support fascists (who will get automatically detected and blocked).</p>
   </div>
 </template>
 
