@@ -1005,8 +1005,6 @@ async def start_jobs():
         ):
             await start_dm_job(dm_job)
 
-        await asyncio.sleep(60)
-
         # Block jobs
         for block_job in (
             await BlockJob.query.where(BlockJob.status == "pending")
@@ -1022,3 +1020,32 @@ async def start_jobs():
             .gino.all()
         ):
             await start_unblock_job(unblock_job)
+
+        # Make sure users who are following us are marked as following us
+        users = (
+            await User.query.where(User.blocked == False)
+            .where(User.following == False)
+            .gino.all()
+        )
+        for user in users:
+            api = await twitter_api(user)
+
+            # Is the user following us?
+            try:
+                friendship = (
+                    await twitter_api_call(
+                        api,
+                        "show_friendship",
+                        source_id=user.twitter_id,
+                        target_screen_name="semiphemeral",
+                    )
+                )[0]
+
+                if friendship.following:
+                    await user.update(following=True).apply()
+                    print(f"marked user {user.twitter_screen_name} as following")
+            except:
+                # If we hit a rate limit, ignore and try again next loop
+                pass
+
+        await asyncio.sleep(60)
