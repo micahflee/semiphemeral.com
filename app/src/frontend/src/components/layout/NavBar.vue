@@ -71,6 +71,9 @@ span.user span a {
       <li>
         <router-link to="/tip">Tip</router-link>
       </li>
+      <li>
+        <router-link to="/faq">FAQ</router-link>
+      </li>
     </ul>
     <span class="user">
       <img v-if="userScreenName" v-bind:src="userProfileUrl" v-bind:title="logoutTitle" />
