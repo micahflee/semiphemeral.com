@@ -1021,31 +1021,31 @@ async def start_jobs():
         ):
             await start_unblock_job(unblock_job)
 
-        # Make sure users who are following us are marked as following us
-        users = (
-            await User.query.where(User.blocked == False)
-            .where(User.following == False)
-            .gino.all()
-        )
-        for user in users:
-            api = await twitter_api(user)
+        # # Make sure users who are following us are marked as following us
+        # users = (
+        #     await User.query.where(User.blocked == False)
+        #     .where(User.following == False)
+        #     .gino.all()
+        # )
+        # for user in users:
+        #     api = await twitter_api(user)
 
-            # Is the user following us?
-            try:
-                friendship = (
-                    await twitter_api_call(
-                        api,
-                        "show_friendship",
-                        source_id=user.twitter_id,
-                        target_screen_name="semiphemeral",
-                    )
-                )[0]
+        #     # Is the user following us?
+        #     try:
+        #         friendship = (
+        #             await twitter_api_call(
+        #                 api,
+        #                 "show_friendship",
+        #                 source_id=user.twitter_id,
+        #                 target_screen_name="semiphemeral",
+        #             )
+        #         )[0]
 
-                if friendship.following:
-                    await user.update(following=True).apply()
-                    print(f"marked user {user.twitter_screen_name} as following")
-            except:
-                # If we hit a rate limit, ignore and try again next loop
-                pass
+        #         if friendship.following:
+        #             await user.update(following=True).apply()
+        #             print(f"marked user {user.twitter_screen_name} as following")
+        #     except:
+        #         # If we hit a rate limit, ignore and try again next loop
+        #         pass
 
         await asyncio.sleep(60)
