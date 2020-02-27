@@ -7,7 +7,7 @@ html {
 body {
   margin: 0 0 25px;
   padding: 10px;
-  font-family: sans;
+  font-family: sans-serif;
 }
 
 p {
