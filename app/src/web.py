@@ -171,6 +171,9 @@ async def auth_twitter_callback(request):
             twitter_screen_name=twitter_user.screen_name,
             twitter_access_token=auth.access_token,
             twitter_access_token_secret=auth.access_token_secret,
+            paused=True,
+            following=False,
+            blocked=False,
         )
 
         # Create a new fetch job
@@ -990,6 +993,7 @@ async def start_web_server():
             web.get("/settings", app_main),
             web.get("/tip", app_main),
             web.get("/thanks", app_main),
+            web.get("/faq", app_main),
             # Admin
             web.get("/admin", app_admin_redirect),
             web.get("/admin/users", app_admin),
