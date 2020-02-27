@@ -20,7 +20,8 @@ button.download {
   margin: 0 0 5px 0;
 }
 
-button.pause, button.reactivate {
+button.pause,
+button.reactivate {
   background-color: #624caf;
   border: none;
   color: white;
@@ -67,20 +68,24 @@ ul.jobs {
     <template v-else>
       <div v-if="settingBlocked">
         <h2>Semiphemeral is an antifascist service</h2>
-        <p>While everyone deserves privacy on social media, not everyone is entitled to get that privacy by using the resources of this free service. You have been blocked by <A href="https://twitter.com/semiphemeral">@semiphemeral</a>, so your account has been disabled.</p>
+        <p>
+          While everyone deserves privacy on social media, not everyone is entitled to get that privacy by using the resources of this free service. You have been blocked by
+          <a
+            href="https://twitter.com/semiphemeral"
+          >@semiphemeral</a>, so your account has been disabled.
+        </p>
         <p>Semiphemeral keeps track of the Twitter accounts of prominent authoritarian anti-democratic demagogues and dictators, racists, misogynists, Islamophobes, anti-Semites, homophobes, transphobes, neo-Nazis, hate groups, and fascists and fascist sympathizers. You were probably blocked because you liked a tweet from one of these accounts within the last 6 months.</p>
         <p>If you oppose fascism and think that you've been blocked unfairly or by mistake, you can appeal by writing an email to hi@semiphemeral.com.</p>
-        <p><button class="reactivate" v-on:click="reactivateAccount">I'm no longer blocked</button></p>
+        <p>
+          <button class="reactivate" v-on:click="reactivateAccount">I'm no longer blocked</button>
+        </p>
       </div>
       <div v-else-if="!settingFollowing">
         <p>
           In order to use Semiphemeral, you need to be following
           <a
             href="https://twitter.com/semiphemeral"
-          >@semiphemeral</a> on Twitter. A follow request has already been sent, but that account is protected at the moment, so you'll have to wait for it to accept you as a follower before you can start deleting your tweets.
-        </p>
-        <p>
-          So, hang tight. If it's taking way too long, feel free to contact
+          >@semiphemeral</a> on Twitter. Please give us a few minutes to verify that you're following. If it's taking way too long, feel free to contact
           <a
             href="https://twitter.com/semiphemeral"
           >@semiphemeral</a>. DMs are open.
@@ -246,7 +251,7 @@ export default {
     downloadHistory: function() {
       this.postDashboard("fetch");
     },
-    reactivateAccount: function(){
+    reactivateAccount: function() {
       var that = this;
       this.loading = true;
       fetch("/api/dashboard", {
@@ -263,7 +268,7 @@ export default {
           response.json().then(function(data) {
             console.log(data);
             that.loading = false;
-            if(!data["unblocked"]) {
+            if (!data["unblocked"]) {
               alert("Nope, you're still blocked");
             } else {
               that.fetchJobs();

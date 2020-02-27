@@ -98,11 +98,23 @@ def ensure_user_follows_us(func):
             followed_user = await twitter_api_call(
                 api, "create_friendship", screen_name="semiphemeral", follow=True
             )
-            if followed_user.following:
+
+            # Wait a few seconds, then check the friendship again
+            await asyncio.sleep(3)
+            friendship = (
+                await twitter_api_call(
+                    api,
+                    "show_friendship",
+                    source_id=user.twitter_id,
+                    target_screen_name="semiphemeral",
+                )
+            )[0]
+
+            if friendship.following:
                 await user.update(following=True).apply()
 
             # If we're still not following but have now sent a follow request
-            if not followed_user.following and followed_user.follow_request_sent:
+            elif not friendship.following and friendship.follow_request_sent:
                 await user.update(following=False).apply()
                 print(f"user_id={user.id} waiting on follow request to get accepted")
                 await reschedule_job(job, reschedule_timedelta_in_the_future)
