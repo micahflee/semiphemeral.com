@@ -80,17 +80,6 @@ ul.jobs {
           <button class="reactivate" v-on:click="reactivateAccount">I'm no longer blocked</button>
         </p>
       </div>
-      <div v-else-if="!settingFollowing">
-        <p>
-          In order to use Semiphemeral, you need to be following
-          <a
-            href="https://twitter.com/semiphemeral"
-          >@semiphemeral</a> on Twitter. Please give us a few minutes to verify that you're following. If it's taking way too long, feel free to contact
-          <a
-            href="https://twitter.com/semiphemeral"
-          >@semiphemeral</a>. DMs are open.
-        </p>
-      </div>
       <div v-else>
         <div v-if="state == 'A'">
           <p>
@@ -180,7 +169,6 @@ export default {
       pendingJobs: [],
       finishedJobs: [],
       settingPaused: null,
-      settingFollowing: null,
       settingBlocked: null,
       settingDeleteTweets: null,
       settingRetweetsLikes: null
@@ -305,7 +293,6 @@ export default {
             else that.finishedJobs = [];
 
             that.settingPaused = data["setting_paused"];
-            that.settingFollowing = data["setting_following"];
             that.settingBlocked = data["setting_blocked"];
             that.settingDeleteTweets = data["setting_delete_tweets"];
             that.settingRetweetsLikes = data["setting_retweet_likes"];

@@ -29,7 +29,6 @@ class User(db.Model):
     since_id = db.Column(db.BigInteger)
     last_fetch = db.Column(db.DateTime)
     paused = db.Column(db.Boolean, default=True)
-    following = db.Column(db.Boolean)
     blocked = db.Column(db.Boolean)
 
 
