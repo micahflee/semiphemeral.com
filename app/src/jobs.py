@@ -967,13 +967,15 @@ async def start_jobs():
 
     # Infinitely loop looking for pending jobs
     while True:
+        tasks = []
+
         # Fetch and delete jobs
         for job in (
             await Job.query.where(Job.status == "pending")
             .where(Job.scheduled_timestamp <= datetime.now())
             .gino.all()
         ):
-            await start_job(job)
+            tasks.append(start_job(job))
 
         # Direct message jobs
         for dm_job in (
@@ -981,7 +983,7 @@ async def start_jobs():
             .where(DirectMessageJob.scheduled_timestamp <= datetime.now())
             .gino.all()
         ):
-            await start_dm_job(dm_job)
+            tasks.append(start_dm_job(dm_job))
 
         # Block jobs
         for block_job in (
@@ -989,7 +991,7 @@ async def start_jobs():
             .where(BlockJob.scheduled_timestamp <= datetime.now())
             .gino.all()
         ):
-            await start_block_job(block_job)
+            tasks.append(start_block_job(block_job))
 
         # Unblock jobs
         for unblock_job in (
@@ -997,6 +999,7 @@ async def start_jobs():
             .where(UnblockJob.scheduled_timestamp <= datetime.now())
             .gino.all()
         ):
-            await start_unblock_job(unblock_job)
+            tasks.append(start_unblock_job(unblock_job))
 
+        await asyncio.gather(*tasks)
         await asyncio.sleep(60)
