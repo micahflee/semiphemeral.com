@@ -16,6 +16,7 @@
 
     - name: ensure dependencies are installed
       apt:
+        state: present
         name: "{{ packages }}"
       vars:
         packages:
@@ -26,6 +27,23 @@
         - curl
         - gnupg2
         - software-properties-common
+
+    - name: ensure digitalocean apt key is added
+      apt_key:
+        id: 9FE3B226BD775196D8C2E599DE88104AA4C6383F
+        url: https://repos.insights.digitalocean.com/sonar-agent.asc
+        state: present
+
+    - name: ensure digitalocean apt repository is installed
+      apt_repository:
+        repo: deb https://repos.insights.digitalocean.com/apt/do-agent/ main main
+        state: present
+
+    - name: ensure digitalocean agent is installed
+      apt:
+        force_apt_get: yes
+        name: do-agent
+        state: present
 
     - name: ensure docker apt key is added
       apt_key:
@@ -41,6 +59,7 @@
     - name: ensure docker is installed
       apt:
         force_apt_get: yes
+        state: present
         name: "{{ packages }}"
       vars:
         packages:
