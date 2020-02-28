@@ -172,7 +172,6 @@ async def auth_twitter_callback(request):
             twitter_access_token=auth.access_token,
             twitter_access_token_secret=auth.access_token_secret,
             paused=True,
-            following=False,
             blocked=False,
         )
 
@@ -554,7 +553,6 @@ async def api_get_dashboard(request):
             "active_jobs": to_client(active_jobs),
             "finished_jobs": to_client(finished_jobs),
             "setting_paused": user.paused,
-            "setting_following": user.following,
             "setting_blocked": user.blocked,
             "setting_delete_tweets": user.delete_tweets,
             "setting_retweets_likes": user.retweets_likes,
@@ -788,20 +786,16 @@ async def admin_api_get_users(request):
     users = await User.query.order_by(User.twitter_screen_name).gino.all()
     active_users = []
     paused_users = []
-    pending_users = []
     blocked_users = []
 
     for user in users:
         if user.blocked:
             blocked_users.append(user)
         else:
-            if user.following:
-                if user.paused:
-                    paused_users.append(user)
-                else:
-                    active_users.append(user)
+            if user.paused:
+                paused_users.append(user)
             else:
-                pending_users.append(user)
+                active_users.append(user)
 
     def to_client(users):
         users_json = []
@@ -823,7 +817,6 @@ async def admin_api_get_users(request):
         {
             "active_users": to_client(active_users),
             "paused_users": to_client(paused_users),
-            "pending_users": to_client(pending_users),
             "blocked_users": to_client(blocked_users),
         }
     )

@@ -80,49 +80,15 @@ def ensure_user_follows_us(func):
             # to use this service
             print(f"user_id={user.id} is blocked, canceling job and updating user")
             await job.update(status="canceled").apply()
-            await user.update(paused=True, following=False, blocked=True).apply()
+            await user.update(paused=True, blocked=True).apply()
             return False
 
         elif not friendship.following:
-            reschedule_timedelta_in_the_future = timedelta(minutes=5)
-
-            # If we've already sent a follow request but it still hasn't been accepted
-            if friendship.following_requested:
-                await user.update(following=False).apply()
-                print(f"user_id={user.id} waiting on follow request to get accepted")
-                await reschedule_job(job, reschedule_timedelta_in_the_future)
-                return False
-
-            # Follow
+            # Make follow request
             print(f"user_id={user.id} not following, making follow request")
-            followed_user = await twitter_api_call(
+            await twitter_api_call(
                 api, "create_friendship", screen_name="semiphemeral", follow=True
             )
-
-            # Wait a few seconds, then check the friendship again
-            await asyncio.sleep(3)
-            friendship = (
-                await twitter_api_call(
-                    api,
-                    "show_friendship",
-                    source_id=user.twitter_id,
-                    target_screen_name="semiphemeral",
-                )
-            )[0]
-
-            if friendship.following:
-                await user.update(following=True).apply()
-
-            # If we're still not following but have now sent a follow request
-            elif not friendship.following and friendship.follow_request_sent:
-                await user.update(following=False).apply()
-                print(f"user_id={user.id} waiting on follow request to get accepted")
-                await reschedule_job(job, reschedule_timedelta_in_the_future)
-                return False
-        else:
-            # Make sure we've recorded that the user is a follower
-            if not user.following:
-                await user.update(following=True).apply()
 
         return await func(job)
 
@@ -883,7 +849,7 @@ async def start_block_job(block_job):
                 )
 
                 # Update the user
-                await user.update(paused=True, following=False, blocked=True).apply()
+                await user.update(paused=True, blocked=True).apply()
 
                 # Create the unblock job
                 await UnblockJob.create(
@@ -954,7 +920,7 @@ async def start_unblock_job(unblock_job):
             user = await User.query.where(id=unblock_job.user_id).gino.first()
             if user and user.blocked:
                 # Update the user
-                await user.update(paused=True, following=False, blocked=False).apply()
+                await user.update(paused=True, blocked=False).apply()
 
         # Success, update block_job
         await unblock_job.update(
@@ -1032,32 +998,5 @@ async def start_jobs():
             .gino.all()
         ):
             await start_unblock_job(unblock_job)
-
-        # # Make sure users who are following us are marked as following us
-        # users = (
-        #     await User.query.where(User.blocked == False)
-        #     .where(User.following == False)
-        #     .gino.all()
-        # )
-        # for user in users:
-        #     api = await twitter_api(user)
-
-        #     # Is the user following us?
-        #     try:
-        #         friendship = (
-        #             await twitter_api_call(
-        #                 api,
-        #                 "show_friendship",
-        #                 source_id=user.twitter_id,
-        #                 target_screen_name="semiphemeral",
-        #             )
-        #         )[0]
-
-        #         if friendship.following:
-        #             await user.update(following=True).apply()
-        #             print(f"marked user {user.twitter_screen_name} as following")
-        #     except:
-        #         # If we hit a rate limit, ignore and try again next loop
-        #         pass
 
         await asyncio.sleep(60)

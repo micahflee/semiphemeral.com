@@ -20,15 +20,6 @@
       </ul>
     </div>
 
-    <div v-if="pendingUsers.length > 0">
-      <h2>{{ pendingUsers.length }} pending users</h2>
-      <ul>
-        <li v-for="user in pendingUsers">
-          <User v-bind:user="user"></User>
-        </li>
-      </ul>
-    </div>
-
     <div v-if="blockedUsers.length > 0">
       <h2>{{ blockedUsers.length }} blocked users</h2>
       <ul>
@@ -50,7 +41,6 @@ export default {
       loading: false,
       activeUsers: [],
       pausedUsers: [],
-      pendingUsers: [],
       blockedUsers: []
     };
   },
@@ -79,10 +69,6 @@ export default {
 
             if (data["paused_users"]) that.pausedUsers = data["paused_users"];
             else that.pausedUsers = [];
-
-            if (data["pending_users"])
-              that.pendingUsers = data["pending_users"];
-            else that.pendingUsers = [];
 
             if (data["blocked_users"])
               that.blockedUsers = data["blocked_users"];
