@@ -325,6 +325,7 @@ async def fetch(job):
             break
         except tweepy.TweepError:
             await update_progress_rate_limit(job, progress, 15)
+            page = pages.next()
 
         # Import these tweets, and all their threads
         for status in page:
@@ -393,6 +394,7 @@ async def fetch(job):
             break
         except tweepy.TweepError:
             await update_progress_rate_limit(job, progress, 15)
+            page = pages.next()
 
         # Import these tweets
         for status in page:
