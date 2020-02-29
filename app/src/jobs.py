@@ -957,7 +957,7 @@ async def start_unblock_job(unblock_job):
 
 async def start_jobs():
     # Start by sleeping, to stagger the start times of job containers
-    seconds_to_sleep = os.environ.get("SECONDS_TO_SLEEP")
+    seconds_to_sleep = int(os.environ.get("SECONDS_TO_SLEEP"))
     print(f"Sleeping {seconds_to_sleep} seconds")
     await asyncio.sleep(seconds_to_sleep)
 
