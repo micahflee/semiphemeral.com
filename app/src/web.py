@@ -17,7 +17,7 @@ import stripe
 from sqlalchemy import or_
 
 from common import twitter_api, twitter_api_call, tweets_to_delete
-from db import User, Tip, Nag, Job, BlockJob, Tweet, Thread, Fascist
+from db import User, Tip, Nag, Job, DirectMessageJob, BlockJob, UnblockJob, Tweet, Thread, Fascist
 
 
 async def _logged_in_user(session):
@@ -941,6 +941,29 @@ async def maintenance_refresh_logging(request=None):
 
 
 async def start_web_server():
+    # In case the app crashed in the middle of any previous jobs, change all "active"
+    # jobs to "pending" so they'll start over
+    await Job.update.values(status="pending").where(
+        Job.status == "active"
+    ).gino.status()
+
+    # If staging, start by pausing all users and cancel all pending jobs
+    if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
+        print("Staging environment, so pausing all users and canceling all jobs")
+        await User.update.values(paused=True).gino.status()
+        await Job.update.values(status="canceled").where(
+            Job.status == "pending"
+        ).gino.status()
+        await DirectMessageJob.update.values(status="canceled").where(
+            DirectMessageJob.status == "pending"
+        ).gino.status()
+        await BlockJob.update.values(status="canceled").where(
+            BlockJob.status == "pending"
+        ).gino.status()
+        await UnblockJob.update.values(status="canceled").where(
+            UnblockJob.status == "pending"
+        ).gino.status()
+
     # Init stripe
     stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 

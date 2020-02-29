@@ -956,27 +956,10 @@ async def start_unblock_job(unblock_job):
 
 
 async def start_jobs():
-    # In case the app crashed in the middle of any previous jobs, change all "active"
-    # jobs to "pending" so they'll start over
-    await Job.update.values(status="pending").where(
-        Job.status == "active"
-    ).gino.status()
-
-    # If staging, start by pausing all users and cancel all pending jobs
-    if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
-        await User.update.values(paused=True).gino.status()
-        await Job.update.values(status="canceled").where(
-            Job.status == "pending"
-        ).gino.status()
-        await DirectMessageJob.update.values(status="canceled").where(
-            DirectMessageJob.status == "pending"
-        ).gino.status()
-        await BlockJob.update.values(status="canceled").where(
-            BlockJob.status == "pending"
-        ).gino.status()
-        await UnblockJob.update.values(status="canceled").where(
-            UnblockJob.status == "pending"
-        ).gino.status()
+    # Start by sleeping, to stagger the start times of job containers
+    seconds_to_sleep = os.environ.get("SECONDS_TO_SLEEP")
+    print(f"Sleeping {seconds_to_sleep} seconds")
+    await asyncio.sleep(seconds_to_sleep)
 
     # Infinitely loop looking for pending jobs
     while True:

@@ -23,7 +23,7 @@ services:
       - default
       - host_private
 
-  jobs:
+  jobs1:
     restart: always
     build: "src"
     environment:
@@ -37,10 +37,32 @@ services:
       - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
       - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
       - DATABASE_URI={{ database_uri }}
+      - SECONDS_TO_SLEEP=10
     expose:
       - "8080"
-    volumes:
-      - /opt/semiphemeral/data/jobs:/var/jobs
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs2:
+    restart: always
+    build: "src"
+    environment:
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - SECONDS_TO_SLEEP=240
+    expose:
+      - "8080"
     networks:
       - default
       - host_private
