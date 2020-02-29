@@ -44,7 +44,7 @@ def test_api_creds(func):
             await twitter_api_call(api, "me")
         except tweepy.error.TweepError as e:
             print(
-                f"User {user.id} API creds failed ({e}), canceling job and pausing user"
+                f"user_id={user.id} API creds failed ({e}), canceling job and pausing user"
             )
             await user.update(paused=True).apply()
             await job.update(status="canceled").apply()
@@ -323,7 +323,12 @@ async def fetch(job):
             page = pages.next()
         except StopIteration:
             break
-        except tweepy.TweepError:
+        except tweepy.TweepError as e:
+            try:
+                error_code = e.args[0][0]["code"]
+            except:
+                error_code = e.api_code
+            await log(job, f"exception, error_code={error_code}, exception={e}")
             await update_progress_rate_limit(job, progress, 15)
             page = pages.next()
 
@@ -392,7 +397,12 @@ async def fetch(job):
             page = pages.next()
         except StopIteration:
             break
-        except tweepy.TweepError:
+        except tweepy.TweepError as e:
+            try:
+                error_code = e.args[0][0]["code"]
+            except:
+                error_code = e.api_code
+            await log(job, f"exception, error_code={error_code}, exception={e}")
             await update_progress_rate_limit(job, progress, 15)
             page = pages.next()
 
@@ -944,8 +954,14 @@ async def start_unblock_job(unblock_job):
 
 
 async def start_jobs():
+    # In case the app crashed in the middle of any previous jobs, change all "active"
+    # jobs to "pending" so they'll start over
+    await Job.update.values(status="pending").where(
+        Job.status == "active"
+    ).gino.status()
+
+    # If staging, start by pausing all users and cancel all pending jobs
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
-        # If staging, start by pausing all users and cancel all pending jobs
         await User.update.values(paused=True).gino.status()
         await Job.update.values(status="canceled").where(
             Job.status == "pending"
@@ -958,13 +974,6 @@ async def start_jobs():
         ).gino.status()
         await UnblockJob.update.values(status="canceled").where(
             UnblockJob.status == "pending"
-        ).gino.status()
-
-    else:
-        # In case the app crashed in the middle of any previous jobs, change all "active"
-        # jobs to "pending" so they'll start over
-        await Job.update.values(status="pending").where(
-            Job.status == "active"
         ).gino.status()
 
     # Infinitely loop looking for pending jobs
