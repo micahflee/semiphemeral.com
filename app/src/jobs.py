@@ -326,7 +326,7 @@ async def fetch(job):
         except tweepy.TweepError as e:
             if str(e) == "Twitter error response: status code = 404":
                 # Twitter responded with a 404 error, which could mean the user has deleted their account
-                await log(job, f"404 error from twitter, rescheduling job for 10 minutes from now")
+                await log(job, f"404 error from twitter, rescheduling job for 15 minutes from now")
                 await reschedule_job(job, timedelta(minutes=15))
                 return
 
@@ -401,7 +401,7 @@ async def fetch(job):
         except tweepy.TweepError as e:
             if str(e) == "Twitter error response: status code = 404":
                 # Twitter responded with a 404 error, which could mean the user has deleted their account
-                await log(job, f"404 error from twitter, rescheduling job for 10 minutes from now")
+                await log(job, f"404 error from twitter, rescheduling job for 15 minutes from now")
                 await reschedule_job(job, timedelta(minutes=15))
                 return
 
