@@ -324,13 +324,14 @@ async def fetch(job):
         except StopIteration:
             break
         except tweepy.TweepError as e:
-            try:
-                error_code = e.args[0][0]["code"]
-            except:
-                error_code = e.api_code
-            await log(job, f"exception, error_code={error_code}, exception={e}")
+            if str(e) == "Twitter error response: status code = 404":
+                # Twitter responded with a 404 error, which could mean the user has deleted their account
+                await log(job, f"404 error from twitter, rescheduling job for 10 minutes from now")
+                await reschedule_job(job, timedelta(minutes=15))
+                return
+
             await update_progress_rate_limit(job, progress, 15)
-            page = pages.next()
+            continue
 
         # Import these tweets, and all their threads
         for status in page:
@@ -398,13 +399,14 @@ async def fetch(job):
         except StopIteration:
             break
         except tweepy.TweepError as e:
-            try:
-                error_code = e.args[0][0]["code"]
-            except:
-                error_code = e.api_code
-            await log(job, f"exception, error_code={error_code}, exception={e}")
+            if str(e) == "Twitter error response: status code = 404":
+                # Twitter responded with a 404 error, which could mean the user has deleted their account
+                await log(job, f"404 error from twitter, rescheduling job for 10 minutes from now")
+                await reschedule_job(job, timedelta(minutes=15))
+                return
+
             await update_progress_rate_limit(job, progress, 15)
-            page = pages.next()
+            continue
 
         # Import these tweets
         for status in page:
