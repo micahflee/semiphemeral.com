@@ -17,7 +17,18 @@ import stripe
 from sqlalchemy import or_
 
 from common import twitter_api, twitter_api_call, tweets_to_delete
-from db import User, Tip, Nag, Job, DirectMessageJob, BlockJob, UnblockJob, Tweet, Thread, Fascist
+from db import (
+    User,
+    Tip,
+    Nag,
+    Job,
+    DirectMessageJob,
+    BlockJob,
+    UnblockJob,
+    Tweet,
+    Thread,
+    Fascist,
+)
 
 
 async def _logged_in_user(session):
@@ -806,9 +817,11 @@ async def admin_api_get_users(request):
                 last_fetch = None
             users_json.append(
                 {
+                    "id": user.id,
                     "twitter_id": user.twitter_id,
                     "twitter_screen_name": user.twitter_screen_name,
                     "last_fetch": last_fetch,
+                    "blocked": user.blocked,
                 }
             )
         return users_json
@@ -818,6 +831,36 @@ async def admin_api_get_users(request):
             "active_users": to_client(active_users),
             "paused_users": to_client(paused_users),
             "blocked_users": to_client(blocked_users),
+        }
+    )
+
+
+@admin_required
+async def admin_api_get_user(request):
+    user_id = int(request.match_info["user_id"])
+    user = await User.query.where(User.id == user_id).gino.first()
+    if not user:
+        return web.json_response(False)
+
+    # Get fascist tweets that this user has liked
+    fascist_tweets = (
+        await Tweet.query.where(Tweet.user_id == user_id)
+        .where(Tweet.favorited == True)
+        .where(Tweet.is_fascist == True)
+        .order_by(Tweet.created_at.desc())
+        .gino.all()
+    )
+    fascist_tweet_urls = [
+        f"https://twitter.com/{tweet.twitter_user_screen_name}/status/{tweet.status_id}"
+        for tweet in fascist_tweets
+    ]
+
+    return web.json_response(
+        {
+            "twitter_username": user.twitter_screen_name,
+            "paused": user.paused,
+            "blocked": user.blocked,
+            "fascist_tweet_urls": fascist_tweet_urls,
         }
     )
 
@@ -1016,6 +1059,7 @@ async def start_web_server():
             web.get("/admin/fascists", app_admin),
             web.get("/admin/tips", app_admin),
             web.get("/admin_api/users", admin_api_get_users),
+            web.get("/admin_api/users/{user_id}", admin_api_get_user),
             web.get("/admin_api/fascists", admin_api_get_fascists),
             web.post("/admin_api/fascists", admin_api_post_fascists),
             web.get("/admin_api/tips", admin_api_get_tips),
