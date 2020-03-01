@@ -2,6 +2,7 @@
   <div>
     <a v-bind:href="profileLink">{{ user['twitter_screen_name'] }}</a>
     <span v-if="user.last_fetch">last fetch {{ lastFetch }}</span>
+    <span v-if="user.blocked">(<router-link v-bind:to="infoLink">info</router-link>)</span>
   </div>
 </template>
 
@@ -14,6 +15,9 @@ export default {
     },
     lastFetch: function() {
       return this.humanReadableTimestamp(this.user["last_fetch"]);
+    },
+    infoLink: function() {
+      return "/admin_api/users/" + this.user.id
     }
   },
   methods: {
