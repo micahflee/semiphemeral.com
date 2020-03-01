@@ -1,7 +1,7 @@
 FROM python:3.8-buster
 
 # Install nodejs
-RUN apt-get update && apt-get install -y nodejs
+RUN apt-get update && apt-get install -y nodejs npm
 
 # Install pipenv
 RUN pip install pipenv
@@ -21,7 +21,9 @@ COPY . .
 
 # Webpack the js
 USER root:root
+RUN cd frontend && npm install
 RUN cd frontend && ./build.js
+RUN cd admin-frontend && npm install
 RUN cd admin-frontend && ./build.js
 USER user:user
 

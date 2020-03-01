@@ -129,11 +129,18 @@ def _ansible_apply(deploy_environment, update_only=False):
     # Move node_modules away
     tmp_dir = tempfile.TemporaryDirectory()
     frontend_node_modules_dir = os.path.join(
-        _get_root_dir(), "app/frontend/node_modules"
+        _get_root_dir(), "app/src/frontend/node_modules"
     )
     frontend_node_modules_dir_exists = os.path.exists(frontend_node_modules_dir)
     if frontend_node_modules_dir_exists:
         shutil.move(frontend_node_modules_dir, tmp_dir.name)
+    admin_tmp_dir = tempfile.TemporaryDirectory()
+    admin_frontend_node_modules_dir = os.path.join(
+        _get_root_dir(), "app/src/admin-frontend/node_modules"
+    )
+    admin_frontend_node_modules_dir_exists = os.path.exists(admin_frontend_node_modules_dir)
+    if admin_frontend_node_modules_dir_exists:
+        shutil.move(admin_frontend_node_modules_dir, admin_tmp_dir.name)
 
     # Compress the app folder
     app_tgz = os.path.join(tmp_dir.name, "app.tgz")
@@ -144,6 +151,10 @@ def _ansible_apply(deploy_environment, update_only=False):
     if frontend_node_modules_dir_exists:
         shutil.move(
             os.path.join(tmp_dir.name, "node_modules"), frontend_node_modules_dir
+        )
+    if admin_frontend_node_modules_dir_exists:
+        shutil.move(
+            os.path.join(admin_tmp_dir.name, "node_modules"), admin_frontend_node_modules_dir
         )
 
     # Write the inventory file
