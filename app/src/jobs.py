@@ -996,7 +996,8 @@ async def start_jobs():
             .order_by(Job.scheduled_timestamp)
             .gino.first()
         )
-        tasks.append(start_job(job))
+        if job:
+            tasks.append(start_job(job))
 
         await asyncio.gather(*tasks)
         await asyncio.sleep(10)
