@@ -859,7 +859,7 @@ async def start_block_job(block_job):
                     text=message,
                 )
                 print(
-                    f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} sent DM to {user}"
+                    f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} sent DM to {block_job.twitter_username}"
                 )
 
                 # Update the user
@@ -999,4 +999,4 @@ async def start_jobs():
         tasks.append(start_job(job))
 
         await asyncio.gather(*tasks)
-        await asyncio.sleep(60)
+        await asyncio.sleep(10)
