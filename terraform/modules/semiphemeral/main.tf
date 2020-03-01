@@ -15,7 +15,7 @@ resource "digitalocean_droplet" "app" {
   name               = "app-${var.deploy_environment}"
   image              = "ubuntu-18-04-x64"
   region             = "nyc1"
-  size               = "s-2vcpu-2gb"
+  size               = "s-2vcpu-4gb"
   private_networking = true
   ssh_keys = [
     var.ssh_fingerprint
