@@ -120,25 +120,25 @@ export default {
         month = "January";
       } else if (month_num == 2) {
         month = "February";
-      } else if (month_num == 2) {
+      } else if (month_num == 3) {
         month = "March";
-      } else if (month_num == 2) {
+      } else if (month_num == 4) {
         month = "April";
-      } else if (month_num == 2) {
+      } else if (month_num == 5) {
         month = "May";
-      } else if (month_num == 2) {
+      } else if (month_num == 6) {
         month = "June";
-      } else if (month_num == 2) {
+      } else if (month_num == 7) {
         month = "July";
-      } else if (month_num == 2) {
+      } else if (month_num == 8) {
         month = "August";
-      } else if (month_num == 2) {
+      } else if (month_num == 9) {
         month = "September";
-      } else if (month_num == 2) {
+      } else if (month_num == 10) {
         month = "October";
-      } else if (month_num == 2) {
+      } else if (month_num == 11) {
         month = "November";
-      } else if (month_num == 2) {
+      } else if (month_num == 12) {
         month = "December";
       }
       return month + " " + date.getDate() + ", " + date.getFullYear();
