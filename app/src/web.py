@@ -415,7 +415,7 @@ async def api_post_tip(request):
         amount_dollars = amount / 100
         message = f"@{user.twitter_screen_name} send you a ${amount_dollars} tip!"
         admin_user = await User.query.where(
-            User.twitter_screen_name.like(os.environ.get("ADMIN_USERNAME"))
+            User.twitter_screen_name.ilike(os.environ.get("ADMIN_USERNAME"))
         ).gino.first()
         if admin_user:
             await DirectMessageJob.create(
@@ -927,7 +927,7 @@ async def admin_api_post_fascists(request):
 
         # Mark all the tweets from this user as is_fascist=True
         await Tweet.update.values(is_fascist=True).where(
-            Tweet.twitter_user_screen_name == data["username"]
+            Tweet.twitter_user_screen_name.ilike(data["username"])
         ).gino.status()
 
         # Make sure the facist is blocked
