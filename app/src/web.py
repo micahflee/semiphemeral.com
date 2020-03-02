@@ -410,6 +410,21 @@ async def api_post_tip(request):
             amount=amount,
             timestamp=timestamp,
         )
+
+        # Send a DM to the admin
+        amount_dollars = amount / 100
+        message = f"@{user.twitter_screen_name} send you a ${amount_dollars} tip!"
+        admin_user = await User.query.where(
+            User.twitter_screen_name.like(os.environ.get("ADMIN_USERNAME"))
+        ).gino.first()
+        if admin_user:
+            await DirectMessageJob.create(
+                dest_twitter_id=admin_user.twitter_id,
+                message=message,
+                status="pending",
+                scheduled_timestamp=datetime.now(),
+            )
+
         return web.json_response({"error": False})
 
     except stripe.error.CardError as e:
