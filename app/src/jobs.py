@@ -956,12 +956,32 @@ async def start_unblock_job(unblock_job):
 
 
 async def start_jobs():
-    # Start by sleeping, to stagger the start times of job containers
     seconds_to_sleep = int(os.environ.get("SECONDS_TO_SLEEP"))
     print(f"Sleeping {seconds_to_sleep} seconds")
     await asyncio.sleep(seconds_to_sleep)
 
     # Infinitely loop looking for pending jobs
+    while True:
+        tasks = []
+
+        # Run the next 3 fetch and delete jobs
+        for job in (
+            await Job.query.where(Job.status == "pending")
+            .where(Job.scheduled_timestamp <= datetime.now())
+            .order_by(Job.scheduled_timestamp).limit(3)
+            .gino.all()
+        ):
+            tasks.append(start_job(job))
+
+        if len(tasks) > 0:
+            print(f"Running {len(tasks)} fetch/delete jobs")
+            await asyncio.gather(*tasks)
+        else:
+            print(f"No fetch/delete jobs, waiting 60 seconds")
+            await asyncio.sleep(60)
+
+
+async def start_dm_jobs():
     while True:
         tasks = []
 
@@ -989,15 +1009,9 @@ async def start_jobs():
         ):
             tasks.append(start_unblock_job(unblock_job))
 
-        # Run the next fetch and delete job
-        job = (
-            await Job.query.where(Job.status == "pending")
-            .where(Job.scheduled_timestamp <= datetime.now())
-            .order_by(Job.scheduled_timestamp)
-            .gino.first()
-        )
-        if job:
-            tasks.append(start_job(job))
-
-        await asyncio.gather(*tasks)
-        await asyncio.sleep(10)
+        if len(tasks) > 0:
+            print(f"Running {len(tasks)} DM/block/unblock jobs")
+            await asyncio.gather(*tasks)
+        else:
+            print(f"No DM/block/unblock jobs, waiting 60 seconds")
+            await asyncio.sleep(60)
