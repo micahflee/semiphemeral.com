@@ -621,8 +621,13 @@ async def api_post_dashboard(request):
         if friendship.blocked_by:
             return web.json_response({"unblocked": False})
         else:
+            # Delete the user's likes so we can start over and check them all
+            await Tweet.delete.where(Tweet.user_id == user.id).where(
+                Tweet.favorited == True
+            ).gino.status()
+
             # User has been unblocked
-            await user.update(blocked=False).apply()
+            await user.update(blocked=False, since_id=None).apply()
 
             # Create a new fetch job
             await Job.create(
