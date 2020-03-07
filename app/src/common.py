@@ -53,27 +53,26 @@ async def tweets_to_delete(user, include_manually_excluded=False):
     """
     datetime_threshold = datetime.utcnow() - timedelta(days=user.tweets_days_threshold)
 
-    # Select tweets from threads to exclude
-    tweets_to_exclude = []
-    threads = (
-        await Thread.query.where(Thread.user_id == user.id)
-        .where(Thread.should_exclude == True)
-        .gino.all()
-    )
-    for thread in threads:
-        for tweet in (
-            await Tweet.query.where(Tweet.user_id == user.id)
-            .where(Tweet.thread_id == thread.id)
-            .where(Tweet.is_deleted == False)
-            .order_by(Tweet.created_at)
-            .gino.all()
-        ):
-            tweets_to_exclude.append(tweet.status_id)
-
-    # Select tweets that we will delete
-    tweets_to_delete = []
+    # Get all the tweets to delete that have threads
     query = (
-        Tweet.query.where(Tweet.user_id == user.id)
+        Tweet.query.select_from(Tweet.join(Thread))
+        .where(Tweet.user_id == user.id)
+        .where(Tweet.twitter_user_id == user.twitter_id)
+        .where(Tweet.is_deleted == False)
+        .where(Tweet.is_retweet == False)
+        .where(Tweet.created_at < datetime_threshold)
+        .where(Tweet.retweet_count < user.tweets_retweet_threshold)
+        .where(Tweet.favorite_count < user.tweets_like_threshold)
+        .where(Thread.should_exclude == False)
+    )
+    if not include_manually_excluded:
+        query = query.where(Tweet.exclude_from_delete == False)
+    tweets_to_delete_with_threads = await query.gino.all()
+
+    # Get all the tweets to delete that don't have threads
+    query = (
+        Tweet.query.where(Tweet.thread_id == None)
+        .where(Tweet.user_id == user.id)
         .where(Tweet.twitter_user_id == user.twitter_id)
         .where(Tweet.is_deleted == False)
         .where(Tweet.is_retweet == False)
@@ -83,8 +82,9 @@ async def tweets_to_delete(user, include_manually_excluded=False):
     )
     if not include_manually_excluded:
         query = query.where(Tweet.exclude_from_delete == False)
-    for tweet in await query.order_by(Tweet.created_at).gino.all():
-        if tweet.status_id not in tweets_to_exclude:
-            tweets_to_delete.append(tweet)
+    tweets_to_delete_without_threads = await query.gino.all()
+
+    # Merge them
+    tweets_to_delete = sorted(tweets_to_delete_with_threads + tweets_to_delete_without_threads, key=lambda tweet: tweet.created_at)
 
     return tweets_to_delete
