@@ -425,7 +425,7 @@ def backup_save(deploy_environment):
         ],
         use_popen=True,
     )
-    time.sleep(1)
+    time.sleep(3)
 
     # Write a postgres password to disk
     _write_pgpass(deploy_environment, postgres_port)
@@ -499,7 +499,7 @@ def backup_restore(deploy_environment, backup_filename):
         ],
         use_popen=True,
     )
-    time.sleep(1)
+    time.sleep(3)
 
     # Write a postgres password to disk
     _write_pgpass(deploy_environment, postgres_port)
