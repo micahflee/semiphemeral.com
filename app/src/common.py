@@ -85,6 +85,9 @@ async def tweets_to_delete(user, include_manually_excluded=False):
     tweets_to_delete_without_threads = await query.gino.all()
 
     # Merge them
-    tweets_to_delete = sorted(tweets_to_delete_with_threads + tweets_to_delete_without_threads, key=lambda tweet: tweet.created_at)
+    tweets_to_delete = sorted(
+        tweets_to_delete_with_threads + tweets_to_delete_without_threads,
+        key=lambda tweet: tweet.created_at,
+    )
 
     return tweets_to_delete
