@@ -326,7 +326,10 @@ async def fetch(job):
         except tweepy.TweepError as e:
             if str(e) == "Twitter error response: status code = 404":
                 # Twitter responded with a 404 error, which could mean the user has deleted their account
-                await log(job, f"404 error from twitter, rescheduling job for 15 minutes from now")
+                await log(
+                    job,
+                    f"404 error from twitter, rescheduling job for 15 minutes from now",
+                )
                 await reschedule_job(job, timedelta(minutes=15))
                 return
 
@@ -401,7 +404,10 @@ async def fetch(job):
         except tweepy.TweepError as e:
             if str(e) == "Twitter error response: status code = 404":
                 # Twitter responded with a 404 error, which could mean the user has deleted their account
-                await log(job, f"404 error from twitter, rescheduling job for 15 minutes from now")
+                await log(
+                    job,
+                    f"404 error from twitter, rescheduling job for 15 minutes from now",
+                )
                 await reschedule_job(job, timedelta(minutes=15))
                 return
 
@@ -666,14 +672,12 @@ async def delete(job):
         elif last_nag.timestamp < one_month_ago and not tipped_in_the_last_year:
             should_nag = True
 
-    # Go ahead and create the nag early
-    # In case the following code crashes, I don't want to accidentally trigger tons of nags
-    if should_nag:
+    if not last_nag:
+        # Create a nag
         await Nag.create(
             user_id=user.id, timestamp=datetime.now(),
         )
 
-    if not last_nag:
         # The user has never been nagged, so this is the first delete
         message = f"Congratulations! Semiphemeral has deleted {progress['tweets_deleted']} tweets, unretweeted {progress['retweets_deleted']} tweets, and unliked {progress['likes_deleted']} tweets. Doesn't that feel nice?\n\nEach day, I will download your latest tweets and likes and then delete the old ones based on your settings. You can sit back, relax, and enjoy the privacy.\n\nYou can always change your settings, mark new tweets to never delete, and pause Semiphemeral from the website https://{os.environ.get('DOMAIN')}/dashboard."
 
@@ -695,6 +699,11 @@ async def delete(job):
 
     else:
         if should_nag:
+            # Create a nag
+            await Nag.create(
+                user_id=user.id, timestamp=datetime.now(),
+            )
+
             # The user has been nagged before -- do some math to get the totals
 
             # Get all the delete jobs
@@ -968,7 +977,8 @@ async def start_jobs():
         for job in (
             await Job.query.where(Job.status == "pending")
             .where(Job.scheduled_timestamp <= datetime.now())
-            .order_by(Job.scheduled_timestamp).limit(5)
+            .order_by(Job.scheduled_timestamp)
+            .limit(5)
             .gino.all()
         ):
             tasks.append(start_job(job))
