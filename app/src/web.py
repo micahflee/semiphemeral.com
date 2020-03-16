@@ -40,6 +40,20 @@ async def _logged_in_user(session):
         user = await User.query.where(
             User.twitter_id == session["twitter_id"]
         ).gino.first()
+
+        # Are we the administrator impersonating another user?
+        if (
+            user.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
+            and "impersonating_twitter_id" in session
+        ):
+            print(
+                f"Admin impersonating user with id {session['impersonating_twitter_id']}"
+            )
+            impersonating_user = await User.query.where(
+                User.twitter_id == session["impersonating_twitter_id"]
+            ).gino.first()
+            return impersonating_user
+
         return user
 
     return None
@@ -66,7 +80,9 @@ async def _api_validate(expected_fields, json_data):
 def authentication_required_401(func):
     async def wrapper(request):
         session = await get_session(request)
-        user = await _logged_in_user(session)
+        user = await User.query.where(
+            User.twitter_id == session["twitter_id"]
+        ).gino.first()
         if not user:
             raise web.HTTPUnauthorized(text="Authentication required")
         return await func(request)
@@ -77,7 +93,9 @@ def authentication_required_401(func):
 def authentication_required_302(func):
     async def wrapper(request):
         session = await get_session(request)
-        user = await _logged_in_user(session)
+        user = await User.query.where(
+            User.twitter_id == session["twitter_id"]
+        ).gino.first()
         if not user:
             raise web.HTTPFound(location="/")
         return await func(request)
@@ -88,7 +106,9 @@ def authentication_required_302(func):
 def admin_required(func):
     async def wrapper(request):
         session = await get_session(request)
-        user = await _logged_in_user(session)
+        user = await User.query.where(
+            User.twitter_id == session["twitter_id"]
+        ).gino.first()
         if not user or user.twitter_screen_name != os.environ.get("ADMIN_USERNAME"):
             raise web.HTTPNotFound()
         return await func(request)
@@ -132,6 +152,8 @@ async def auth_login(request):
 async def auth_logout(request):
     session = await get_session(request)
     del session["twitter_id"]
+    if "impersonating_twitter_id" in session:
+        del session["impersonating_twitter_id"]
     raise web.HTTPFound(location="/")
 
 
@@ -223,9 +245,26 @@ async def api_get_user(request):
     Respond with information about the logged in user
     """
     session = await get_session(request)
-    user = await _logged_in_user(session)
-    api = await twitter_api(user)
-    twitter_user = await twitter_api_call(api, "me")
+
+    # Get the actual logged in user
+    user = await User.query.where(User.twitter_id == session["twitter_id"]).gino.first()
+
+    # Are we the administrator impersonating another user?
+    if (
+        user.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
+        and "impersonating_twitter_id" in session
+    ):
+        # Load the API using the admin user
+        api = await twitter_api(user)
+        # Load the impersonated user
+        user = await _logged_in_user(session)
+        twitter_user = await twitter_api_call(
+            api, "get_user", screen_name=user.twitter_screen_name
+        )
+    else:
+        # Just a normal user
+        api = await twitter_api(user)
+        twitter_user = await twitter_api_call(api, "me")
 
     return web.json_response(
         {
@@ -831,23 +870,33 @@ async def admin_api_get_users(request):
     def to_client(users):
         users_json = []
         for user in users:
-            if user.last_fetch:
-                last_fetch = user.last_fetch.timestamp()
-            else:
-                last_fetch = None
             users_json.append(
                 {
                     "id": user.id,
                     "twitter_id": user.twitter_id,
                     "twitter_screen_name": user.twitter_screen_name,
-                    "last_fetch": last_fetch,
                     "blocked": user.blocked,
                 }
             )
         return users_json
 
+    session = await get_session(request)
+
+    impersonating_twitter_id = None
+    impersonating_twitter_username = None
+
+    if "impersonating_twitter_id" in session:
+        impersonating_user = await User.query.where(
+            User.twitter_id == session["impersonating_twitter_id"]
+        ).gino.first()
+        if impersonating_user:
+            impersonating_twitter_id = session["impersonating_twitter_id"]
+            impersonating_twitter_username = impersonating_user.twitter_screen_name
+
     return web.json_response(
         {
+            "impersonating_twitter_id": impersonating_twitter_id,
+            "impersonating_twitter_username": impersonating_twitter_username,
             "active_users": to_client(active_users),
             "paused_users": to_client(paused_users),
             "blocked_users": to_client(blocked_users),
@@ -883,6 +932,25 @@ async def admin_api_get_user(request):
             "fascist_tweet_urls": fascist_tweet_urls,
         }
     )
+
+
+@admin_required
+async def admin_api_post_user_impersonate(request):
+    session = await get_session(request)
+    data = await request.json()
+
+    # Validate
+    await _api_validate({"twitter_id": int}, data)
+    if data["twitter_id"] == 0:
+        del session["impersonating_twitter_id"]
+    else:
+        impersonating_user = await User.query.where(
+            User.twitter_id == data["twitter_id"]
+        ).gino.first()
+        if impersonating_user:
+            session["impersonating_twitter_id"] = data["twitter_id"]
+
+    return web.json_response(True)
 
 
 @admin_required
@@ -1078,8 +1146,10 @@ async def start_web_server():
             web.get("/admin/users", app_admin),
             web.get("/admin/fascists", app_admin),
             web.get("/admin/tips", app_admin),
+            # Admin API
             web.get("/admin_api/users", admin_api_get_users),
             web.get("/admin_api/users/{user_id}", admin_api_get_user),
+            web.post("/admin_api/users/impersonate", admin_api_post_user_impersonate),
             web.get("/admin_api/fascists", admin_api_get_fascists),
             web.post("/admin_api/fascists", admin_api_post_fascists),
             web.get("/admin_api/tips", admin_api_get_tips),

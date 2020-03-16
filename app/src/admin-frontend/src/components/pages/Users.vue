@@ -2,6 +2,17 @@
   <div>
     <h1>Users</h1>
 
+    <template v-if="impersonatingTwitterUsername != null">
+      <p>
+        You are impersonating twitter user
+        <a
+          target="_blank"
+          v-bind:href="impersonatingLink"
+        >@{{ impersonatingTwitterUsername }}</a>.
+        <button v-on:click="stopImpersonating">Stop impersonating.</button>
+      </p>
+    </template>
+
     <div v-if="activeUsers.length > 0">
       <h2>{{ activeUsers.length }} active users</h2>
       <ul>
@@ -39,6 +50,7 @@ export default {
   data: function() {
     return {
       loading: false,
+      impersonatingTwitterUsername: null,
       activeUsers: [],
       pausedUsers: [],
       blockedUsers: []
@@ -46,6 +58,11 @@ export default {
   },
   created: function() {
     this.fetchUsers();
+  },
+  computed: {
+    impersonatingLink: function() {
+      return "https://twitter.com/" + this.impersonatingTwitterUsername;
+    }
   },
   methods: {
     fetchUsers: function() {
@@ -64,6 +81,9 @@ export default {
           }
           response.json().then(function(data) {
             that.loading = false;
+            that.impersonatingTwitterUsername =
+              data["impersonating_twitter_username"];
+
             if (data["active_users"]) that.activeUsers = data["active_users"];
             else that.activeUsers = [];
 
@@ -78,6 +98,24 @@ export default {
         .catch(function(err) {
           console.log("Error fetching users", err);
           that.loading = false;
+        });
+    },
+    stopImpersonating: function() {
+      var that = this;
+      this.loading = true;
+
+      fetch("/admin_api/users/impersonate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          twitter_id: 0
+        })
+      })
+        .then(function(response) {
+          that.fetchUsers();
+        })
+        .catch(function(err) {
+          console.log("Error", err);
         });
     }
   },
