@@ -511,9 +511,10 @@ async def delete(job):
 
         # Unretweet
         if user.retweets_likes_delete_retweets:
-            datetime_threshold = datetime.utcnow() - timedelta(
-                days=user.retweets_likes_retweets_threshold
-            )
+            days = user.retweets_likes_retweets_threshold
+            if days > 999999999:
+                days = 999999999
+            datetime_threshold = datetime.utcnow() - timedelta(days=days)
             tweets = (
                 await Tweet.query.where(Tweet.user_id == user.id)
                 .where(Tweet.twitter_user_id == user.twitter_id)
@@ -557,9 +558,10 @@ async def delete(job):
 
         # Unlike
         if user.retweets_likes_delete_likes:
-            datetime_threshold = datetime.utcnow() - timedelta(
-                days=user.retweets_likes_likes_threshold
-            )
+            days = user.retweets_likes_likes_threshold
+            if days > 999999999:
+                days = 999999999
+            datetime_threshold = datetime.utcnow() - timedelta(days=days)
             tweets = (
                 await Tweet.query.where(Tweet.user_id == user.id)
                 .where(Tweet.twitter_user_id != user.twitter_id)
@@ -1021,7 +1023,9 @@ async def start_dm_jobs():
             tasks.append(start_unblock_job(unblock_job))
 
         if len(tasks) > 0:
-            print(f"Running {len(tasks)} DM/block/unblock jobs, then waiting 60 seconds")
+            print(
+                f"Running {len(tasks)} DM/block/unblock jobs, then waiting 60 seconds"
+            )
             await asyncio.gather(*tasks)
         else:
             print(f"No DM/block/unblock jobs, waiting 60 seconds")
