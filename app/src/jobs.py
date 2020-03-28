@@ -995,12 +995,13 @@ async def start_dm_jobs():
     while True:
         tasks = []
 
-        # Run all direct message jobs
-        for dm_job in (
+        # Run the first direct message job (only send one per minute)
+        dm_job = (
             await DirectMessageJob.query.where(DirectMessageJob.status == "pending")
             .where(DirectMessageJob.scheduled_timestamp <= datetime.now())
-            .gino.all()
-        ):
+            .gino.first()
+        )
+        if dm_job:
             tasks.append(start_dm_job(dm_job))
 
         # Run all block jobs
@@ -1020,8 +1021,9 @@ async def start_dm_jobs():
             tasks.append(start_unblock_job(unblock_job))
 
         if len(tasks) > 0:
-            print(f"Running {len(tasks)} DM/block/unblock jobs")
+            print(f"Running {len(tasks)} DM/block/unblock jobs, then waiting 60 seconds")
             await asyncio.gather(*tasks)
         else:
             print(f"No DM/block/unblock jobs, waiting 60 seconds")
-            await asyncio.sleep(60)
+
+        await asyncio.sleep(60)
