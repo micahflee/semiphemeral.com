@@ -512,8 +512,8 @@ async def delete(job):
         # Unretweet
         if user.retweets_likes_delete_retweets:
             days = user.retweets_likes_retweets_threshold
-            if days > 999999999:
-                days = 999999999
+            if days > 99999:
+                days = 99999
             datetime_threshold = datetime.utcnow() - timedelta(days=days)
             tweets = (
                 await Tweet.query.where(Tweet.user_id == user.id)
@@ -559,8 +559,8 @@ async def delete(job):
         # Unlike
         if user.retweets_likes_delete_likes:
             days = user.retweets_likes_likes_threshold
-            if days > 999999999:
-                days = 999999999
+            if days > 99999:
+                days = 99999
             datetime_threshold = datetime.utcnow() - timedelta(days=days)
             tweets = (
                 await Tweet.query.where(Tweet.user_id == user.id)
