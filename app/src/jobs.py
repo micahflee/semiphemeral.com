@@ -1026,5 +1026,5 @@ async def start_dm_jobs():
             print(f"Running {len(tasks)} DM/block/unblock jobs")
             await asyncio.gather(*tasks)
 
-        print(f"Waiting 2 minutes")
-        await asyncio.sleep(120)
+        print(f"Waiting 1 minute")
+        await asyncio.sleep(60)
