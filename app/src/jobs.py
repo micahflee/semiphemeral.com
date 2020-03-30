@@ -1023,11 +1023,8 @@ async def start_dm_jobs():
             tasks.append(start_unblock_job(unblock_job))
 
         if len(tasks) > 0:
-            print(
-                f"Running {len(tasks)} DM/block/unblock jobs, then waiting 60 seconds"
-            )
+            print(f"Running {len(tasks)} DM/block/unblock jobs")
             await asyncio.gather(*tasks)
-        else:
-            print(f"No DM/block/unblock jobs, waiting 60 seconds")
 
-        await asyncio.sleep(60)
+        print(f"Waiting 2 minutes")
+        await asyncio.sleep(120)
