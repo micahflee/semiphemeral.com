@@ -102,7 +102,7 @@ resource "digitalocean_record" "helm_txt1" {
   domain = digitalocean_domain.domain.name
   type   = "TXT"
   name   = "@"
-  value  = "v=spf1 include:micahflee.com -all"
+  value  = "v=spf1 include:hush.blue -all"
   ttl    = "3600"
 }
 
@@ -118,7 +118,7 @@ resource "digitalocean_record" "helm_mx" {
   domain   = digitalocean_domain.domain.name
   type     = "MX"
   name     = "@"
-  value    = "helm.micahflee.com."
+  value    = "helm.hush.blue."
   priority = 10
   ttl      = "3600"
 }
@@ -127,7 +127,7 @@ resource "digitalocean_record" "helm_cname" {
   domain = digitalocean_domain.domain.name
   type   = "CNAME"
   name   = "mail._domainkey"
-  value  = "mail._domainkey.micahflee.com."
+  value  = "mail._domainkey.hush.blue."
   ttl    = "3600"
 }
 
