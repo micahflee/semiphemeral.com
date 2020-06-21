@@ -975,12 +975,12 @@ async def start_jobs():
     while True:
         tasks = []
 
-        # Run the next 5 fetch and delete jobs
+        # Run the next 10 fetch and delete jobs
         for job in (
             await Job.query.where(Job.status == "pending")
             .where(Job.scheduled_timestamp <= datetime.now())
             .order_by(Job.scheduled_timestamp)
-            .limit(5)
+            .limit(10)
             .gino.all()
         ):
             tasks.append(start_job(job))
