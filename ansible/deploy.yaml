@@ -106,6 +106,13 @@
       template:
         src: ./etc/logrotate.d/semiphemeral
         dest: /etc/logrotate.d/semiphemeral
+    
+    - name: ensure we reboot nightly (temporarily until bug is fixed)
+      cron:
+        name: "nightly reboot"
+        minute: "0"
+        hour: "2"
+        job: "reboot"
 
     - name: ensure we have a Let's Encrypt certificate (staging)
       shell: certbot certonly --staging --standalone -n --agree-tos --email micah@micahflee.com -d {{ domain }}
