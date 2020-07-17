@@ -197,6 +197,7 @@ async def import_tweet_and_thread(user, api, job, progress, status):
     )
     if not tweet:
         # Save the tweet
+        await log(job, f"Saving tweet: {status.id}")
         tweet = await save_tweet(user, status)
 
     # Is this tweet a reply?
@@ -208,6 +209,7 @@ async def import_tweet_and_thread(user, api, job, progress, status):
             .gino.first()
         )
         if not parent_tweet:
+            await log(job, f"Importing parent tweet of {status.id}")
             # If we don't have the parent tweet, import it
             while True:  # loop in case we get rate-limited
                 try:
@@ -232,7 +234,7 @@ async def import_tweet_and_thread(user, api, job, progress, status):
                         await update_progress_rate_limit(job, progress, 5)
                     else:
                         # Otherwise (it's been deleted, the user is suspended, unauthorized, blocked), ignore
-                        print(f"job_id={job.id} Error importing parent tweet: {e}")
+                        await log(job, f"Error importing parent tweet: {e}")
                         break
 
 
@@ -300,6 +302,7 @@ async def fetch(job):
         progress[
             "status"
         ] = "Downloading all tweets, this first run may take a long time"
+    await log(job, f"Fetch tweets progress: {progress}")
     await update_progress(job, progress)
 
     # Fetch tweets from timeline a page at a time
@@ -313,6 +316,7 @@ async def fetch(job):
         ).pages,
     )
     while True:
+        await log(job, "Begin fetch tweets loop")
         try:
             # Sadly, I can't figure out a good way of making the cursor's next() function
             # happen in the executor, so it will be a blocking call. If I try running it
@@ -321,7 +325,9 @@ async def fetch(job):
 
             # page = await loop.run_in_executor(None, pages.next)
             page = pages.next()
+            await log(job, f"Fetch tweets loop: got page with {len(page)} tweets")
         except StopIteration:
+            await log(job, f"Hit the end of fetch tweets loop, breaking")
             break
         except tweepy.TweepError as e:
             if str(e) == "Twitter error response: status code = 404":
@@ -341,6 +347,7 @@ async def fetch(job):
             await import_tweet_and_thread(user, api, job, progress, status)
             progress["tweets_fetched"] += 1
 
+        await log(job, f"Fetch tweets loop progress: {progress}")
         await update_progress(job, progress)
 
         # Now hunt for threads. This is a dict that maps the root status_id
@@ -380,6 +387,7 @@ async def fetch(job):
                 if tweet:
                     await tweet.update(thread_id=thread.id).apply()
 
+        await log(job, f"Fetch tweets loop progress: {progress}")
         await update_progress(job, progress)
 
     # Update progress
@@ -397,9 +405,12 @@ async def fetch(job):
         ).pages,
     )
     while True:
+        await log(job, "Begin fetch likes loop")
         try:
             page = pages.next()
+            await log(job, f"Fetch likes loop: got page with {len(page)} tweets")
         except StopIteration:
+            await log(job, f"Hit the end of fetch likes loop, breaking")
             break
         except tweepy.TweepError as e:
             if str(e) == "Twitter error response: status code = 404":
@@ -429,8 +440,12 @@ async def fetch(job):
 
             progress["likes_fetched"] += 1
 
+        await log(job, f"Fetch likes loop progress: {progress}")
         await update_progress(job, progress)
 
+    await log(
+        job, f"Done fetching, updating since_id, calculating excluded threads, etc."
+    )
     # All done, update the since_id
     tweet = await (
         Tweet.query.where(Tweet.user_id == user.id)
@@ -448,8 +463,6 @@ async def fetch(job):
 
     progress["status"] = "Finished"
     await update_progress(job, progress)
-
-    await log(job, "Fetch finished")
 
     # Has this user liked any fascist tweets?
     six_months_ago = datetime.now() - timedelta(days=180)
@@ -489,6 +502,8 @@ async def fetch(job):
             scheduled_timestamp=datetime.now(),
         )
 
+    await log(job, f"Fetch complete")
+
 
 @test_api_creds
 @ensure_user_follows_us
@@ -511,6 +526,8 @@ async def delete(job):
 
         # Unretweet
         if user.retweets_likes_delete_retweets:
+            await log(job, f"Delete job: Deleting retweets")
+
             days = user.retweets_likes_retweets_threshold
             if days > 99999:
                 days = 99999
@@ -528,6 +545,7 @@ async def delete(job):
             progress[
                 "status"
             ] = f"Deleting {len(tweets)} retweets, starting with the earliest"
+            await log(job, f"Delete retweets progress: {progress}")
             await update_progress(job, progress)
 
             for tweet in tweets:
@@ -554,10 +572,13 @@ async def delete(job):
                             break
 
                 progress["retweets_deleted"] += 1
+                await log(job, f"Delete retweets progress: {progress}")
                 await update_progress(job, progress)
 
         # Unlike
         if user.retweets_likes_delete_likes:
+            await log(job, f"Delete job: Deleting likes")
+
             days = user.retweets_likes_likes_threshold
             if days > 99999:
                 days = 99999
@@ -575,6 +596,7 @@ async def delete(job):
             progress[
                 "status"
             ] = f"Unliking {len(tweets)} tweets, starting with the earliest"
+            await log(job, f"Delete likes progress: {progress}")
             await update_progress(job, progress)
 
             for tweet in tweets:
@@ -601,15 +623,18 @@ async def delete(job):
                             break
 
                 progress["likes_deleted"] += 1
+                await log(job, f"Delete likes progress: {progress}")
                 await update_progress(job, progress)
 
     # Deleting tweets
     if user.delete_tweets:
+        await log(job, f"Delete job: Deleting tweets")
         tweets = tweets = await tweets_to_delete(user)
 
         progress[
             "status"
         ] = f"Deleting {len(tweets)} tweets, starting with the earliest"
+        await log(job, f"Delete tweets progress: {progress}")
         await update_progress(job, progress)
 
         for tweet in tweets:
@@ -636,6 +661,7 @@ async def delete(job):
                         break
 
             progress["tweets_deleted"] += 1
+            await log(job, f"Delete tweets progress: {progress}")
             await update_progress(job, progress)
 
     progress["status"] = "Finished"
@@ -644,6 +670,8 @@ async def delete(job):
     await log(job, "Delete finished")
 
     # Delete is done!
+
+    await log(job, f"Done deleting, schedule next job, see if we should nag")
 
     # Schedule the next delete job
     await create_job(user, "delete", datetime.now() + timedelta(days=1))
@@ -975,12 +1003,12 @@ async def start_jobs():
     while True:
         tasks = []
 
-        # Run the next 10 fetch and delete jobs
+        # Run the next 5 fetch and delete jobs
         for job in (
             await Job.query.where(Job.status == "pending")
             .where(Job.scheduled_timestamp <= datetime.now())
             .order_by(Job.scheduled_timestamp)
-            .limit(10)
+            .limit(5)
             .gino.all()
         ):
             tasks.append(start_job(job))
