@@ -199,6 +199,10 @@ async def import_tweet_and_thread(user, api, job, progress, status):
         # Save the tweet
         await log(job, f"Saving tweet: {status.id}")
         tweet = await save_tweet(user, status)
+    else:
+        await log(
+            job, f"Tweet of {status.id} already imported",
+        )
 
     # Is this tweet a reply?
     if tweet.in_reply_to_status_id:
@@ -209,9 +213,13 @@ async def import_tweet_and_thread(user, api, job, progress, status):
             .gino.first()
         )
         if not parent_tweet:
-            await log(job, f"Importing parent tweet of {status.id}")
+            await log(
+                job,
+                f"Importing parent tweet of {status.id} ({tweet.in_reply_to_status_id})",
+            )
             # If we don't have the parent tweet, import it
             while True:  # loop in case we get rate-limited
+                await log(job, "Begin get parent tweet rate limit loop ...")
                 try:
                     parent_status = await twitter_api_call(
                         api,
@@ -436,6 +444,7 @@ async def fetch(job):
             )
             if not tweet:
                 # Save the tweet
+                await log(job, f"Saving tweet: {status.id}")
                 await save_tweet(user, status)
 
             progress["likes_fetched"] += 1
@@ -552,6 +561,7 @@ async def delete(job):
                 # Try deleting the tweet, in a while loop in case it gets rate limited and
                 # needs to try again
                 while True:
+                    await log(job, "Begin delete retweet rate limit loop ...")
                     try:
                         await loop.run_in_executor(
                             None, api.destroy_status, tweet.status_id
@@ -603,6 +613,7 @@ async def delete(job):
                 # Try unliking the tweet, in a while loop in case it gets rate limited and
                 # needs to try again
                 while True:
+                    await log(job, "Begin delete like rate limit loop ...")
                     try:
                         await loop.run_in_executor(
                             None, api.destroy_favorite, tweet.status_id
@@ -641,6 +652,8 @@ async def delete(job):
             # Try deleting the tweet, in a while loop in case it gets rate limited and
             # needs to try again
             while True:
+                await log(job, "Begin delete tweet rate limit loop ...")
+
                 try:
                     await loop.run_in_executor(
                         None, api.destroy_status, tweet.status_id
@@ -788,6 +801,7 @@ async def delete(job):
 
 
 async def start_job(job):
+    await log(job, "Starting job")
     await job.update(status="active", started_timestamp=datetime.now()).apply()
 
     if job.job_type == "fetch":
@@ -816,6 +830,8 @@ async def start_job(job):
             ).apply()
         except JobRescheduled:
             pass
+
+    await log(job, "Finished job")
 
 
 async def start_dm_job(dm_job):
@@ -1003,18 +1019,20 @@ async def start_jobs():
     while True:
         tasks = []
 
-        # Run the next 5 fetch and delete jobs
+        # Run the next 10 fetch and delete jobs
+        ids = []
         for job in (
             await Job.query.where(Job.status == "pending")
             .where(Job.scheduled_timestamp <= datetime.now())
             .order_by(Job.scheduled_timestamp)
-            .limit(5)
+            .limit(10)
             .gino.all()
         ):
+            ids.append(job.id)
             tasks.append(start_job(job))
 
         if len(tasks) > 0:
-            print(f"Running {len(tasks)} fetch/delete jobs")
+            print(f"Running {len(tasks)} fetch/delete jobs {ids}")
             await asyncio.gather(*tasks)
         else:
             print(f"No fetch/delete jobs, waiting 60 seconds")
