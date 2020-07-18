@@ -213,13 +213,8 @@ async def import_tweet_and_thread(user, api, job, progress, status):
             .gino.first()
         )
         if not parent_tweet:
-            await log(
-                job,
-                f"Importing parent tweet of {status.id} ({tweet.in_reply_to_status_id})",
-            )
             # If we don't have the parent tweet, import it
             while True:  # loop in case we get rate-limited
-                await log(job, "Begin get parent tweet rate limit loop ...")
                 try:
                     parent_status = await twitter_api_call(
                         api,
@@ -310,7 +305,6 @@ async def fetch(job):
         progress[
             "status"
         ] = "Downloading all tweets, this first run may take a long time"
-    await log(job, f"Fetch tweets progress: {progress}")
     await update_progress(job, progress)
 
     # Fetch tweets from timeline a page at a time
@@ -324,7 +318,6 @@ async def fetch(job):
         ).pages,
     )
     while True:
-        await log(job, "Begin fetch tweets loop")
         try:
             # Sadly, I can't figure out a good way of making the cursor's next() function
             # happen in the executor, so it will be a blocking call. If I try running it
@@ -355,7 +348,6 @@ async def fetch(job):
             await import_tweet_and_thread(user, api, job, progress, status)
             progress["tweets_fetched"] += 1
 
-        await log(job, f"Fetch tweets loop progress: {progress}")
         await update_progress(job, progress)
 
         # Now hunt for threads. This is a dict that maps the root status_id
@@ -413,7 +405,6 @@ async def fetch(job):
         ).pages,
     )
     while True:
-        await log(job, "Begin fetch likes loop")
         try:
             page = pages.next()
             await log(job, f"Fetch likes loop: got page with {len(page)} tweets")
@@ -452,9 +443,6 @@ async def fetch(job):
         await log(job, f"Fetch likes loop progress: {progress}")
         await update_progress(job, progress)
 
-    await log(
-        job, f"Done fetching, updating since_id, calculating excluded threads, etc."
-    )
     # All done, update the since_id
     tweet = await (
         Tweet.query.where(Tweet.user_id == user.id)
@@ -535,8 +523,6 @@ async def delete(job):
 
         # Unretweet
         if user.retweets_likes_delete_retweets:
-            await log(job, f"Delete job: Deleting retweets")
-
             days = user.retweets_likes_retweets_threshold
             if days > 99999:
                 days = 99999
@@ -554,14 +540,12 @@ async def delete(job):
             progress[
                 "status"
             ] = f"Deleting {len(tweets)} retweets, starting with the earliest"
-            await log(job, f"Delete retweets progress: {progress}")
             await update_progress(job, progress)
 
             for tweet in tweets:
                 # Try deleting the tweet, in a while loop in case it gets rate limited and
                 # needs to try again
                 while True:
-                    await log(job, "Begin delete retweet rate limit loop ...")
                     try:
                         await loop.run_in_executor(
                             None, api.destroy_status, tweet.status_id
@@ -582,13 +566,12 @@ async def delete(job):
                             break
 
                 progress["retweets_deleted"] += 1
-                await log(job, f"Delete retweets progress: {progress}")
                 await update_progress(job, progress)
+
+            await log(job, f"Delete retweets progress: {progress}")
 
         # Unlike
         if user.retweets_likes_delete_likes:
-            await log(job, f"Delete job: Deleting likes")
-
             days = user.retweets_likes_likes_threshold
             if days > 99999:
                 days = 99999
@@ -606,14 +589,12 @@ async def delete(job):
             progress[
                 "status"
             ] = f"Unliking {len(tweets)} tweets, starting with the earliest"
-            await log(job, f"Delete likes progress: {progress}")
             await update_progress(job, progress)
 
             for tweet in tweets:
                 # Try unliking the tweet, in a while loop in case it gets rate limited and
                 # needs to try again
                 while True:
-                    await log(job, "Begin delete like rate limit loop ...")
                     try:
                         await loop.run_in_executor(
                             None, api.destroy_favorite, tweet.status_id
@@ -634,26 +615,23 @@ async def delete(job):
                             break
 
                 progress["likes_deleted"] += 1
-                await log(job, f"Delete likes progress: {progress}")
                 await update_progress(job, progress)
+
+            await log(job, f"Delete likes progress: {progress}")
 
     # Deleting tweets
     if user.delete_tweets:
-        await log(job, f"Delete job: Deleting tweets")
         tweets = tweets = await tweets_to_delete(user)
 
         progress[
             "status"
         ] = f"Deleting {len(tweets)} tweets, starting with the earliest"
-        await log(job, f"Delete tweets progress: {progress}")
         await update_progress(job, progress)
 
         for tweet in tweets:
             # Try deleting the tweet, in a while loop in case it gets rate limited and
             # needs to try again
             while True:
-                await log(job, "Begin delete tweet rate limit loop ...")
-
                 try:
                     await loop.run_in_executor(
                         None, api.destroy_status, tweet.status_id
@@ -674,8 +652,9 @@ async def delete(job):
                         break
 
             progress["tweets_deleted"] += 1
-            await log(job, f"Delete tweets progress: {progress}")
             await update_progress(job, progress)
+
+        await log(job, f"Delete tweets progress: {progress}")
 
     progress["status"] = "Finished"
     await update_progress(job, progress)
@@ -683,8 +662,6 @@ async def delete(job):
     await log(job, "Delete finished")
 
     # Delete is done!
-
-    await log(job, f"Done deleting, schedule next job, see if we should nag")
 
     # Schedule the next delete job
     await create_job(user, "delete", datetime.now() + timedelta(days=1))
