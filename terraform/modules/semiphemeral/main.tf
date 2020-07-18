@@ -134,8 +134,8 @@ resource "digitalocean_record" "helm_cname" {
 resource "digitalocean_database_cluster" "db" {
   name       = "db-${var.deploy_environment}"
   engine     = "pg"
-  version    = "11"
-  size       = "db-s-1vcpu-1gb"
+  version    = "12"
+  size       = "db-s-1vcpu-2gb"
   region     = "nyc1"
   node_count = 1
 }
