@@ -51,6 +51,8 @@ li {
   <div class="page">
     <h1>Choose which tweets should never get automatically deleted</h1>
 
+    <p>You may need to disable your adblocker for semiphemeral.com for the embedded tweets to show up properly (this website doesn't have ads).</p>
+
     <template v-if="loading">
       <p>
         <img src="/static/img/loading.gif" alt="Loading" />
