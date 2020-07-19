@@ -80,6 +80,8 @@ async def _api_validate(expected_fields, json_data):
 def authentication_required_401(func):
     async def wrapper(request):
         session = await get_session(request)
+        if "twitter_id" not in session:
+            raise web.HTTPUnauthorized(text="Authentication required")
         user = await User.query.where(
             User.twitter_id == session["twitter_id"]
         ).gino.first()
@@ -93,6 +95,8 @@ def authentication_required_401(func):
 def authentication_required_302(func):
     async def wrapper(request):
         session = await get_session(request)
+        if "twitter_id" not in session:
+            raise web.HTTPFound(location="/")
         user = await User.query.where(
             User.twitter_id == session["twitter_id"]
         ).gino.first()
