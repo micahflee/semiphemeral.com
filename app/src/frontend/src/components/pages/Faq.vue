@@ -12,14 +12,18 @@
     </p>
 
     <h2>Why aren't tweets showing up on the tweets page?</h2>
-    <p>The tweets page should show a list of all tweets that will get automatically deleted the next time it's your turn to delete. If you just created your account, you need to wait for your tweets to finish downloading the first time first.</p>
+    <p>The tweets page should embed all of the tweets that will get automatically deleted the next time it's your turn to delete. If you just created your account, you need to wait for your tweets to finish downloading the first time first.</p>
     <p>If you've already finished downloading tweets and they're still not getting displayed, this is probably because your web browser is blocking them. Do you have browser extensions like Privacy Badger, or is Firefox's tracking protection blocking the script from twitter.com? Try disabling those thing for semiphemeral.com, and the tweets should get displayed.</p>
+
+    <h2>Why is Semiphemeral only deleting my most recent 3,000 tweets?</h2>
+    <p>Twitter's API works in mysterious ways. For some users, when you tell the API "give me a list of all of my tweets", it only gives about 3,000 tweets, but for others it returns all of their tweets. Unfortunately there doesn't seem to be anything that Semiphemeral can do about this.</p>
+    <p>If Semiphemeral isn't successfully deleting your very old tweets, you can try manually deleting those tweets yourself, and then rely on Semiphemal to automatically delete tweets going forward.</p>
 
     <h2>Why did Semiphemeral only unlike about 4,000 of my likes?</h2>
     <p>
       <a
         href="https://github.com/micahflee/semiphemeral#deleting-old-likes"
-      >One does not simply unlike old tweets.</a> Twitter works in mysterious ways. For some reason, when Semiphemeral asks the Twitter API for a list of all of your likes, it sometimes only returns a list of the most recent 4,000 likes, even if your profile says you have way more than that.
+      >One does not simply unlike old tweets.</a> For some reason, when Semiphemeral asks the Twitter API for a list of all of your likes, it sometimes only returns a list of the most recent 4,000 likes, even if your profile says you have way more than that.
     </p>
     <p>
       If you go and find those old tweets that you liked over 4,000 likes ago, you can't unlike them manually either. The only way to actually remove those likes is to
