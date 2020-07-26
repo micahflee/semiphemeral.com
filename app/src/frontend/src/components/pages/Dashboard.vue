@@ -69,16 +69,42 @@ ul.jobs {
       <div v-if="settingBlocked">
         <h2>Semiphemeral is an antifascist service</h2>
         <p>
-          While everyone deserves privacy on social media, not everyone is entitled to get that privacy by using the resources of this free service. You have been blocked by
+          Everyone deserves privacy on social media, but not everyone is entitled to get that privacy by using the resources of this free service. You have been blocked by
           <a
             href="https://twitter.com/semiphemeral"
           >@semiphemeral</a>, so your account has been disabled.
         </p>
-        <p>Semiphemeral keeps track of the Twitter accounts of prominent authoritarian anti-democratic demagogues and dictators, racists, misogynists, Islamophobes, anti-Semites, homophobes, transphobes, neo-Nazis, hate groups, and fascists and fascist sympathizers. You were probably blocked because you liked a tweet from one of these accounts within the last 6 months.</p>
-        <p>If you oppose fascism and think that you've been blocked unfairly or by mistake, you can appeal by writing an email to hi@semiphemeral.com.</p>
-        <p>
-          <button class="reactivate" v-on:click="reactivateAccount">I'm no longer blocked</button>
-        </p>
+        <p>Semiphemeral keeps track of the Twitter accounts of prominent authoritarian anti-democratic demagogues and dictators, racists, misogynists, Islamophobes, anti-Semites, homophobes, transphobes, neo-Nazis, hate groups, and fascists and fascist sympathizers.</p>
+        <template v-if="fascistTweets.length > 0">
+          <p>You were blocked because you liked these tweets:</p>
+          <FascistTweet
+            v-for="tweet in fascistTweets"
+            v-bind:statusId="tweet.status_id"
+            v-bind:permalink="tweet.permalink"
+          ></FascistTweet>
+          <p>If you oppose fascism and think you've been blocked unfairly or by mistake, you can unlike these tweets from prominent fascists (so you don't get automatically blocked again), and then request unblocking:</p>
+
+          <p>
+            <button
+              class="reactivate"
+              v-on:click="unblockAccount"
+            >I've unliked these tweets so unblock me</button>
+          </p>
+
+          <p>
+            <button
+              class="reactivate"
+              v-on:click="reactivateAccount"
+            >I'm no longer blocked, reactivate my account</button>
+          </p>
+        </template>
+        <template v-else>
+          <p>You were blocked because you liked multiple tweets from at least one of these accounts within the last 6 months. If you oppose fascism and think that you've been blocked unfairly or by mistake, you can appeal by writing an email to hi@semiphemeral.com.</p>
+
+          <p>
+            <button class="reactivate" v-on:click="reactivateAccount">I'm no longer blocked</button>
+          </p>
+        </template>
       </div>
       <div v-else>
         <div v-if="state == 'A'">
@@ -159,10 +185,11 @@ ul.jobs {
 
 <script>
 import Job from "./Dashboard/Job.vue";
+import FascistTweet from "./Dashboard/FascistTweet.vue";
 
 export default {
   props: ["userScreenName"],
-  data: function() {
+  data: function () {
     return {
       loading: false,
       activeJobs: [],
@@ -171,11 +198,12 @@ export default {
       settingPaused: null,
       settingBlocked: null,
       settingDeleteTweets: null,
-      settingRetweetsLikes: null
+      settingRetweetsLikes: null,
+      fascistTweets: [],
     };
   },
   computed: {
-    state: function() {
+    state: function () {
       // There are 3 states:
       // A: paused, with pending or active jobs (fetching)
       // B: paused, with only finished or cancelled jobs
@@ -191,7 +219,7 @@ export default {
         return "C";
       }
     },
-    mostRecentFetchFinished: function() {
+    mostRecentFetchFinished: function () {
       var timestamp = 0;
       for (var i = 0; i < this.finishedJobs.length; i++) {
         if (
@@ -208,52 +236,52 @@ export default {
         var date = new Date(timestamp * 1000);
         return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
       }
-    }
+    },
   },
-  created: function() {
+  created: function () {
     this.fetchJobs();
   },
   methods: {
-    postDashboard: function(action) {
+    postDashboard: function (action) {
       var that = this;
       this.loading = true;
       fetch("/api/dashboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: action })
+        body: JSON.stringify({ action: action }),
       })
-        .then(function(response) {
+        .then(function (response) {
           that.fetchJobs();
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error", err);
           that.loading = false;
         });
     },
-    startSemiphemeral: function() {
+    startSemiphemeral: function () {
       this.postDashboard("start");
     },
-    pauseSemiphemeral: function() {
+    pauseSemiphemeral: function () {
       this.postDashboard("pause");
     },
-    downloadHistory: function() {
+    downloadHistory: function () {
       this.postDashboard("fetch");
     },
-    reactivateAccount: function() {
+    reactivateAccount: function () {
       var that = this;
       this.loading = true;
       fetch("/api/dashboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reactivate" })
+        body: JSON.stringify({ action: "reactivate" }),
       })
-        .then(function(response) {
+        .then(function (response) {
           if (response.status !== 200) {
             console.log("Error reactivating, status code: " + response.status);
             that.loading = false;
             return;
           }
-          response.json().then(function(data) {
+          response.json().then(function (data) {
             console.log(data);
             that.loading = false;
             if (!data["unblocked"]) {
@@ -263,24 +291,51 @@ export default {
             }
           });
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error", err);
           that.loading = false;
         });
     },
-    fetchJobs: function() {
+    unblockAccount: function () {
+      var that = this;
+      this.loading = true;
+      fetch("/api/dashboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unblock" }),
+      })
+        .then(function (response) {
+          if (response.status !== 200) {
+            console.log("Error reactivating, status code: " + response.status);
+            that.loading = false;
+            return;
+          }
+          response.json().then(function (data) {
+            console.log(data);
+            that.loading = false;
+            if (data["message"]) {
+              alert(data["message"]);
+            }
+          });
+        })
+        .catch(function (err) {
+          console.log("Error", err);
+          that.loading = false;
+        });
+    },
+    fetchJobs: function () {
       var that = this;
       this.loading = true;
 
       // Get list of pending and active jobs
       fetch("/api/dashboard")
-        .then(function(response) {
+        .then(function (response) {
           if (response.status !== 200) {
             console.log("Error fetching jobs, status code: " + response.status);
             that.loading = false;
             return;
           }
-          response.json().then(function(data) {
+          response.json().then(function (data) {
             that.loading = false;
             if (data["active_jobs"]) that.activeJobs = data["active_jobs"];
             else that.activeJobs = [];
@@ -296,16 +351,18 @@ export default {
             that.settingBlocked = data["setting_blocked"];
             that.settingDeleteTweets = data["setting_delete_tweets"];
             that.settingRetweetsLikes = data["setting_retweet_likes"];
+            that.fascistTweets = data["fascist_tweets"];
           });
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error fetching jobs", err);
           that.loading = false;
         });
-    }
+    },
   },
   components: {
-    Job: Job
-  }
+    Job: Job,
+    FascistTweet: FascistTweet,
+  },
 };
 </script>

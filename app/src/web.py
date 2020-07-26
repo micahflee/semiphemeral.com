@@ -608,6 +608,27 @@ async def api_get_dashboard(request):
             )
         return jobs_json
 
+    fascist_tweets = []
+    if user.blocked:
+        # Get fascist tweets that this user has liked
+        fascist_tweets = (
+            await Tweet.query.where(Tweet.user_id == user.id)
+            .where(Tweet.favorited == True)
+            .where(Tweet.is_fascist == True)
+            .order_by(Tweet.created_at.desc())
+            .gino.all()
+        )
+        fascist_tweets = [
+            {
+                "status_id": tweet.status_id,
+                "permalink": f"https://twitter.com/{tweet.twitter_user_screen_name}/status/{tweet.status_id}",
+            }
+            for tweet in fascist_tweets
+        ]
+        # Don't return the list if there's more than 3
+        if len(fascist_tweets) > 3:
+            fascist_tweets = []
+
     return web.json_response(
         {
             "pending_jobs": to_client(pending_jobs),
@@ -617,6 +638,7 @@ async def api_get_dashboard(request):
             "setting_blocked": user.blocked,
             "setting_delete_tweets": user.delete_tweets,
             "setting_retweets_likes": user.retweets_likes,
+            "fascist_tweets": fascist_tweets,
         }
     )
 
@@ -632,6 +654,8 @@ async def api_post_dashboard(request):
       cancel any active or pending jobs and pause
     If action is fetch, the user is paused, and there are no pending or active jobs:
       create a fetch job
+    If action is unblock and the user is blocked and hasn't liked too many fascist tweets:
+      create an unblock job
     If action is reactivate and the user is blocked:
       see if the user is still blocked, and if not set blocked=False and create a fetch job
     """
@@ -645,11 +669,61 @@ async def api_post_dashboard(request):
         data["action"] != "start"
         and data["action"] != "pause"
         and data["action"] != "fetch"
+        and data["action"] != "unblock"
         and data["action"] != "reactivate"
     ):
         raise web.HTTPBadRequest(
             text="action must be 'start', 'pause', 'fetch', or 'reactivate'"
         )
+
+    if data["action"] == "unblock":
+        if not user.blocked:
+            raise web.HTTPBadRequest(text="Can only 'unblock' if the user is blocked")
+
+        # Are we still blocked?
+        api = await twitter_api(user)
+        friendship = (
+            await twitter_api_call(
+                api,
+                "show_friendship",
+                source_id=user.twitter_id,
+                target_screen_name="semiphemeral",
+            )
+        )[0]
+
+        if friendship.blocked_by:
+            # Still blocked by semiphemeral. Should we unblock?
+
+            # Count fascist tweets
+            fascist_tweets = (
+                await Tweet.query.where(Tweet.user_id == user.id)
+                .where(Tweet.favorited == True)
+                .where(Tweet.is_fascist == True)
+                .order_by(Tweet.created_at.desc())
+                .gino.all()
+            )
+            if len(fascist_tweets) >= 3:
+                return web.json_response(
+                    {
+                        "message": "You've liked too many fascist tweets to be allowed to automatically unblock yourself"
+                    }
+                )
+            else:
+                # They liked few enough fascist tweets, so create an unblock job
+                await UnblockJob.create(
+                    user_id=user.id,
+                    twitter_username=user.twitter_screen_name,
+                    status="pending",
+                    scheduled_timestamp=datetime.now(),
+                )
+                return web.json_response(
+                    {"message": "You should be unblocked in the next few minutes"}
+                )
+        else:
+            # The user is already unblocked, so update them in the db
+            await user.update(blocked=False, since_id=None).apply()
+
+            return web.json_response({"message": "You are already unblocked"})
 
     if data["action"] == "reactivate":
         if not user.blocked:
