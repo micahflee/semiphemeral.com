@@ -16,7 +16,7 @@ import stripe
 
 from sqlalchemy import or_
 
-from common import twitter_api, twitter_api_call, tweets_to_delete
+from common import twitter_api, twitter_api_call, tweets_to_delete, send_admin_dm
 from db import (
     User,
     Tip,
@@ -456,17 +456,9 @@ async def api_post_tip(request):
 
         # Send a DM to the admin
         amount_dollars = amount / 100
-        message = f"@{user.twitter_screen_name} send you a ${amount_dollars} tip!"
-        admin_user = await User.query.where(
-            User.twitter_screen_name.ilike(os.environ.get("ADMIN_USERNAME"))
-        ).gino.first()
-        if admin_user:
-            await DirectMessageJob.create(
-                dest_twitter_id=admin_user.twitter_id,
-                message=message,
-                status="pending",
-                scheduled_timestamp=datetime.now(),
-            )
+        await send_admin_dm(
+            f"@{user.twitter_screen_name} send you a ${amount_dollars} tip!"
+        )
 
         return web.json_response({"error": False})
 
@@ -1098,6 +1090,11 @@ async def start_web_server():
         await UnblockJob.update.values(status="canceled").where(
             UnblockJob.status == "pending"
         ).gino.status()
+
+    # Send admin DM now, so it doesn't get immediately canceled in staging
+    await send_admin_dm(
+        f"web server container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
+    )
 
     # Init stripe
     stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")

@@ -37,6 +37,7 @@ services:
       - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
       - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
       - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
     networks:
       - default
       - host_private
@@ -57,6 +58,7 @@ services:
       - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
       - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
       - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
       - SECONDS_TO_SLEEP=10
     networks:
       - default
@@ -78,6 +80,7 @@ services:
       - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
       - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
       - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
       - SECONDS_TO_SLEEP=20
     networks:
       - default
@@ -99,6 +102,7 @@ services:
       - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
       - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
       - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
       - SECONDS_TO_SLEEP=30
     networks:
       - default
