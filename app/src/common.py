@@ -4,7 +4,7 @@ import functools
 import tweepy
 from datetime import datetime, timedelta
 
-from db import Tweet, Thread
+from db import Tweet, Thread, User, DirectMessageJob
 
 
 class TwitterRateLimit(Exception):
@@ -91,3 +91,16 @@ async def tweets_to_delete(user, include_manually_excluded=False):
     )
 
     return tweets_to_delete
+
+
+async def send_admin_dm(message):
+    admin_user = await User.query.where(
+        User.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
+    ).gino.first()
+    if admin_user:
+        await DirectMessageJob.create(
+            dest_twitter_id=admin_user.twitter_id,
+            message=message,
+            status="pending",
+            scheduled_timestamp=datetime.now(),
+        )

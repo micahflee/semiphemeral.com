@@ -5,7 +5,13 @@ from datetime import datetime, timedelta
 
 import tweepy
 
-from common import twitter_api, twitter_api_call, twitter_dm_api, tweets_to_delete
+from common import (
+    twitter_api,
+    twitter_api_call,
+    twitter_dm_api,
+    tweets_to_delete,
+    send_admin_dm,
+)
 from db import (
     Job,
     DirectMessageJob,
@@ -988,6 +994,12 @@ async def start_unblock_job(unblock_job):
 
 
 async def start_jobs():
+    if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
+        await asyncio.sleep(5)
+    await send_admin_dm(
+        f"jobs container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
+    )
+
     seconds_to_sleep = int(os.environ.get("SECONDS_TO_SLEEP"))
     print(f"Sleeping {seconds_to_sleep} seconds")
     await asyncio.sleep(seconds_to_sleep)
@@ -1017,6 +1029,12 @@ async def start_jobs():
 
 
 async def start_dm_jobs():
+    if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
+        await asyncio.sleep(5)
+    await send_admin_dm(
+        f"DM jobs container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
+    )
+
     while True:
         tasks = []
 
