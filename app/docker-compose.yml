@@ -15,6 +15,7 @@ services:
       - STRIPE_SECRET_KEY={{ stripe_secret_key }}
       - MAINTENANCE_SECRET={{ maintenance_secret }}
       - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
     expose:
       - "8080"
     volumes:
@@ -38,6 +39,7 @@ services:
       - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
     networks:
       - default
       - host_private
@@ -59,6 +61,7 @@ services:
       - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
       - SECONDS_TO_SLEEP=10
     networks:
       - default
@@ -81,6 +84,7 @@ services:
       - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
       - SECONDS_TO_SLEEP=20
     networks:
       - default
@@ -103,6 +107,7 @@ services:
       - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
       - SECONDS_TO_SLEEP=30
     networks:
       - default

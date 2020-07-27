@@ -11,7 +11,8 @@
         "stripe_publishable_key": "pk_blahblahblahfromstripe",
         "stripe_secret_key": "sk_blahblahblahfromstripe",
         "maintenance_secret": "output of: python3 -c 'import secrets; print(secrets.token_hex(16))'",
-        "admin_username": "micahflee"
+        "admin_username": "micahflee",
+        "admin_webhook": ""
     },
     "production": {
         "domain": "semiphemeral.com",
@@ -25,6 +26,7 @@
         "stripe_publishable_key": "pk_blahblahblahfromstripe",
         "stripe_secret_key": "sk_blahblahblahfromstripe",
         "maintenance_secret": "output of: python3 -c 'import secrets; print(secrets.token_hex(16))'",
-        "admin_username": "micahflee"
+        "admin_username": "micahflee",
+        "admin_webhook": ""
     }
 }
