@@ -2,6 +2,7 @@ import os
 import asyncio
 import functools
 import tweepy
+import requests
 from datetime import datetime, timedelta
 
 from db import Tweet, Thread, User, DirectMessageJob
@@ -94,6 +95,14 @@ async def tweets_to_delete(user, include_manually_excluded=False):
 
 
 async def send_admin_dm(message):
+    # Webhook
+    webhook_url = os.environ.get("ADMIN_WEBHOOK")
+    try:
+        requests.post(webhook_url, data=message)
+    except:
+        pass
+
+    # Twitter DM
     admin_user = await User.query.where(
         User.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
     ).gino.first()
