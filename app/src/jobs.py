@@ -1099,6 +1099,8 @@ async def start_dm_jobs():
                 if last_job:
                     # Was it it more than 3 months ago?
                     if last_job.finished_timestamp < three_months_ago:
+                        remind = False
+
                         # Let's make sure we also haven't sent them a DM in the last 3 months
                         last_dm_job = (
                             await DirectMessageJob.query.where(
@@ -1108,7 +1110,13 @@ async def start_dm_jobs():
                             .order_by(DirectMessageJob.sent_timestamp.desc())
                             .gino.first()
                         )
-                        if last_dm_job.sent_timestamp < three_months_ago:
+                        if last_dm_job:
+                            if last_dm_job.sent_timestamp < three_months_ago:
+                                remind = True
+                        else:
+                            remind = True
+
+                        if remind:
                             reminded_users.append(user.twitter_screen_name)
                             await DirectMessageJob.create(
                                 dest_twitter_id=user.twitter_id,
