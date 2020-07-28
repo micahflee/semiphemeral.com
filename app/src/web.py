@@ -40,6 +40,9 @@ async def _logged_in_user(session):
         user = await User.query.where(
             User.twitter_id == session["twitter_id"]
         ).gino.first()
+        if not user:
+            del session["twitter_id"]
+            return None
 
         # Are we the administrator impersonating another user?
         if (
