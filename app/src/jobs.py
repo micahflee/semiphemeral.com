@@ -1128,7 +1128,7 @@ async def start_dm_jobs():
                             .gino.first()
                         )
                         if last_dm_job:
-                            if last_dm_job.sent_timestamp < three_months_ago:
+                            if last_dm_job.scheduled_timestamp < three_months_ago:
                                 remind = True
                         else:
                             remind = True
