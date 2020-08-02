@@ -74,7 +74,7 @@ class DirectMessageJob(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     dest_twitter_id = db.Column(db.BigInteger)
     message = db.Column(db.String)
-    status = db.Column(db.String)  # "pending", "sent"
+    status = db.Column(db.String)  # "pending", "sent", "failed"
     scheduled_timestamp = db.Column(db.DateTime)
     sent_timestamp = db.Column(db.DateTime)
 
