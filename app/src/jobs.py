@@ -843,7 +843,8 @@ async def start_dm_job(dm_job):
 
         # 150: You cannot send messages to users who are not following you.
         # 349: You cannot send messages to this user.
-        if error_code == 150 or error_code == 349:
+        # 108: Cannot find specified user.
+        if error_code == 150 or error_code == 349 or error_code == 108:
             print(
                 f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), marking as failure"
             )
@@ -1060,6 +1061,7 @@ async def start_dm_jobs():
         dm_job = (
             await DirectMessageJob.query.where(DirectMessageJob.status == "pending")
             .where(DirectMessageJob.scheduled_timestamp <= datetime.now())
+            .order_by(DirectMessageJob.scheduled_timestamp)
             .gino.first()
         )
         if dm_job:
