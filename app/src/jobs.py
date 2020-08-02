@@ -834,14 +834,28 @@ async def start_dm_job(dm_job):
             f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sent DM to twitter_id={dm_job.dest_twitter_id}"
         )
     except Exception as e:
-        # If sending the DM failed, try again in 5 minutes
-        await dm_job.update(
-            status="pending", scheduled_timestamp=datetime.now() + timedelta(minutes=5)
-        ).apply()
+        try:
+            error_code = e.args[0][0]["code"]
+        except:
+            error_code = e.api_code
 
-        print(
-            f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), delaying 5 minutes"
-        )
+        # 150: You cannot send messages to users who are not following you.
+        # 349: You cannot send messages to this user.
+        if error_code == 150 or error_code == 349:
+            print(
+                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), marking as failure"
+            )
+            await dm_job.update(status="failed").apply()
+        else:
+            # If sending the DM failed, try again in 5 minutes
+            await dm_job.update(
+                status="pending",
+                scheduled_timestamp=datetime.now() + timedelta(minutes=5),
+            ).apply()
+
+            print(
+                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), delaying 5 minutes"
+            )
 
 
 async def start_block_job(block_job):
