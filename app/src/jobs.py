@@ -341,9 +341,10 @@ async def fetch(job):
                 # Twitter responded with a 404 error, which could mean the user has deleted their account
                 await log(
                     job,
-                    f"404 error from twitter, rescheduling job for 15 minutes from now",
+                    f"404 error from twitter (account does not exist), so pausing user",
                 )
-                await reschedule_job(job, timedelta(minutes=15))
+                await user.update(paused=True).apply()
+                # await reschedule_job(job, timedelta(minutes=15))
                 return
 
             await update_progress_rate_limit(job, progress, 15)
@@ -422,9 +423,10 @@ async def fetch(job):
                 # Twitter responded with a 404 error, which could mean the user has deleted their account
                 await log(
                     job,
-                    f"404 error from twitter, rescheduling job for 15 minutes from now",
+                    f"404 error from twitter (account does not exist), so pausing user",
                 )
-                await reschedule_job(job, timedelta(minutes=15))
+                await user.update(paused=True).apply()
+                # await reschedule_job(job, timedelta(minutes=15))
                 return
 
             await update_progress_rate_limit(job, progress, 15)
