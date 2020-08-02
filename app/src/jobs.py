@@ -1124,7 +1124,6 @@ async def start_dm_jobs():
                             await DirectMessageJob.query.where(
                                 DirectMessageJob.dest_twitter_id == user.twitter_id
                             )
-                            .where(DirectMessageJob.status == "sent")
                             .order_by(DirectMessageJob.sent_timestamp.desc())
                             .gino.first()
                         )
