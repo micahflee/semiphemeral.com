@@ -384,67 +384,85 @@ async def api_post_settings_delete_account(request):
 @authentication_required_401
 async def api_get_export(request):
     """
-    Respond with the user's export job history
+    Respond with the user's export status
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
 
-    pending_export_jobs = (
+    export_job = (
         await ExportJob.query.where(ExportJob.user_id == user.id)
-        .where(ExportJob.status == "pending")
         .order_by(ExportJob.scheduled_timestamp)
-        .gino.all()
+        .gino.first()
     )
 
-    active_export_jobs = (
-        await ExportJob.query.where(ExportJob.user_id == user.id)
-        .where(ExportJob.status == "active")
-        .order_by(Job.started_timestamp)
-        .gino.all()
-    )
+    if export_job:
+        status = export_job.status
+        if status == "finished" and export_job.finished_timestamp:
+            finished_timestamp = export_job.finished_timestamp.timestamp()
+            too_soon = datetime().now() < finished_timestamp + timedelta(hours=48)
+        else:
+            finished_timestamp = None
+            too_soon = False
 
-    finished_export_jobs = (
-        await ExportJob.query.where(ExportJob.user_id == user.id)
-        .where(ExportJob.status == "finished")
-        .order_by(ExportJob.finished_timestamp.desc())
-        .gino.all()
-    )
-
-    def to_client(export_jobs):
-        export_jobs_json = []
-        for export_job in export_jobs:
-            if export_job.scheduled_timestamp:
-                scheduled_timestamp = export_job.scheduled_timestamp.timestamp()
-            else:
-                scheduled_timestamp = None
-            if export_job.started_timestamp:
-                started_timestamp = export_job.started_timestamp.timestamp()
-            else:
-                started_timestamp = None
-            if export_job.finished_timestamp:
-                finished_timestamp = export_job.finished_timestamp.timestamp()
-            else:
-                finished_timestamp = None
-
-            export_jobs_json.append(
-                {
-                    "id": export_job.id,
-                    "progress": export_job.progress,
-                    "status": export_job.status,
-                    "scheduled_timestamp": scheduled_timestamp,
-                    "started_timestamp": started_timestamp,
-                    "finished_timestamp": finished_timestamp,
-                }
-            )
-        return export_jobs_json
+    else:
+        status = None
+        finished_timestamp = None
+        too_soon = False
 
     return web.json_response(
         {
-            "pending_export_jobs": to_client(pending_export_jobs),
-            "active_export_jobs": to_client(active_export_jobs),
-            "finished_export_jobs": to_client(finished_export_jobs),
+            "status": status,
+            "finished_timestamp": finished_timestamp,
+            "too_soon": too_soon,
         }
     )
+
+
+@authentication_required_401
+async def api_post_export(request):
+    """
+    Start an export job, or delete an export
+
+    If action is "start", start an export job
+    If action is "delete", delete a saved export for the user
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+    data = await request.json()
+
+    # Validate
+    await _api_validate({"action": str}, data)
+    if data["action"] != "start" and data["action"] != "delete":
+        raise web.HTTPBadRequest(text="action must be 'start' or 'delete'")
+
+    if data["action"] == "start":
+        # Can we start a new export job now?
+        can_export = True
+        export_job = (
+            await ExportJob.query.where(ExportJob.user_id == user.id)
+            .order_by(ExportJob.scheduled_timestamp)
+            .gino.first()
+        )
+        if export_job:
+            if export_job.status != "finished":
+                can_export = False
+            if export_job.finished_timestamp:
+                finished_timestamp = export_job.finished_timestamp.timestamp()
+                too_soon = datetime().now() < finished_timestamp + timedelta(hours=48)
+                if too_soon:
+                    can_export = False
+
+        if not can_export:
+            raise web.HTTPBadRequest(text="you can't start an export job right now")
+
+        # Create a new export job
+        await ExportJob.create(
+            user_id=user.id,
+            status="pending",
+            scheduled_timestamp=datetime.now(),
+        )
+
+        return web.json_response({})
 
 
 @authentication_required_401
@@ -1204,7 +1222,7 @@ async def start_web_server():
             web.post("/api/settings", api_post_settings),
             web.post("/api/settings/delete_account", api_post_settings_delete_account),
             web.get("/api/export", api_get_export),
-            # web.post("/api/export", api_post_export),
+            web.post("/api/export", api_post_export),
             web.get("/api/tip", api_get_tip),
             web.post("/api/tip", api_post_tip),
             web.get("/api/tip/recent", api_get_tip_recent),

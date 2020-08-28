@@ -1,4 +1,22 @@
 <style scoped>
+.info {
+  font-style: italic;
+  color: #666666;
+}
+
+button {
+  background-color: #4caf50;
+  border: none;
+  color: white;
+  padding: 5px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 5px;
+  margin: 0 0 5px 0;
+}
 </style>
 
 <template>
@@ -11,7 +29,31 @@
       </p>
     </template>
     <template v-else>
-      <p>Export a spreadsheet and screenshots of your tweets. You can only do this once every 48 hours.</p>
+      <p
+        class="info"
+      >Export a spreadsheet and screenshots of your tweets. You can only do this once every 48 hours.</p>
+
+      <template v-if="status == null || status == 'finished'">
+        <p v-if="finishedTimestamp != null">
+          Last export on
+          <em>{{ humanReadableTimestamp(finishedTimestamp) }}</em>
+          <button v-on:click="downloadExport">Download</button>
+          <button v-on:click="deleteExport">Delete</button>
+        </p>
+
+        <p v-if="!tooSoon">
+          <button v-on:click="startExport">Start Export</button>
+        </p>
+        <p v-else>You can only export your tweets once every 48 hours.</p>
+      </template>
+      <template v-else>
+        <p
+          v-if="status == 'pending'"
+        >Waiting to create your export as soon as it's your turn in the queue.</p>
+        <p
+          v-if="status == 'active'"
+        >Your export is getting created. You'll receive a direct message when it's ready to download.</p>
+      </template>
     </template>
   </div>
 </template>
@@ -22,9 +64,9 @@ export default {
   data: function () {
     return {
       loading: false,
-      activeExportJobs: [],
-      pendingExportJobs: [],
-      finishedExportJobs: [],
+      status: null,
+      finishedTimestamp: null,
+      tooSoon: false,
     };
   },
   created: function () {
@@ -47,23 +89,37 @@ export default {
           }
           response.json().then(function (data) {
             that.loading = false;
-            if (data["active_export_jobs"])
-              that.activeExportJobs = data["active_export_jobs"];
-            else that.activeExportJobs = [];
-
-            if (data["pending_export_jobs"])
-              that.pendingJobs = data["pending_export_jobs"];
-            else that.pendingExportJobs = [];
-
-            if (data["finished_export_jobs"])
-              that.finishedExportJobs = data["finished_export_jobs"];
-            else that.finishedExportJobs = [];
+            that.status = data["status"];
+            that.finishedTimestamp = data["finished_timestamp"];
+            that.tooSoon = data["too_soon"];
           });
         })
         .catch(function (err) {
           console.log("Error fetching export jobs", err);
           that.loading = false;
         });
+    },
+    startExport: function () {
+      var that = this;
+      this.loading = true;
+      fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start" }),
+      })
+        .then(function (response) {
+          that.fetchExportJobs();
+        })
+        .catch(function (err) {
+          console.log("Error", err);
+          that.loading = false;
+        });
+    },
+    downloadExport: function () {},
+    deleteExport: function () {},
+    humanReadableTimestamp: function (timestamp) {
+      var date = new Date(timestamp * 1000);
+      return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
     },
   },
 };

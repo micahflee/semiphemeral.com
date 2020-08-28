@@ -22,7 +22,6 @@ def upgrade():
         sa.Column("id", sa.Integer, primary_key=True),
         sa.Column("user_id", sa.Integer),
         sa.Column("status", sa.String),
-        sa.Column("progress", sa.String),
         sa.Column("scheduled_timestamp", sa.DateTime),
         sa.Column("started_timestamp", sa.DateTime),
         sa.Column("finished_timestamp", sa.DateTime),
