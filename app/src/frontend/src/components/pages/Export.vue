@@ -29,9 +29,7 @@ button {
       </p>
     </template>
     <template v-else>
-      <p
-        class="info"
-      >Export a spreadsheet and screenshots of your tweets. You can only do this once every 48 hours.</p>
+      <p>Export a spreadsheet and screenshots of your tweets. Make Semiphemeral has recently downloaded your tweets before starting an export. You can only do this once every 48 hours.</p>
 
       <template v-if="status == null || status == 'finished'">
         <p v-if="finishedTimestamp != null">
@@ -44,14 +42,16 @@ button {
         <p v-if="!tooSoon">
           <button v-on:click="startExport">Start Export</button>
         </p>
-        <p v-else>You can only export your tweets once every 48 hours.</p>
+        <p v-else class="info">You can only export your tweets once every 48 hours.</p>
       </template>
       <template v-else>
         <p
           v-if="status == 'pending'"
+          class="info"
         >Waiting to create your export as soon as it's your turn in the queue.</p>
         <p
           v-if="status == 'active'"
+          class="info"
         >Your export is getting created. You'll receive a direct message when it's ready to download.</p>
       </template>
     </template>

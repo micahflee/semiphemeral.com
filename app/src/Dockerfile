@@ -1,7 +1,15 @@
 FROM python:3.8-buster
 
+# Install chrome and chromedriver
+RUN cd /tmp && \
+    wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    apt-get update && \
+    apt-get install -y ./google-chrome-stable_current_amd64.deb && \
+    wget https://chromedriver.storage.googleapis.com/85.0.4183.87/chromedriver_linux64.zip && \
+    unzip chromedriver_linux64.zip && \
+    mv chromedriver /usr/local/bin/chromedriver
+
 # Install nodejs
-RUN apt-get update && apt-get install -y curl
 RUN curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | bash && \
     . /root/.bashrc && \
     sleep 1 && \
@@ -10,8 +18,8 @@ RUN curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh
     ln -s /root/.nvm/versions/node/v12.18.2/bin/npm /usr/local/bin/npm && \
     ln -s /root/.nvm/versions/node/v12.18.2/bin/npx /usr/local/bin/npx
 
-# Install pipenv
-RUN pip install pipenv
+# Install poetry
+RUN pip install poetry
 
 # Switch to unprivileged user
 RUN useradd -u 1000 -o -ms /bin/bash user
@@ -19,9 +27,9 @@ USER user:user
 
 # Install python dependencies
 WORKDIR /app
-COPY Pipfile .
-COPY Pipfile.lock .
-RUN pipenv install --dev
+COPY poetry.lock .
+COPY pyproject.toml .
+RUN poetry install
 
 # Copy code
 COPY . .
@@ -35,4 +43,4 @@ RUN cd admin-frontend && ./build.js
 USER user:user
 
 EXPOSE 8080
-CMD ["pipenv", "run", "python", "-u", "app.py"]
+CMD ["poetry", "run", "python", "-u", "app.py"]
