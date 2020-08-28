@@ -101,6 +101,18 @@ class UnblockJob(db.Model):
     unblocked_timestamp = db.Column(db.DateTime)
 
 
+class ExportJob(db.Model):
+    __tablename__ = "export_jobs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    status = db.Column(db.String)  # "pending", "active", "finished"
+    progress = db.Column(db.String)  # JSON object
+    scheduled_timestamp = db.Column(db.DateTime)
+    started_timestamp = db.Column(db.DateTime)
+    finished_timestamp = db.Column(db.DateTime)
+
+
 class Thread(db.Model):
     __tablename__ = "threads"
 

@@ -174,7 +174,7 @@ fieldset.disabled {
 <script>
 export default {
   props: ["userScreenName"],
-  data: function() {
+  data: function () {
     return {
       loading: false,
       hasFetched: false,
@@ -188,24 +188,28 @@ export default {
       retweetsLikesRetweetsThreshold: false,
       retweetsLikesDeleteLikes: false,
       retweetsLikesLikesThreshold: false,
-      downloadAllTweets: false
+      downloadAllTweets: false,
+      activeExportJobs: [],
+      pendingExportJobs: [],
+      finishedExportJobs: [],
     };
   },
-  created: function() {
+  created: function () {
     this.getSettings();
+    this.fetchExportJobs();
   },
   methods: {
-    getSettings: function() {
+    getSettings: function () {
       var that = this;
       fetch("/api/settings")
-        .then(function(response) {
+        .then(function (response) {
           if (response.status !== 200) {
             console.log(
               "Error fetching settings, status code: " + response.status
             );
             return;
           }
-          response.json().then(function(data) {
+          response.json().then(function (data) {
             that.hasFetched = data["has_fetched"];
             that.deleteTweets = data["delete_tweets"];
             that.tweetsDaysThreshold = data["tweets_days_threshold"];
@@ -222,11 +226,11 @@ export default {
               data["retweets_likes_likes_threshold"];
           });
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error fetching user", err);
         });
     },
-    onSubmit: function() {
+    onSubmit: function () {
       var that = this;
       this.loading = true;
       fetch("/api/settings", {
@@ -247,29 +251,63 @@ export default {
           retweets_likes_likes_threshold: Number(
             this.retweetsLikesLikesThreshold
           ),
-          download_all_tweets: this.downloadAllTweets
-        })
+          download_all_tweets: this.downloadAllTweets,
+        }),
       })
-        .then(function(response) {
+        .then(function (response) {
           that.loading = false;
           that.getSettings();
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error updating settings", err);
           that.loading = false;
         });
     },
-    deleteAccount: function() {
+    deleteAccount: function () {
       if (confirm("All of your data will be deleted. Are you totally sure?")) {
         fetch("/api/settings/delete_account", { method: "POST" })
-          .then(function(response) {
+          .then(function (response) {
             document.location = "/";
           })
-          .catch(function(err) {
+          .catch(function (err) {
             console.log("Error deleting account", err);
           });
       }
-    }
-  }
+    },
+    fetchExportJobs: function () {
+      var that = this;
+      this.loading = true;
+
+      // Get list of pending, active, and finished export jobs
+      fetch("/api/export")
+        .then(function (response) {
+          if (response.status !== 200) {
+            console.log(
+              "Error fetching export jobs, status code: " + response.status
+            );
+            that.loading = false;
+            return;
+          }
+          response.json().then(function (data) {
+            that.loading = false;
+            if (data["active_export_jobs"])
+              that.activeExportJobs = data["active_export_jobs"];
+            else that.activeExportJobs = [];
+
+            if (data["pending_export_jobs"])
+              that.pendingJobs = data["pending_export_jobs"];
+            else that.pendingExportJobs = [];
+
+            if (data["finished_export_jobs"])
+              that.finishedExportJobs = data["finished_export_jobs"];
+            else that.finishedExportJobs = [];
+          });
+        })
+        .catch(function (err) {
+          console.log("Error fetching export jobs", err);
+          that.loading = false;
+        });
+    },
+  },
 };
 </script>
