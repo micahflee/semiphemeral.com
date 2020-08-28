@@ -1169,6 +1169,9 @@ async def start_web_server():
     await Job.update.values(status="pending").where(
         Job.status == "active"
     ).gino.status()
+    await ExportJob.update.values(status="pending").where(
+        ExportJob.status == "active"
+    ).gino.status()
 
     # If staging, start by pausing all users and cancel all pending jobs
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":

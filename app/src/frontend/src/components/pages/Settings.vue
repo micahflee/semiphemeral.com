@@ -163,7 +163,9 @@ fieldset.disabled {
         <div class="danger">
           <h2>Danger Zone</h2>
           <p>
-            <button v-on:click="deleteAccount()">Delete my account, and all data associated with it</button>
+            <button
+              v-on:click="deleteAccount()"
+            >Delete my Semiphemeral account, and all data associated with it</button>
           </p>
         </div>
       </form>
