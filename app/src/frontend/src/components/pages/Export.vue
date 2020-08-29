@@ -44,11 +44,11 @@ button {
             <button v-on:click="deleteExport">Delete</button>
           </p>
           <p v-else>You have deleted this export from the server</p>
-          <p v-if="!tooSoon">
-            <button v-on:click="startExport">Start Export</button>
-          </p>
-          <p v-else class="info">You can only export your tweets once every 48 hours.</p>
         </div>
+        <p v-if="!tooSoon">
+          <button v-on:click="startExport">Start Export</button>
+        </p>
+        <p v-else class="info">You can only export your tweets once every 48 hours.</p>
       </template>
       <template v-else>
         <p
