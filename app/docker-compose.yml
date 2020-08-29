@@ -20,6 +20,7 @@ services:
       - "8080"
     volumes:
       - /opt/semiphemeral/data/web:/var/web
+      - /opt/semiphemeral/data/export:/export
     networks:
       - default
       - host_private

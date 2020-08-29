@@ -1046,6 +1046,7 @@ async def start_export_job(export_job):
 
     # Start the CSV
     csv_filename = os.path.join(export_dir, "tweets.csv")
+    screenshot_filenames = []
     with open(csv_filename, "w") as f:
         fieldnames = [
             "Date",  # created_at
@@ -1077,6 +1078,7 @@ async def start_export_job(export_job):
             screenshot_filename = (
                 f"{tweet.created_at.strftime('%Y-%m-%d_%H%M%S')}_{tweet.status_id}.png"
             )
+            screenshot_filenames.append(screenshot_filename)
 
             # Write the row
             writer.writerow(

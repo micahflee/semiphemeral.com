@@ -5,6 +5,7 @@ import logging
 import asyncio
 import functools
 import subprocess
+import shutil
 from datetime import datetime, timedelta
 from aiohttp import web
 from aiohttp_session import setup, get_session, new_session
@@ -374,9 +375,11 @@ async def api_post_settings_delete_account(request):
     # await Tip.delete.where(Tip.user_id == user.id).gino.status()
     await Nag.delete.where(Nag.user_id == user.id).gino.status()
     await Job.delete.where(Job.user_id == user.id).gino.status()
+    await ExportJob.delete.where(Job.user_id == user.id).gino.status()
     await Thread.delete.where(Thread.user_id == user.id).gino.status()
     await Tweet.delete.where(Tweet.user_id == user.id).gino.status()
     await user.delete()
+    shutil.rmtree(os.path.join("/export", str(user.twitter_screen_name)), ignore_errors=True)
 
     return web.json_response(True)
 
@@ -399,22 +402,48 @@ async def api_get_export(request):
         status = export_job.status
         if status == "finished" and export_job.finished_timestamp:
             finished_timestamp = export_job.finished_timestamp.timestamp()
-            too_soon = datetime().now() < finished_timestamp + timedelta(hours=48)
+            too_soon = datetime.now() < export_job.finished_timestamp + timedelta(
+                days=2
+            )
+            export_zip = os.path.join(
+                "/export", str(user.twitter_screen_name), "export.zip"
+            )
+            downloadable = os.path.exists(export_zip)
         else:
             finished_timestamp = None
             too_soon = False
+            downloadable = False
 
     else:
         status = None
         finished_timestamp = None
         too_soon = False
+        downloadable = False
 
     return web.json_response(
         {
             "status": status,
             "finished_timestamp": finished_timestamp,
             "too_soon": too_soon,
+            "downloadable": downloadable,
         }
+    )
+
+
+@authentication_required_302
+async def api_get_export_download(request):
+    """
+    Download the export file, if it's available
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    export_zip = os.path.join("/export", str(user.twitter_screen_name), "export.zip")
+    if not os.path.exists(export_zip):
+        raise web.HTTPNotFound()
+
+    return web.FileResponse(
+        export_zip, headers={"Content-Disposition": 'attachment; filename="export.zip"'}
     )
 
 
@@ -462,6 +491,16 @@ async def api_post_export(request):
             scheduled_timestamp=datetime.now(),
         )
 
+        return web.json_response({})
+    
+    if data["action"] == "delete":
+        # If export.zip exists, delete the whole export folder
+        export_zip = os.path.join(
+            "/export", str(user.twitter_screen_name), "export.zip"
+        )
+        if os.path.exists(export_zip):
+            shutil.rmtree(os.path.join("/export", str(user.twitter_screen_name)), ignore_errors=True)
+        
         return web.json_response({})
 
 
@@ -1240,6 +1279,7 @@ async def start_web_server():
             web.get("/dashboard", app_main),
             web.get("/tweets", app_main),
             web.get("/export", app_main),
+            web.get("/export/download", api_get_export_download),
             web.get("/settings", app_main),
             web.get("/tip", app_main),
             web.get("/thanks", app_main),
