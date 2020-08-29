@@ -29,7 +29,7 @@ button {
       </p>
     </template>
     <template v-else>
-      <p>Export a spreadsheet and screenshots of your tweets. Make Semiphemeral has recently downloaded your tweets before starting an export. You can only do this once every 48 hours.</p>
+      <p>This feature lets you export a spreadsheet and screenshots of your tweets (yes, a screenshot of each and every tweet). Make sure that Semiphemeral has downloaded your latest tweets before starting an export. You can only export your tweets once every 48 hours.</p>
 
       <template v-if="status == null || status == 'finished'">
         <p v-if="finishedTimestamp != null">
@@ -52,7 +52,7 @@ button {
         <p
           v-if="status == 'active'"
           class="info"
-        >Your export is getting created. You'll receive a direct message when it's ready to download.</p>
+        >We're busy screenshotting all of your tweets. You'll receive a direct message when it's ready to download.</p>
       </template>
     </template>
   </div>
