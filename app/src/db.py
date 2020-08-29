@@ -16,7 +16,9 @@ class User(db.Model):
 
     delete_tweets = db.Column(db.Boolean, default=False)
     tweets_days_threshold = db.Column(db.Integer, default=30)
+    tweets_enable_retweet_threshold = db.Column(db.Boolean, default=True)
     tweets_retweet_threshold = db.Column(db.Integer, default=20)
+    tweets_enable_like_threshold = db.Column(db.Boolean, default=True)
     tweets_like_threshold = db.Column(db.Integer, default=20)
     tweets_threads_threshold = db.Column(db.Boolean, default=True)
 
