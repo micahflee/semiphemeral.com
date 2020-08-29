@@ -105,6 +105,10 @@ ul.jobs {
                 <router-link to="/tweets">tweets</router-link>&nbsp;you want to prevent from getting deleted
               </strong>
             </li>
+            <li>
+              If you want,
+              <router-link to="/export">export</router-link>&nbsp;a spreadsheet and screenshots of your tweets before you delete them.
+            </li>
           </ul>
 
           <p>When you're ready:</p>
@@ -162,7 +166,7 @@ import Job from "./Dashboard/Job.vue";
 
 export default {
   props: ["userScreenName"],
-  data: function() {
+  data: function () {
     return {
       loading: false,
       activeJobs: [],
@@ -171,11 +175,11 @@ export default {
       settingPaused: null,
       settingBlocked: null,
       settingDeleteTweets: null,
-      settingRetweetsLikes: null
+      settingRetweetsLikes: null,
     };
   },
   computed: {
-    state: function() {
+    state: function () {
       // There are 3 states:
       // A: paused, with pending or active jobs (fetching)
       // B: paused, with only finished or cancelled jobs
@@ -191,7 +195,7 @@ export default {
         return "C";
       }
     },
-    mostRecentFetchFinished: function() {
+    mostRecentFetchFinished: function () {
       var timestamp = 0;
       for (var i = 0; i < this.finishedJobs.length; i++) {
         if (
@@ -208,52 +212,52 @@ export default {
         var date = new Date(timestamp * 1000);
         return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
       }
-    }
+    },
   },
-  created: function() {
+  created: function () {
     this.fetchJobs();
   },
   methods: {
-    postDashboard: function(action) {
+    postDashboard: function (action) {
       var that = this;
       this.loading = true;
       fetch("/api/dashboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: action })
+        body: JSON.stringify({ action: action }),
       })
-        .then(function(response) {
+        .then(function (response) {
           that.fetchJobs();
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error", err);
           that.loading = false;
         });
     },
-    startSemiphemeral: function() {
+    startSemiphemeral: function () {
       this.postDashboard("start");
     },
-    pauseSemiphemeral: function() {
+    pauseSemiphemeral: function () {
       this.postDashboard("pause");
     },
-    downloadHistory: function() {
+    downloadHistory: function () {
       this.postDashboard("fetch");
     },
-    reactivateAccount: function() {
+    reactivateAccount: function () {
       var that = this;
       this.loading = true;
       fetch("/api/dashboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reactivate" })
+        body: JSON.stringify({ action: "reactivate" }),
       })
-        .then(function(response) {
+        .then(function (response) {
           if (response.status !== 200) {
             console.log("Error reactivating, status code: " + response.status);
             that.loading = false;
             return;
           }
-          response.json().then(function(data) {
+          response.json().then(function (data) {
             console.log(data);
             that.loading = false;
             if (!data["unblocked"]) {
@@ -263,24 +267,24 @@ export default {
             }
           });
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error", err);
           that.loading = false;
         });
     },
-    fetchJobs: function() {
+    fetchJobs: function () {
       var that = this;
       this.loading = true;
 
       // Get list of pending and active jobs
       fetch("/api/dashboard")
-        .then(function(response) {
+        .then(function (response) {
           if (response.status !== 200) {
             console.log("Error fetching jobs, status code: " + response.status);
             that.loading = false;
             return;
           }
-          response.json().then(function(data) {
+          response.json().then(function (data) {
             that.loading = false;
             if (data["active_jobs"]) that.activeJobs = data["active_jobs"];
             else that.activeJobs = [];
@@ -298,14 +302,14 @@ export default {
             that.settingRetweetsLikes = data["setting_retweet_likes"];
           });
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error fetching jobs", err);
           that.loading = false;
         });
-    }
+    },
   },
   components: {
-    Job: Job
-  }
+    Job: Job,
+  },
 };
 </script>
