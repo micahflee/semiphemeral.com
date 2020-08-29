@@ -1124,7 +1124,11 @@ async def start_export_job(export_job):
     with zipfile.ZipFile(zip_filename, "w") as z:
         z.write(os.path.join(export_dir, "readme.txt"), arcname="readme.txt")
         z.write(os.path.join(export_dir, "tweets.csv"), arcname="tweets.csv")
-        z.write(os.path.join(export_dir, "screenshots"), arcname="screenshots")
+        for screenshot_filename in screenshot_filenames:
+            z.write(
+                os.path.join(export_dir, "screenshots", screenshot_filename),
+                arcname=os.path.join("screenshots", screenshot_filename),
+            )
 
     # Now that it's compressed, delete the uncompressed stuff to save disk space
     os.remove(os.path.join(export_dir, "readme.txt"))

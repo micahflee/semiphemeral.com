@@ -32,21 +32,23 @@ button {
       <p>This feature lets you export a spreadsheet of your tweets and retweets, and a screenshot of each of your tweets and retweets. Make sure that Semiphemeral has downloaded your latest tweets before starting an export. You can only export your tweets once every 48 hours.</p>
 
       <template v-if="status == null || status == 'finished'">
-        <p v-if="finishedTimestamp != null">
-          <strong>
-            Last export on
-            <em>{{ humanReadableTimestamp(finishedTimestamp) }}</em>
-          </strong>
-        </p>
-        <p v-if="downloadable">
-          <button v-on:click="downloadExport">Download</button>
-          <button v-on:click="deleteExport">Delete</button>
-        </p>
-        <p v-else>You have deleted this export from the server</p>
-        <p v-if="!tooSoon">
-          <button v-on:click="startExport">Start Export</button>
-        </p>
-        <p v-else class="info">You can only export your tweets once every 48 hours.</p>
+        <div v-if="finishedTimestamp != null">
+          <p>
+            <strong>
+              Last export on
+              <em>{{ humanReadableTimestamp(finishedTimestamp) }}</em>
+            </strong>
+          </p>
+          <p v-if="downloadable">
+            <button v-on:click="downloadExport">Download</button>
+            <button v-on:click="deleteExport">Delete</button>
+          </p>
+          <p v-else>You have deleted this export from the server</p>
+          <p v-if="!tooSoon">
+            <button v-on:click="startExport">Start Export</button>
+          </p>
+          <p v-else class="info">You can only export your tweets once every 48 hours.</p>
+        </div>
       </template>
       <template v-else>
         <p
