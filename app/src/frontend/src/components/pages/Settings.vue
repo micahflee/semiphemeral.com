@@ -65,7 +65,14 @@ fieldset.disabled {
             days
           </p>
           <p>
-            Unless they have at least
+            <label>
+              <input
+                type="checkbox"
+                v-model="tweetsEnableRetweetThreshold"
+                v-bind:disabled="!deleteTweets"
+              />
+              Unless they have at least
+            </label>
             <input
               type="number"
               class="small"
@@ -76,7 +83,14 @@ fieldset.disabled {
             retweets
           </p>
           <p>
-            Or at least
+            <label>
+              <input
+                type="checkbox"
+                v-model="tweetsEnableLikeThreshold"
+                v-bind:disabled="!deleteTweets"
+              />
+              Or at least
+            </label>
             <input
               type="number"
               class="small"
@@ -182,7 +196,9 @@ export default {
       hasFetched: false,
       deleteTweets: false,
       tweetsDaysThreshold: false,
+      tweetsEnableRetweetThreshold: false,
       tweetsRetweetThreshold: false,
+      tweetsEnableLikeThreshold: false,
       tweetsLikeThreshold: false,
       tweetsThreadsThreshold: false,
       retweetsLikes: false,
@@ -215,7 +231,11 @@ export default {
             that.hasFetched = data["has_fetched"];
             that.deleteTweets = data["delete_tweets"];
             that.tweetsDaysThreshold = data["tweets_days_threshold"];
+            that.tweetsEnableRetweetThreshold =
+              data["tweets_enable_retweet_threshold"];
             that.tweetsRetweetThreshold = data["tweets_retweet_threshold"];
+            that.tweetsEnableLikeThreshold =
+              data["tweets_enable_like_threshold"];
             that.tweetsLikeThreshold = data["tweets_like_threshold"];
             that.tweetsThreadsThreshold = data["tweets_threads_threshold"];
             that.retweetsLikes = data["retweets_likes"];
@@ -241,7 +261,9 @@ export default {
         body: JSON.stringify({
           delete_tweets: this.deleteTweets,
           tweets_days_threshold: Number(this.tweetsDaysThreshold),
+          tweets_enable_retweet_threshold: this.tweetsEnableRetweetThreshold,
           tweets_retweet_threshold: Number(this.tweetsRetweetThreshold),
+          tweets_enable_like_threshold: this.tweetsEnableLikeThreshold,
           tweets_like_threshold: Number(this.tweetsLikeThreshold),
           tweets_threads_threshold: this.tweetsThreadsThreshold,
           retweets_likes: this.retweetsLikes,

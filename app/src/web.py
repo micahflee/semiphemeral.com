@@ -299,7 +299,9 @@ async def api_get_settings(request):
             "has_fetched": has_fetched,
             "delete_tweets": user.delete_tweets,
             "tweets_days_threshold": user.tweets_days_threshold,
+            "tweets_enable_retweet_threshold": user.tweets_enable_retweet_threshold,
             "tweets_retweet_threshold": user.tweets_retweet_threshold,
+            "tweets_enable_like_threshold": user.tweets_enable_like_threshold,
             "tweets_like_threshold": user.tweets_like_threshold,
             "tweets_threads_threshold": user.tweets_threads_threshold,
             "retweets_likes": user.retweets_likes,
@@ -325,7 +327,9 @@ async def api_post_settings(request):
         {
             "delete_tweets": bool,
             "tweets_days_threshold": int,
+            "tweets_enable_retweet_threshold": bool,
             "tweets_retweet_threshold": int,
+            "tweets_enable_like_threshold": bool,
             "tweets_like_threshold": int,
             "tweets_threads_threshold": bool,
             "retweets_likes": bool,
@@ -342,7 +346,9 @@ async def api_post_settings(request):
     await user.update(
         delete_tweets=data["delete_tweets"],
         tweets_days_threshold=data["tweets_days_threshold"],
+        tweets_enable_retweet_threshold=data["tweets_enable_retweet_threshold"],
         tweets_retweet_threshold=data["tweets_retweet_threshold"],
+        tweets_enable_like_threshold=data["tweets_enable_like_threshold"],
         tweets_like_threshold=data["tweets_like_threshold"],
         tweets_threads_threshold=data["tweets_threads_threshold"],
         retweets_likes=data["retweets_likes"],
@@ -379,7 +385,9 @@ async def api_post_settings_delete_account(request):
     await Thread.delete.where(Thread.user_id == user.id).gino.status()
     await Tweet.delete.where(Tweet.user_id == user.id).gino.status()
     await user.delete()
-    shutil.rmtree(os.path.join("/export", str(user.twitter_screen_name)), ignore_errors=True)
+    shutil.rmtree(
+        os.path.join("/export", str(user.twitter_screen_name)), ignore_errors=True
+    )
 
     return web.json_response(True)
 
@@ -492,15 +500,18 @@ async def api_post_export(request):
         )
 
         return web.json_response({})
-    
+
     if data["action"] == "delete":
         # If export.zip exists, delete the whole export folder
         export_zip = os.path.join(
             "/export", str(user.twitter_screen_name), "export.zip"
         )
         if os.path.exists(export_zip):
-            shutil.rmtree(os.path.join("/export", str(user.twitter_screen_name)), ignore_errors=True)
-        
+            shutil.rmtree(
+                os.path.join("/export", str(user.twitter_screen_name)),
+                ignore_errors=True,
+            )
+
         return web.json_response({})
 
 
