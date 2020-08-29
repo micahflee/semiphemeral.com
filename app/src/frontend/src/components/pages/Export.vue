@@ -29,16 +29,20 @@ button {
       </p>
     </template>
     <template v-else>
-      <p>This feature lets you export a spreadsheet and screenshots of your tweets (yes, a screenshot of each and every tweet). Make sure that Semiphemeral has downloaded your latest tweets before starting an export. You can only export your tweets once every 48 hours.</p>
+      <p>This feature lets you export a spreadsheet of your tweets and retweets, and a screenshot of each of your tweets and retweets. Make sure that Semiphemeral has downloaded your latest tweets before starting an export. You can only export your tweets once every 48 hours.</p>
 
       <template v-if="status == null || status == 'finished'">
         <p v-if="finishedTimestamp != null">
-          Last export on
-          <em>{{ humanReadableTimestamp(finishedTimestamp) }}</em>
+          <strong>
+            Last export on
+            <em>{{ humanReadableTimestamp(finishedTimestamp) }}</em>
+          </strong>
+        </p>
+        <p v-if="downloadable">
           <button v-on:click="downloadExport">Download</button>
           <button v-on:click="deleteExport">Delete</button>
         </p>
-
+        <p v-else>You have deleted this export from the server</p>
         <p v-if="!tooSoon">
           <button v-on:click="startExport">Start Export</button>
         </p>
@@ -67,6 +71,7 @@ export default {
       status: null,
       finishedTimestamp: null,
       tooSoon: false,
+      downloadable: false,
     };
   },
   created: function () {
@@ -92,6 +97,7 @@ export default {
             that.status = data["status"];
             that.finishedTimestamp = data["finished_timestamp"];
             that.tooSoon = data["too_soon"];
+            that.downloadable = data["downloadable"];
           });
         })
         .catch(function (err) {
@@ -115,8 +121,25 @@ export default {
           that.loading = false;
         });
     },
-    downloadExport: function () {},
-    deleteExport: function () {},
+    downloadExport: function () {
+      document.location = "/export/download";
+    },
+    deleteExport: function () {
+      var that = this;
+      this.loading = true;
+      fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete" }),
+      })
+        .then(function (response) {
+          that.fetchExportJobs();
+        })
+        .catch(function (err) {
+          console.log("Error", err);
+          that.loading = false;
+        });
+    },
     humanReadableTimestamp: function (timestamp) {
       var date = new Date(timestamp * 1000);
       return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
