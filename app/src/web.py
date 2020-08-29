@@ -5,6 +5,7 @@ import logging
 import asyncio
 import functools
 import subprocess
+import shutil
 from datetime import datetime, timedelta
 from aiohttp import web
 from aiohttp_session import setup, get_session, new_session
@@ -25,6 +26,7 @@ from db import (
     DirectMessageJob,
     BlockJob,
     UnblockJob,
+    ExportJob,
     Tweet,
     Thread,
     Fascist,
@@ -297,7 +299,9 @@ async def api_get_settings(request):
             "has_fetched": has_fetched,
             "delete_tweets": user.delete_tweets,
             "tweets_days_threshold": user.tweets_days_threshold,
+            "tweets_enable_retweet_threshold": user.tweets_enable_retweet_threshold,
             "tweets_retweet_threshold": user.tweets_retweet_threshold,
+            "tweets_enable_like_threshold": user.tweets_enable_like_threshold,
             "tweets_like_threshold": user.tweets_like_threshold,
             "tweets_threads_threshold": user.tweets_threads_threshold,
             "retweets_likes": user.retweets_likes,
@@ -323,7 +327,9 @@ async def api_post_settings(request):
         {
             "delete_tweets": bool,
             "tweets_days_threshold": int,
+            "tweets_enable_retweet_threshold": bool,
             "tweets_retweet_threshold": int,
+            "tweets_enable_like_threshold": bool,
             "tweets_like_threshold": int,
             "tweets_threads_threshold": bool,
             "retweets_likes": bool,
@@ -340,7 +346,9 @@ async def api_post_settings(request):
     await user.update(
         delete_tweets=data["delete_tweets"],
         tweets_days_threshold=data["tweets_days_threshold"],
+        tweets_enable_retweet_threshold=data["tweets_enable_retweet_threshold"],
         tweets_retweet_threshold=data["tweets_retweet_threshold"],
+        tweets_enable_like_threshold=data["tweets_enable_like_threshold"],
         tweets_like_threshold=data["tweets_like_threshold"],
         tweets_threads_threshold=data["tweets_threads_threshold"],
         retweets_likes=data["retweets_likes"],
@@ -373,11 +381,138 @@ async def api_post_settings_delete_account(request):
     # await Tip.delete.where(Tip.user_id == user.id).gino.status()
     await Nag.delete.where(Nag.user_id == user.id).gino.status()
     await Job.delete.where(Job.user_id == user.id).gino.status()
+    await ExportJob.delete.where(Job.user_id == user.id).gino.status()
     await Thread.delete.where(Thread.user_id == user.id).gino.status()
     await Tweet.delete.where(Tweet.user_id == user.id).gino.status()
     await user.delete()
+    shutil.rmtree(
+        os.path.join("/export", str(user.twitter_screen_name)), ignore_errors=True
+    )
 
     return web.json_response(True)
+
+
+@authentication_required_401
+async def api_get_export(request):
+    """
+    Respond with the user's export status
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    export_job = (
+        await ExportJob.query.where(ExportJob.user_id == user.id)
+        .order_by(ExportJob.scheduled_timestamp)
+        .gino.first()
+    )
+
+    if export_job:
+        status = export_job.status
+        if status == "finished" and export_job.finished_timestamp:
+            finished_timestamp = export_job.finished_timestamp.timestamp()
+            too_soon = datetime.now() < export_job.finished_timestamp + timedelta(
+                days=2
+            )
+            export_zip = os.path.join(
+                "/export", str(user.twitter_screen_name), "export.zip"
+            )
+            downloadable = os.path.exists(export_zip)
+        else:
+            finished_timestamp = None
+            too_soon = False
+            downloadable = False
+
+    else:
+        status = None
+        finished_timestamp = None
+        too_soon = False
+        downloadable = False
+
+    return web.json_response(
+        {
+            "status": status,
+            "finished_timestamp": finished_timestamp,
+            "too_soon": too_soon,
+            "downloadable": downloadable,
+        }
+    )
+
+
+@authentication_required_302
+async def api_get_export_download(request):
+    """
+    Download the export file, if it's available
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    export_zip = os.path.join("/export", str(user.twitter_screen_name), "export.zip")
+    if not os.path.exists(export_zip):
+        raise web.HTTPNotFound()
+
+    return web.FileResponse(
+        export_zip, headers={"Content-Disposition": 'attachment; filename="export.zip"'}
+    )
+
+
+@authentication_required_401
+async def api_post_export(request):
+    """
+    Start an export job, or delete an export
+
+    If action is "start", start an export job
+    If action is "delete", delete a saved export for the user
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+    data = await request.json()
+
+    # Validate
+    await _api_validate({"action": str}, data)
+    if data["action"] != "start" and data["action"] != "delete":
+        raise web.HTTPBadRequest(text="action must be 'start' or 'delete'")
+
+    if data["action"] == "start":
+        # Can we start a new export job now?
+        can_export = True
+        export_job = (
+            await ExportJob.query.where(ExportJob.user_id == user.id)
+            .order_by(ExportJob.scheduled_timestamp)
+            .gino.first()
+        )
+        if export_job:
+            if export_job.status != "finished":
+                can_export = False
+            if export_job.finished_timestamp:
+                finished_timestamp = export_job.finished_timestamp.timestamp()
+                too_soon = datetime().now() < finished_timestamp + timedelta(hours=48)
+                if too_soon:
+                    can_export = False
+
+        if not can_export:
+            raise web.HTTPBadRequest(text="you can't start an export job right now")
+
+        # Create a new export job
+        await ExportJob.create(
+            user_id=user.id,
+            status="pending",
+            scheduled_timestamp=datetime.now(),
+        )
+
+        return web.json_response({})
+
+    if data["action"] == "delete":
+        # If export.zip exists, delete the whole export folder
+        export_zip = os.path.join(
+            "/export", str(user.twitter_screen_name), "export.zip"
+        )
+        if os.path.exists(export_zip):
+            shutil.rmtree(
+                os.path.join("/export", str(user.twitter_screen_name)),
+                ignore_errors=True,
+            )
+
+        return web.json_response({})
 
 
 @authentication_required_401
@@ -401,7 +536,12 @@ async def api_post_tip(request):
 
     # Validate
     await _api_validate(
-        {"token": str, "amount": str, "other_amount": [str, float],}, data,
+        {
+            "token": str,
+            "amount": str,
+            "other_amount": [str, float],
+        },
+        data,
     )
     if (
         data["amount"] != "100"
@@ -960,7 +1100,10 @@ async def admin_api_get_fascists(request):
         fascists_json = []
         for fascist in fascists:
             fascists_json.append(
-                {"username": fascist.username, "comment": fascist.comment,}
+                {
+                    "username": fascist.username,
+                    "comment": fascist.comment,
+                }
             )
         return fascists_json
 
@@ -1076,6 +1219,9 @@ async def start_web_server():
     await Job.update.values(status="pending").where(
         Job.status == "active"
     ).gino.status()
+    await ExportJob.update.values(status="pending").where(
+        ExportJob.status == "active"
+    ).gino.status()
 
     # If staging, start by pausing all users and cancel all pending jobs
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
@@ -1128,6 +1274,8 @@ async def start_web_server():
             web.get("/api/settings", api_get_settings),
             web.post("/api/settings", api_post_settings),
             web.post("/api/settings/delete_account", api_post_settings_delete_account),
+            web.get("/api/export", api_get_export),
+            web.post("/api/export", api_post_export),
             web.get("/api/tip", api_get_tip),
             web.post("/api/tip", api_post_tip),
             web.get("/api/tip/recent", api_get_tip_recent),
@@ -1141,6 +1289,8 @@ async def start_web_server():
             web.get("/privacy", privacy),
             web.get("/dashboard", app_main),
             web.get("/tweets", app_main),
+            web.get("/export", app_main),
+            web.get("/export/download", api_get_export_download),
             web.get("/settings", app_main),
             web.get("/tip", app_main),
             web.get("/thanks", app_main),

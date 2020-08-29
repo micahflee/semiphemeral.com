@@ -16,7 +16,9 @@ class User(db.Model):
 
     delete_tweets = db.Column(db.Boolean, default=False)
     tweets_days_threshold = db.Column(db.Integer, default=30)
+    tweets_enable_retweet_threshold = db.Column(db.Boolean, default=True)
     tweets_retweet_threshold = db.Column(db.Integer, default=20)
+    tweets_enable_like_threshold = db.Column(db.Boolean, default=True)
     tweets_like_threshold = db.Column(db.Integer, default=20)
     tweets_threads_threshold = db.Column(db.Boolean, default=True)
 
@@ -99,6 +101,17 @@ class UnblockJob(db.Model):
     status = db.Column(db.String)  # "pending", "unblocked"
     scheduled_timestamp = db.Column(db.DateTime)
     unblocked_timestamp = db.Column(db.DateTime)
+
+
+class ExportJob(db.Model):
+    __tablename__ = "export_jobs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    status = db.Column(db.String)  # "pending", "active", "finished"
+    scheduled_timestamp = db.Column(db.DateTime)
+    started_timestamp = db.Column(db.DateTime)
+    finished_timestamp = db.Column(db.DateTime)
 
 
 class Thread(db.Model):

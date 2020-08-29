@@ -1,9 +1,15 @@
 import asyncio
 import json
 import os
+import shutil
+import csv
 from datetime import datetime, timedelta
+import time
+import zipfile
 
 import tweepy
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
 from common import (
     twitter_api,
@@ -17,6 +23,7 @@ from db import (
     DirectMessageJob,
     BlockJob,
     UnblockJob,
+    ExportJob,
     User,
     Tip,
     Nag,
@@ -207,7 +214,8 @@ async def import_tweet_and_thread(user, api, job, progress, status):
         tweet = await save_tweet(user, status)
     else:
         await log(
-            job, f"Tweet of {status.id} already imported",
+            job,
+            f"Tweet of {status.id} already imported",
         )
 
     # Is this tweet a reply?
@@ -703,7 +711,8 @@ async def delete(job):
     if not last_nag:
         # Create a nag
         await Nag.create(
-            user_id=user.id, timestamp=datetime.now(),
+            user_id=user.id,
+            timestamp=datetime.now(),
         )
 
         # The user has never been nagged, so this is the first delete
@@ -729,7 +738,8 @@ async def delete(job):
         if should_nag:
             # Create a nag
             await Nag.create(
-                user_id=user.id, timestamp=datetime.now(),
+                user_id=user.id,
+                timestamp=datetime.now(),
             )
 
             # The user has been nagged before -- do some math to get the totals
@@ -1010,6 +1020,136 @@ async def start_unblock_job(unblock_job):
         )
 
 
+async def start_export_job(export_job):
+    await export_job.update(status="active", started_timestamp=datetime.now()).apply()
+
+    user = await User.query.where(User.id == export_job.user_id).gino.first()
+    api = await twitter_api(user)
+
+    export_date = datetime.now()
+
+    # Prepare export directory
+    export_dir = os.path.join("/export", str(user.twitter_screen_name))
+    if os.path.exists(export_dir):
+        shutil.rmtree(export_dir, ignore_errors=True)
+    os.makedirs(export_dir)
+    os.makedirs(os.path.join(export_dir, "screenshots"))
+    await log(export_job, f"Export started, export_dir={export_dir}")
+
+    # Start the selenium web driver
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    d = webdriver.Chrome(options=options)
+    d.set_window_size(700, 900)
+
+    # Start the CSV
+    csv_filename = os.path.join(export_dir, "tweets.csv")
+    screenshot_filenames = []
+    with open(csv_filename, "w") as f:
+        fieldnames = [
+            "Date",  # created_at
+            "Username",  # twitter_user_screen_name
+            "Tweet ID",  # status_id
+            "Text",  # text
+            "Replying to Username",  # in_reply_to_screen_name
+            "Replying to Tweet ID",  # in_reply_to_status_id
+            "Retweets",  # retweet_count
+            "Likes",  # favorite_count
+            "Retweeted",  # is_retweet
+            "Liked",  # favorited
+            "Screenshot",
+            "URL",
+        ]
+        writer = csv.DictWriter(f, fieldnames=fieldnames, dialect="unix")
+        writer.writeheader()
+
+        tweets = (
+            await Tweet.query.where(Tweet.user_id == export_job.user_id)
+            .where(Tweet.twitter_user_id == user.twitter_id)
+            .where(Tweet.is_deleted == False)
+            .where(Tweet.is_unliked == False)
+            .order_by(Tweet.created_at.desc())
+            .gino.all()
+        )
+        for tweet in tweets:
+            url = f"https://twitter.com/{user.twitter_screen_name}/status/{tweet.status_id}"
+            screenshot_filename = (
+                f"{tweet.created_at.strftime('%Y-%m-%d_%H%M%S')}_{tweet.status_id}.png"
+            )
+            screenshot_filenames.append(screenshot_filename)
+
+            # Write the row
+            writer.writerow(
+                {
+                    "Date": tweet.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    "Username": tweet.twitter_user_screen_name,
+                    "Tweet ID": str(tweet.status_id),
+                    "Text": tweet.text,
+                    "Replying to Username": tweet.in_reply_to_screen_name,
+                    "Replying to Tweet ID": str(tweet.in_reply_to_status_id),
+                    "Retweets": str(tweet.retweet_count),
+                    "Likes": str(tweet.favorite_count),
+                    "Retweeted": str(tweet.is_retweet),
+                    "Liked": str(tweet.favorited),
+                    "Screenshot": screenshot_filename,
+                    "URL": url,
+                }
+            )
+
+            # Take screenshot
+            await log(export_job, f"Screenshoting {url}")
+            d.get(url)
+            await asyncio.sleep(1)
+            d.save_screenshot(
+                os.path.join(export_dir, "screenshots", screenshot_filename)
+            )
+
+    await log(export_job, f"CSV written: {csv_filename}")
+
+    # Write readme.txt
+    with open(os.path.join(export_dir, "readme.txt"), "w") as f:
+        f.write("Semiphemeral export of tweets\n")
+        f.write(f"Export started: {export_date.strftime('%Y-%m-%d at %H:%M')}\n\n")
+        f.write(
+            "The text from all of your tweets are saved in the spreadsheet tweets.csv. Open it in spreadsheet software like LibreOffice Calc, Microsoft Excel, or Google Docs.\n\n"
+        )
+        f.write(
+            "Screenshots of all your tweets are in the screenshots folder. To find a screenshot of a specific tweet, search the spreadsheet for it and then find its filename in the 'Screenshot' column.\n"
+        )
+
+    # Zip it all up
+    zip_filename = os.path.join(export_dir, f"export.zip")
+    with zipfile.ZipFile(zip_filename, "w") as z:
+        z.write(os.path.join(export_dir, "readme.txt"), arcname="readme.txt")
+        z.write(os.path.join(export_dir, "tweets.csv"), arcname="tweets.csv")
+        for screenshot_filename in screenshot_filenames:
+            z.write(
+                os.path.join(export_dir, "screenshots", screenshot_filename),
+                arcname=os.path.join("screenshots", screenshot_filename),
+            )
+
+    # Now that it's compressed, delete the uncompressed stuff to save disk space
+    os.remove(os.path.join(export_dir, "readme.txt"))
+    os.remove(os.path.join(export_dir, "tweets.csv"))
+    shutil.rmtree(os.path.join(export_dir, "screenshots"))
+
+    # All finished! Update the job
+    await export_job.update(
+        status="finished", finished_timestamp=datetime.now()
+    ).apply()
+
+    # Send a DM
+    message = f"The export of your tweets is ready to download! Get it from here: https://{os.environ.get('DOMAIN')}/export"
+    await DirectMessageJob.create(
+        dest_twitter_id=user.twitter_id,
+        message=message,
+        status="pending",
+        scheduled_timestamp=datetime.now(),
+    )
+
+
 async def start_jobs():
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         await asyncio.sleep(5)
@@ -1152,3 +1292,34 @@ async def start_dm_jobs():
             minutes += 1
             if minutes == 1440:
                 minutes = 0
+
+
+async def start_export_jobs():
+    if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
+        await asyncio.sleep(5)
+    await send_admin_dm(
+        f"Export jobs container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
+    )
+
+    # Infinitely loop looking for pending export jobs
+    while True:
+        tasks = []
+
+        # Run the next 3 export jobs
+        ids = []
+        for export_job in (
+            await ExportJob.query.where(ExportJob.status == "pending")
+            .where(ExportJob.scheduled_timestamp <= datetime.now())
+            .order_by(ExportJob.scheduled_timestamp)
+            .limit(3)
+            .gino.all()
+        ):
+            ids.append(export_job.id)
+            tasks.append(start_export_job(export_job))
+
+        if len(tasks) > 0:
+            print(f"Running {len(tasks)} export jobs {ids}")
+            await asyncio.gather(*tasks)
+        else:
+            print(f"No export jobs, waiting 60 seconds")
+            await asyncio.sleep(60)
