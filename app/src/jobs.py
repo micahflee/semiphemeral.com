@@ -5,6 +5,8 @@ import shutil
 import csv
 from datetime import datetime, timedelta
 import time
+import zipfile
+
 import tweepy
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -1024,17 +1026,15 @@ async def start_export_job(export_job):
     user = await User.query.where(User.id == export_job.user_id).gino.first()
     api = await twitter_api(user)
 
+    export_date = datetime.now()
+
     # Prepare export directory
-    date_str = datetime.now().strftime("%Y-%m-%d_%H%M")
-    #dir_name = f"semiphemeral-export-{user.twitter_screen_name}-{date_str}"
     export_dir = os.path.join("/export", str(user.twitter_screen_name))
     if os.path.exists(export_dir):
         shutil.rmtree(export_dir, ignore_errors=True)
     os.makedirs(export_dir)
     os.makedirs(os.path.join(export_dir, "screenshots"))
-    await log(
-        export_job, f"Export started, export_dir={export_dir}"
-    )
+    await log(export_job, f"Export started, export_dir={export_dir}")
 
     # Start the selenium web driver
     options = Options()
@@ -1042,7 +1042,7 @@ async def start_export_job(export_job):
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     d = webdriver.Chrome(options=options)
-    d.set_window_size(1024, 768)
+    d.set_window_size(700, 900)
 
     # Start the CSV
     csv_filename = os.path.join(export_dir, "tweets.csv")
@@ -1105,6 +1105,43 @@ async def start_export_job(export_job):
             )
 
     await log(export_job, f"CSV written: {csv_filename}")
+
+    # Write readme.txt
+    with open(os.path.join(export_dir, "readme.txt"), "w") as f:
+        f.write("Semiphemeral export of tweets\n")
+        f.write(f"Export started: {export_date.strftime('%Y-%m-%d at %H:%M')}\n\n")
+        f.write(
+            "The text from all of your tweets are saved in the spreadsheet tweets.csv. Open it in spreadsheet software like LibreOffice Calc, Microsoft Excel, or Google Docs.\n\n"
+        )
+        f.write(
+            "Screenshots of all your tweets are in the screenshots folder. To find a screenshot of a specific tweet, search the spreadsheet for it and then find its filename in the 'Screenshot' column.\n"
+        )
+
+    # Zip it all up
+    zip_filename = os.path.join(export_dir, f"export.zip")
+    with zipfile.ZipFile(zip_filename, "w") as z:
+        z.write(os.path.join(export_dir, "readme.txt"), arcname="readme.txt")
+        z.write(os.path.join(export_dir, "tweets.csv"), arcname="tweets.csv")
+        z.write(os.path.join(export_dir, "screenshots"), arcname="screenshots")
+
+    # Now that it's compressed, delete the uncompressed stuff to save disk space
+    os.remove(os.path.join(export_dir, "readme.txt"))
+    os.remove(os.path.join(export_dir, "tweets.csv"))
+    shutil.rmtree(os.path.join(export_dir, "screenshots"))
+
+    # All finished! Update the job
+    await export_job.update(
+        status="finished", finished_timestamp=datetime.now()
+    ).apply()
+
+    # Send a DM
+    message = f"The export of your tweets is ready to download! Get it from here: https://{os.environ.get('DOMAIN')}/export"
+    await DirectMessageJob.create(
+        dest_twitter_id=user.twitter_id,
+        message=message,
+        status="pending",
+        scheduled_timestamp=datetime.now(),
+    )
 
 
 async def start_jobs():
