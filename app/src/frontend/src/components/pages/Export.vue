@@ -144,7 +144,9 @@ export default {
     },
     humanReadableTimestamp: function (timestamp) {
       var date = new Date(timestamp * 1000);
-      return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
+      return (
+        date.toLocaleDateString() + " at " + date.toLocaleTimeString() + " UTC"
+      );
     },
   },
 };

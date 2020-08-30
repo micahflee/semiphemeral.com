@@ -1124,7 +1124,7 @@ async def start_export_job(export_job):
     # Write readme.txt
     with open(os.path.join(export_dir, "readme.txt"), "w") as f:
         f.write("Semiphemeral export of tweets\n")
-        f.write(f"Export started: {export_date.strftime('%Y-%m-%d at %H:%M')}\n\n")
+        f.write(f"Export started: {export_date.strftime('%Y-%m-%d at %H:%M')} UTC\n\n")
         f.write(
             "The text from all of your tweets are saved in the spreadsheet tweets.csv. Open it in spreadsheet software like LibreOffice Calc, Microsoft Excel, or Google Docs.\n\n"
         )

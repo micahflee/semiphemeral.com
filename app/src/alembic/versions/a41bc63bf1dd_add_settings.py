@@ -19,11 +19,11 @@ depends_on = None
 def upgrade():
     op.add_column(
         "users",
-        sa.Column("tweets_enable_retweet_threshold", sa.Boolean, server_default=True),
+        sa.Column("tweets_enable_retweet_threshold", sa.Boolean, default=True),
     )
     op.add_column(
         "users",
-        sa.Column("tweets_enable_like_threshold", sa.Boolean, server_default=True),
+        sa.Column("tweets_enable_like_threshold", sa.Boolean, default=True),
     )
 
 
