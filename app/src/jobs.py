@@ -1110,7 +1110,7 @@ async def start_export_job(export_job):
             # Take screenshot
             await log(export_job, f"Screenshoting {url}")
             d.get(url)
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
 
             # Ignore rate limit check if the text of the tweet has the rate limit text
             # we're searching for, lol
@@ -1121,7 +1121,7 @@ async def start_export_job(export_job):
                     await update_progress_rate_limit(export_job, progress, 15)
 
                     d.get(url)
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(2)
                     html = d.find_element_by_tag_name("body").get_attribute("innerHTML")
 
             d.save_screenshot(
