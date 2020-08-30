@@ -1021,7 +1021,15 @@ async def start_unblock_job(unblock_job):
 
 
 async def start_export_job(export_job):
-    await export_job.update(status="active", started_timestamp=datetime.now()).apply()
+    progress = {
+        "total_tweets": 0,
+        "screenshots_taken": 0,
+        "status": "Semiphemeral is screenshotting all of your tweets. You'll receive a direct message when it's ready to download.",
+    }
+    await export_job.update(
+        status="active", started_timestamp=datetime.now()
+    ).apply()
+    await update_progress(export_job, progress)
 
     user = await User.query.where(User.id == export_job.user_id).gino.first()
     api = await twitter_api(user)
@@ -1073,6 +1081,9 @@ async def start_export_job(export_job):
             .order_by(Tweet.created_at.desc())
             .gino.all()
         )
+        progress["total_tweets"] = len(tweets)
+        await update_progress(export_job, progress)
+
         for tweet in tweets:
             url = f"https://twitter.com/{user.twitter_screen_name}/status/{tweet.status_id}"
             screenshot_filename = (
@@ -1109,10 +1120,7 @@ async def start_export_job(export_job):
                 # Are we rate limited?
                 html = d.find_element_by_tag_name("body").get_attribute("innerHTML")
                 while "Sorry, you are rate limited" in html:
-                    await log(
-                        export_job, f"Hit screenshot rate limit, waiting 5 minutes ..."
-                    )
-                    await asyncio.sleep(300)
+                    await update_progress_rate_limit(export_job, progress, 5)
 
                     d.get(url)
                     await asyncio.sleep(1)
@@ -1121,8 +1129,13 @@ async def start_export_job(export_job):
             d.save_screenshot(
                 os.path.join(export_dir, "screenshots", screenshot_filename)
             )
+            progress["screenshots_taken"] += 1
+            await update_progress(export_job, progress)
 
     await log(export_job, f"CSV written: {csv_filename}")
+
+    progress["status"] = "Zipping up your screenshots"
+    await update_progress(export_job, progress)
 
     # Write readme.txt
     with open(os.path.join(export_dir, "readme.txt"), "w") as f:

@@ -21,7 +21,16 @@ button {
 
 <template>
   <div>
-    <h1>Export your tweets</h1>
+    <h1>
+      Export your tweets
+      <img
+        class="refresh"
+        v-on:click="fetchExportJobs()"
+        src="/static/img/refresh.png"
+        alt="Refresh"
+        title="Refresh"
+      />
+    </h1>
 
     <template v-if="loading">
       <p>
@@ -55,10 +64,15 @@ button {
           v-if="status == 'pending'"
           class="info"
         >Waiting to create your export as soon as it's your turn in the queue.</p>
-        <p
-          v-if="status == 'active'"
-          class="info"
-        >We're busy screenshotting all of your tweets. You'll receive a direct message when it's ready to download.</p>
+        <div v-if="status == 'active' && progress != null">
+          <p class="info">{{ getProgressVal(progress, 'status') }}</p>
+          <p>
+            <em>
+              <strong>{{ getProgressVal(progress, 'screenshots_taken') }}</strong> /
+              <strong>{{ getProgressVal(progress, 'total_tweets') }}</strong> screenshots taken
+            </em>
+          </p>
+        </div>
       </template>
     </template>
   </div>
@@ -74,6 +88,7 @@ export default {
       finishedTimestamp: null,
       tooSoon: false,
       downloadable: false,
+      progress: null,
     };
   },
   created: function () {
@@ -100,6 +115,7 @@ export default {
             that.finishedTimestamp = data["finished_timestamp"];
             that.tooSoon = data["too_soon"];
             that.downloadable = data["downloadable"];
+            that.progress = data["progress"];
           });
         })
         .catch(function (err) {
@@ -147,6 +163,14 @@ export default {
       return (
         date.toLocaleDateString() + " at " + date.toLocaleTimeString() + " UTC"
       );
+    },
+    getProgressVal: function (progress, key) {
+      var p = JSON.parse(progress);
+      if (p) {
+        return p[key];
+      } else {
+        return "";
+      }
     },
   },
 };

@@ -417,16 +417,22 @@ async def api_get_export(request):
                 "/export", str(user.twitter_screen_name), "export.zip"
             )
             downloadable = os.path.exists(export_zip)
+            progress = None
         else:
             finished_timestamp = None
             too_soon = False
             downloadable = False
+            if status == "active":
+                progress = export_job.progress
+            else:
+                progress = None
 
     else:
         status = None
         finished_timestamp = None
         too_soon = False
         downloadable = False
+        progress = None
 
     return web.json_response(
         {
@@ -434,6 +440,7 @@ async def api_get_export(request):
             "finished_timestamp": finished_timestamp,
             "too_soon": too_soon,
             "downloadable": downloadable,
+            "progress": progress,
         }
     )
 
