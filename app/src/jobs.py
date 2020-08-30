@@ -248,7 +248,7 @@ async def import_tweet_and_thread(user, api, job, progress, status):
 
                     # On rate limit, try again
                     if error_code == 88:  # 88 = Rate limit exceeded
-                        await update_progress_rate_limit(job, progress, 5)
+                        await update_progress_rate_limit(job, progress, 15)
                     else:
                         # Otherwise (it's been deleted, the user is suspended, unauthorized, blocked), ignore
                         await log(job, f"Error importing parent tweet: {e}")
@@ -1026,9 +1026,7 @@ async def start_export_job(export_job):
         "screenshots_taken": 0,
         "status": "Semiphemeral is screenshotting all of your tweets. You'll receive a direct message when it's ready to download.",
     }
-    await export_job.update(
-        status="active", started_timestamp=datetime.now()
-    ).apply()
+    await export_job.update(status="active", started_timestamp=datetime.now()).apply()
     await update_progress(export_job, progress)
 
     user = await User.query.where(User.id == export_job.user_id).gino.first()
@@ -1120,7 +1118,7 @@ async def start_export_job(export_job):
                 # Are we rate limited?
                 html = d.find_element_by_tag_name("body").get_attribute("innerHTML")
                 while "Sorry, you are rate limited" in html:
-                    await update_progress_rate_limit(export_job, progress, 5)
+                    await update_progress_rate_limit(export_job, progress, 15)
 
                     d.get(url)
                     await asyncio.sleep(1)
