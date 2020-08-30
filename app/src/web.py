@@ -5,7 +5,6 @@ import logging
 import asyncio
 import functools
 import subprocess
-import tempfile
 import csv
 from datetime import datetime, timedelta
 from aiohttp import web
@@ -397,55 +396,59 @@ async def api_get_export_download(request):
     user = await _logged_in_user(session)
 
     # Create the CSV
-    csv_file = tempfile.NamedTemporaryFile()
-    fieldnames = [
-        "Date",  # created_at
-        "Username",  # twitter_user_screen_name
-        "Tweet ID",  # status_id
-        "Text",  # text
-        "Replying to Username",  # in_reply_to_screen_name
-        "Replying to Tweet ID",  # in_reply_to_status_id
-        "Retweets",  # retweet_count
-        "Likes",  # favorite_count
-        "Retweeted",  # is_retweet
-        "Liked",  # favorited
-        "URL",
-    ]
-    writer = csv.DictWriter(f, fieldnames=fieldnames, dialect="unix")
-    writer.writeheader()
-
-    tweets = (
-        await Tweet.query.where(Tweet.user_id == export_job.user_id)
-        .where(Tweet.twitter_user_id == user.twitter_id)
-        .where(Tweet.is_deleted == False)
-        .where(Tweet.is_unliked == False)
-        .order_by(Tweet.created_at.desc())
-        .gino.all()
+    os.makedirs(os.path.join("/tmp", "export", str(user.twitter_screen_name)))
+    csv_filename = os.path.join(
+        "/tmp", "export", str(user.twitter_screen_name), "export.csv"
     )
-    for tweet in tweets:
-        url = f"https://twitter.com/{user.twitter_screen_name}/status/{tweet.status_id}"
+    with open(csv_filename, "w") as f:
+        fieldnames = [
+            "Date",  # created_at
+            "Username",  # twitter_user_screen_name
+            "Tweet ID",  # status_id
+            "Text",  # text
+            "Replying to Username",  # in_reply_to_screen_name
+            "Replying to Tweet ID",  # in_reply_to_status_id
+            "Retweets",  # retweet_count
+            "Likes",  # favorite_count
+            "Retweeted",  # is_retweet
+            "Liked",  # favorited
+            "URL",
+        ]
+        writer = csv.DictWriter(f, fieldnames=fieldnames, dialect="unix")
+        writer.writeheader()
 
-        # Write the row
-        writer.writerow(
-            {
-                "Date": tweet.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "Username": tweet.twitter_user_screen_name,
-                "Tweet ID": str(tweet.status_id),
-                "Text": tweet.text,
-                "Replying to Username": tweet.in_reply_to_screen_name,
-                "Replying to Tweet ID": str(tweet.in_reply_to_status_id),
-                "Retweets": str(tweet.retweet_count),
-                "Likes": str(tweet.favorite_count),
-                "Retweeted": str(tweet.is_retweet),
-                "Liked": str(tweet.favorited),
-                "URL": url,
-            }
+        tweets = (
+            await Tweet.query.where(Tweet.user_id == user.id)
+            .where(Tweet.twitter_user_id == user.twitter_id)
+            .where(Tweet.is_deleted == False)
+            .where(Tweet.is_unliked == False)
+            .order_by(Tweet.created_at.desc())
+            .gino.all()
         )
+        for tweet in tweets:
+            url = f"https://twitter.com/{user.twitter_screen_name}/status/{tweet.status_id}"
+
+            # Write the row
+            writer.writerow(
+                {
+                    "Date": tweet.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    "Username": tweet.twitter_user_screen_name,
+                    "Tweet ID": str(tweet.status_id),
+                    "Text": tweet.text,
+                    "Replying to Username": tweet.in_reply_to_screen_name,
+                    "Replying to Tweet ID": str(tweet.in_reply_to_status_id),
+                    "Retweets": str(tweet.retweet_count),
+                    "Likes": str(tweet.favorite_count),
+                    "Retweeted": str(tweet.is_retweet),
+                    "Liked": str(tweet.favorited),
+                    "URL": url,
+                }
+            )
 
     download_filename = f"semiphemeral-export-{user.twitter_screen_name}-{datetime.now().strftime('%Y-%m-%d')}.csv"
     return web.FileResponse(
-        csv_file.name,
-        headers={f"Content-Disposition": 'attachment; filename="{download_filename}"'},
+        csv_filename,
+        headers={"Content-Disposition": f'attachment; filename="{download_filename}"'},
     )
 
 
