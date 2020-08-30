@@ -97,7 +97,7 @@ ul.jobs {
           <ul>
             <li>
               If you want,
-              <router-link to="/export">export</router-link>&nbsp;a spreadsheet and screenshots of your tweets before you delete them
+              <router-link to="/export">export</router-link>&nbsp;a spreadsheet of your tweets before you delete them
             </li>
             <li v-if="state == 'B'">
               If you haven't already, make sure your
