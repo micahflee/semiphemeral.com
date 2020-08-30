@@ -1103,17 +1103,20 @@ async def start_export_job(export_job):
             d.get(url)
             await asyncio.sleep(1)
 
-            # Are we rate limited?
-            html = d.find_element_by_tag_name("body").get_attribute("innerHTML")
-            while "Sorry, you are rate limited" in html:
-                await log(
-                    export_job, f"Hit screenshot rate limit, waiting 5 minutes ..."
-                )
-                await asyncio.sleep(300)
-
-                d.get(url)
-                await asyncio.sleep(1)
+            # Ignore rate limit check if the text of the tweet has the rate limit text
+            # we're searching for, lol
+            if "Sorry, you are rate limited" not in tweet.text:
+                # Are we rate limited?
                 html = d.find_element_by_tag_name("body").get_attribute("innerHTML")
+                while "Sorry, you are rate limited" in html:
+                    await log(
+                        export_job, f"Hit screenshot rate limit, waiting 5 minutes ..."
+                    )
+                    await asyncio.sleep(300)
+
+                    d.get(url)
+                    await asyncio.sleep(1)
+                    html = d.find_element_by_tag_name("body").get_attribute("innerHTML")
 
             d.save_screenshot(
                 os.path.join(export_dir, "screenshots", screenshot_filename)

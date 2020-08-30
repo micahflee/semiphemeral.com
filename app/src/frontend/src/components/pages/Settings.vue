@@ -78,7 +78,7 @@ fieldset.disabled {
               class="small"
               min="0"
               v-model="tweetsRetweetThreshold"
-              v-bind:disabled="!deleteTweets"
+              v-bind:disabled="!deleteTweets || !tweetsEnableRetweetThreshold"
             />
             retweets
           </p>
@@ -96,7 +96,7 @@ fieldset.disabled {
               class="small"
               min="0"
               v-model="tweetsLikeThreshold"
-              v-bind:disabled="!deleteTweets"
+              v-bind:disabled="!deleteTweets || !tweetsEnableLikeThreshold"
             />
             likes
           </p>
