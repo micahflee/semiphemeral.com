@@ -5,7 +5,7 @@ import asyncio
 
 from db import connect_db
 from web import start_web_server
-from jobs import start_jobs, start_dm_jobs, start_export_jobs
+from jobs import start_jobs, start_dm_jobs
 
 
 async def main():
@@ -24,8 +24,6 @@ async def main():
         await start_jobs()
     elif os.environ.get("SEMIPHEMERAL_DM_JOBS") == "1":
         await start_dm_jobs()
-    elif os.environ.get("SEMIPHEMERAL_EXPORT_JOBS") == "1":
-        await start_export_jobs()
 
 
 if __name__ == "__main__":
