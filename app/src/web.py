@@ -442,9 +442,10 @@ async def api_get_export_download(request):
             }
         )
 
-    download_filename = f"semiphemeral-export-{user.twitter_screen_name}-{datetime.now().strftime("%Y-%m-%d")}.csv"
+    download_filename = f"semiphemeral-export-{user.twitter_screen_name}-{datetime.now().strftime('%Y-%m-%d')}.csv"
     return web.FileResponse(
-        csv_file.name, headers={f"Content-Disposition": 'attachment; filename="{download_filename}"'}
+        csv_file.name,
+        headers={f"Content-Disposition": 'attachment; filename="{download_filename}"'},
     )
 
 
