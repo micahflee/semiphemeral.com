@@ -247,7 +247,7 @@ async def import_tweet_and_thread(user, api, job, progress, status):
 
                     # On rate limit, try again
                     if error_code == 88:  # 88 = Rate limit exceeded
-                        await update_progress_rate_limit(job, progress, 15)
+                        await update_progress_rate_limit(job, progress, 16)
                     else:
                         # Otherwise (it's been deleted, the user is suspended, unauthorized, blocked), ignore
                         await log(job, f"Error importing parent tweet: {e}")
@@ -354,7 +354,7 @@ async def fetch(job):
                 # await reschedule_job(job, timedelta(minutes=15))
                 return
 
-            await update_progress_rate_limit(job, progress, 15)
+            await update_progress_rate_limit(job, progress, 16)
             continue
 
         # Import these tweets, and all their threads
@@ -436,7 +436,7 @@ async def fetch(job):
                 # await reschedule_job(job, timedelta(minutes=15))
                 return
 
-            await update_progress_rate_limit(job, progress, 15)
+            await update_progress_rate_limit(job, progress, 16)
             continue
 
         # Import these tweets
@@ -573,7 +573,7 @@ async def delete(job):
                             await tweet.update(is_deleted=True).apply()
                             break
                         elif e.api_code == 429:  # 429 = Too Many Requests
-                            await update_progress_rate_limit(job, progress, 15)
+                            await update_progress_rate_limit(job, progress, 16)
                             # Don't break, so it tries again
                         else:
                             # Unknown error
@@ -622,7 +622,7 @@ async def delete(job):
                             await tweet.update(is_unliked=True).apply()
                             break
                         elif e.api_code == 429:  # 429 = Too Many Requests
-                            await update_progress_rate_limit(job, progress, 15)
+                            await update_progress_rate_limit(job, progress, 16)
                             # Don't break, so it tries again
                         else:
                             # Unknown error
@@ -659,7 +659,7 @@ async def delete(job):
                         await tweet.update(is_deleted=True, text=None).apply()
                         break
                     elif e.api_code == 429:  # 429 = Too Many Requests
-                        await update_progress_rate_limit(job, progress, 15)
+                        await update_progress_rate_limit(job, progress, 16)
                         # Don't break, so it tries again
                     else:
                         # Unknown error
