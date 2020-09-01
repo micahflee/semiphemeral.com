@@ -27,6 +27,7 @@ async def main():
                 await start_jobs()
             elif os.environ.get("SEMIPHEMERAL_DM_JOBS") == "1":
                 await start_dm_jobs()
+            break
         except asyncpg.exceptions.ConnectionDoesNotExistError:
             print("Error connecting, sleeping 5 seconds and trying again")
             await asyncio.sleep(5)
