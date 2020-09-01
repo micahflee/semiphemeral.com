@@ -180,7 +180,9 @@ async def save_tweet(user, status):
         twitter_user_id=status.author.id,
         twitter_user_screen_name=status.author.screen_name,
         status_id=status.id,
-        text=status.full_text,
+        text=status.full_text.replace(
+            "\x00", ""
+        ),  # For some reason this tweet has null bytes https://twitter.com/mehdirhasan/status/65015127132471296
         in_reply_to_screen_name=status.in_reply_to_screen_name,
         in_reply_to_status_id=status.in_reply_to_status_id,
         in_reply_to_user_id=status.in_reply_to_user_id,
