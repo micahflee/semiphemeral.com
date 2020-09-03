@@ -121,6 +121,10 @@ ul.jobs {
             <strong>paused</strong>. Before you proceed:
           </p>
           <ul>
+            <li>
+              If you want,
+              <router-link to="/export">export</router-link>&nbsp;a spreadsheet of your tweets before you delete them
+            </li>
             <li v-if="state == 'B'">
               If you haven't already, make sure your
               <router-link to="/settings">settings</router-link>&nbsp;are exactly as you want them

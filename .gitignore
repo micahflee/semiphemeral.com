@@ -110,6 +110,8 @@ venv.bak/
 # terraform
 .terraform
 terraform.tfstate.backup
+# staging tfstate
+terraform/staging/terraform.tfstate
 
 # secrets
 .vars-*

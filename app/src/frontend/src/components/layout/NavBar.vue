@@ -66,6 +66,9 @@ span.user span a {
         <router-link to="/tweets">Tweets</router-link>
       </li>
       <li>
+        <router-link to="/export">Export</router-link>
+      </li>
+      <li>
         <router-link to="/settings">Settings</router-link>
       </li>
       <li>
@@ -88,9 +91,9 @@ span.user span a {
 export default {
   props: ["userScreenName", "userProfileUrl"],
   computed: {
-    logoutTitle: function() {
+    logoutTitle: function () {
       return "Logged in as @" + this.userScreenName;
-    }
-  }
+    },
+  },
 };
 </script>
