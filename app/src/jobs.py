@@ -215,8 +215,7 @@ async def import_tweet_and_thread(user, api, job, progress, status):
         tweet = await save_tweet(user, status)
     else:
         await log(
-            job,
-            f"Tweet of {status.id} already imported",
+            job, f"Tweet of {status.id} already imported",
         )
 
     # Is this tweet a reply?
@@ -712,8 +711,7 @@ async def delete(job):
     if not last_nag:
         # Create a nag
         await Nag.create(
-            user_id=user.id,
-            timestamp=datetime.now(),
+            user_id=user.id, timestamp=datetime.now(),
         )
 
         # The user has never been nagged, so this is the first delete
@@ -739,8 +737,7 @@ async def delete(job):
         if should_nag:
             # Create a nag
             await Nag.create(
-                user_id=user.id,
-                timestamp=datetime.now(),
+                user_id=user.id, timestamp=datetime.now(),
             )
 
             # The user has been nagged before -- do some math to get the totals
@@ -997,7 +994,7 @@ async def start_unblock_job(unblock_job):
 
         # If we're unblocking a semiphemeral user
         if unblock_job.user_id:
-            user = await User.query.where(User.id=unblock_job.user_id).gino.first()
+            user = await User.query.where(id=unblock_job.user_id).gino.first()
             if user and user.blocked:
                 # Update the user
                 await user.update(paused=True, blocked=False).apply()
