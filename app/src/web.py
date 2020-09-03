@@ -473,12 +473,7 @@ async def api_post_tip(request):
 
     # Validate
     await _api_validate(
-        {
-            "token": str,
-            "amount": str,
-            "other_amount": [str, float],
-        },
-        data,
+        {"token": str, "amount": str, "other_amount": [str, float],}, data,
     )
     if (
         data["amount"] != "100"
@@ -705,8 +700,8 @@ async def api_get_dashboard(request):
             }
             for tweet in fascist_tweets
         ]
-        # Don't return the list if there's more than 3
-        if len(fascist_tweets) > 3:
+        # Don't return the list if there's more than 5
+        if len(fascist_tweets) > 5:
             fascist_tweets = []
 
     return web.json_response(
@@ -782,7 +777,7 @@ async def api_post_dashboard(request):
                 .order_by(Tweet.created_at.desc())
                 .gino.all()
             )
-            if len(fascist_tweets) >= 3:
+            if len(fascist_tweets) >= 5:
                 return web.json_response(
                     {
                         "message": "You've liked too many fascist tweets to be allowed to automatically unblock yourself"
@@ -1111,10 +1106,7 @@ async def admin_api_get_fascists(request):
         fascists_json = []
         for fascist in fascists:
             fascists_json.append(
-                {
-                    "username": fascist.username,
-                    "comment": fascist.comment,
-                }
+                {"username": fascist.username, "comment": fascist.comment,}
             )
         return fascists_json
 
