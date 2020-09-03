@@ -94,6 +94,13 @@
         state: directory
         owner: "1000"
         mode: 0700
+    
+    - name: ensure export volume directory has the right permissions
+      file:
+        path: /opt/semiphemeral/data/export
+        state: directory
+        owner: "1000"
+        mode: 0700
 
     - name: ensure proxy volume data directory has the right permissions
       file:

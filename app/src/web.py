@@ -5,6 +5,7 @@ import logging
 import asyncio
 import functools
 import subprocess
+import csv
 from datetime import datetime, timedelta
 from aiohttp import web
 from aiohttp_session import setup, get_session, new_session
@@ -40,6 +41,9 @@ async def _logged_in_user(session):
         user = await User.query.where(
             User.twitter_id == session["twitter_id"]
         ).gino.first()
+        if not user:
+            del session["twitter_id"]
+            return None
 
         # Are we the administrator impersonating another user?
         if (
@@ -294,7 +298,9 @@ async def api_get_settings(request):
             "has_fetched": has_fetched,
             "delete_tweets": user.delete_tweets,
             "tweets_days_threshold": user.tweets_days_threshold,
+            "tweets_enable_retweet_threshold": user.tweets_enable_retweet_threshold,
             "tweets_retweet_threshold": user.tweets_retweet_threshold,
+            "tweets_enable_like_threshold": user.tweets_enable_like_threshold,
             "tweets_like_threshold": user.tweets_like_threshold,
             "tweets_threads_threshold": user.tweets_threads_threshold,
             "retweets_likes": user.retweets_likes,
@@ -320,7 +326,9 @@ async def api_post_settings(request):
         {
             "delete_tweets": bool,
             "tweets_days_threshold": int,
+            "tweets_enable_retweet_threshold": bool,
             "tweets_retweet_threshold": int,
+            "tweets_enable_like_threshold": bool,
             "tweets_like_threshold": int,
             "tweets_threads_threshold": bool,
             "retweets_likes": bool,
@@ -337,7 +345,9 @@ async def api_post_settings(request):
     await user.update(
         delete_tweets=data["delete_tweets"],
         tweets_days_threshold=data["tweets_days_threshold"],
+        tweets_enable_retweet_threshold=data["tweets_enable_retweet_threshold"],
         tweets_retweet_threshold=data["tweets_retweet_threshold"],
+        tweets_enable_like_threshold=data["tweets_enable_like_threshold"],
         tweets_like_threshold=data["tweets_like_threshold"],
         tweets_threads_threshold=data["tweets_threads_threshold"],
         retweets_likes=data["retweets_likes"],
@@ -377,6 +387,71 @@ async def api_post_settings_delete_account(request):
     return web.json_response(True)
 
 
+@authentication_required_302
+async def api_get_export_download(request):
+    """
+    Download CSV export of tweets
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    # Create the CSV
+    os.makedirs(os.path.join("/tmp", "export", str(user.twitter_screen_name)))
+    csv_filename = os.path.join(
+        "/tmp", "export", str(user.twitter_screen_name), "export.csv"
+    )
+    with open(csv_filename, "w") as f:
+        fieldnames = [
+            "Date",  # created_at
+            "Username",  # twitter_user_screen_name
+            "Tweet ID",  # status_id
+            "Text",  # text
+            "Replying to Username",  # in_reply_to_screen_name
+            "Replying to Tweet ID",  # in_reply_to_status_id
+            "Retweets",  # retweet_count
+            "Likes",  # favorite_count
+            "Retweeted",  # is_retweet
+            "Liked",  # favorited
+            "URL",
+        ]
+        writer = csv.DictWriter(f, fieldnames=fieldnames, dialect="unix")
+        writer.writeheader()
+
+        tweets = (
+            await Tweet.query.where(Tweet.user_id == user.id)
+            .where(Tweet.twitter_user_id == user.twitter_id)
+            .where(Tweet.is_deleted == False)
+            .where(Tweet.is_unliked == False)
+            .order_by(Tweet.created_at.desc())
+            .gino.all()
+        )
+        for tweet in tweets:
+            url = f"https://twitter.com/{user.twitter_screen_name}/status/{tweet.status_id}"
+
+            # Write the row
+            writer.writerow(
+                {
+                    "Date": tweet.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    "Username": tweet.twitter_user_screen_name,
+                    "Tweet ID": str(tweet.status_id),
+                    "Text": tweet.text,
+                    "Replying to Username": tweet.in_reply_to_screen_name,
+                    "Replying to Tweet ID": str(tweet.in_reply_to_status_id),
+                    "Retweets": str(tweet.retweet_count),
+                    "Likes": str(tweet.favorite_count),
+                    "Retweeted": str(tweet.is_retweet),
+                    "Liked": str(tweet.favorited),
+                    "URL": url,
+                }
+            )
+
+    download_filename = f"semiphemeral-export-{user.twitter_screen_name}-{datetime.now().strftime('%Y-%m-%d')}.csv"
+    return web.FileResponse(
+        csv_filename,
+        headers={"Content-Disposition": f'attachment; filename="{download_filename}"'},
+    )
+
+
 @authentication_required_401
 async def api_get_tip(request):
     """
@@ -398,7 +473,12 @@ async def api_post_tip(request):
 
     # Validate
     await _api_validate(
-        {"token": str, "amount": str, "other_amount": [str, float],}, data,
+        {
+            "token": str,
+            "amount": str,
+            "other_amount": [str, float],
+        },
+        data,
     )
     if (
         data["amount"] != "100"
@@ -1031,7 +1111,10 @@ async def admin_api_get_fascists(request):
         fascists_json = []
         for fascist in fascists:
             fascists_json.append(
-                {"username": fascist.username, "comment": fascist.comment,}
+                {
+                    "username": fascist.username,
+                    "comment": fascist.comment,
+                }
             )
         return fascists_json
 
@@ -1212,6 +1295,8 @@ async def start_web_server():
             web.get("/privacy", privacy),
             web.get("/dashboard", app_main),
             web.get("/tweets", app_main),
+            web.get("/export", app_main),
+            web.get("/export/download", api_get_export_download),
             web.get("/settings", app_main),
             web.get("/tip", app_main),
             web.get("/thanks", app_main),

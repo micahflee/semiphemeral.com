@@ -2,6 +2,7 @@ import os
 import asyncio
 import functools
 import tweepy
+import requests
 from datetime import datetime, timedelta
 
 from db import Tweet, Thread, User, DirectMessageJob
@@ -61,10 +62,12 @@ async def tweets_to_delete(user, include_manually_excluded=False):
         .where(Tweet.is_deleted == False)
         .where(Tweet.is_retweet == False)
         .where(Tweet.created_at < datetime_threshold)
-        .where(Tweet.retweet_count < user.tweets_retweet_threshold)
-        .where(Tweet.favorite_count < user.tweets_like_threshold)
         .where(Thread.should_exclude == False)
     )
+    if user.tweets_enable_retweet_threshold:
+        query = query.where(Tweet.retweet_count < user.tweets_retweet_threshold)
+    if user.tweets_enable_like_threshold:
+        query = query.where(Tweet.favorite_count < user.tweets_like_threshold)
     if not include_manually_excluded:
         query = query.where(Tweet.exclude_from_delete == False)
     tweets_to_delete_with_threads = await query.gino.all()
@@ -77,9 +80,11 @@ async def tweets_to_delete(user, include_manually_excluded=False):
         .where(Tweet.is_deleted == False)
         .where(Tweet.is_retweet == False)
         .where(Tweet.created_at < datetime_threshold)
-        .where(Tweet.retweet_count < user.tweets_retweet_threshold)
-        .where(Tweet.favorite_count < user.tweets_like_threshold)
     )
+    if user.tweets_enable_retweet_threshold:
+        query = query.where(Tweet.retweet_count < user.tweets_retweet_threshold)
+    if user.tweets_enable_like_threshold:
+        query = query.where(Tweet.favorite_count < user.tweets_like_threshold)
     if not include_manually_excluded:
         query = query.where(Tweet.exclude_from_delete == False)
     tweets_to_delete_without_threads = await query.gino.all()
@@ -94,13 +99,22 @@ async def tweets_to_delete(user, include_manually_excluded=False):
 
 
 async def send_admin_dm(message):
-    admin_user = await User.query.where(
-        User.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
-    ).gino.first()
-    if admin_user:
-        await DirectMessageJob.create(
-            dest_twitter_id=admin_user.twitter_id,
-            message=message,
-            status="pending",
-            scheduled_timestamp=datetime.now(),
-        )
+    # Webhook
+    webhook_url = os.environ.get("ADMIN_WEBHOOK")
+    try:
+        requests.post(webhook_url, data=message)
+    except:
+        pass
+
+    # Twitter DM
+    # We don't need twitter DMs, the webhook is good enough
+    # admin_user = await User.query.where(
+    #     User.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
+    # ).gino.first()
+    # if admin_user:
+    #     await DirectMessageJob.create(
+    #         dest_twitter_id=admin_user.twitter_id,
+    #         message=message,
+    #         status="pending",
+    #         scheduled_timestamp=datetime.now(),
+    #     )

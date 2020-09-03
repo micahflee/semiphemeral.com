@@ -4,6 +4,7 @@ import VueRouter from 'vue-router';
 import App from './components/App.vue';
 import Dashboard from "./components/pages/Dashboard.vue";
 import Tweets from "./components/pages/Tweets.vue";
+import Export from "./components/pages/Export.vue";
 import Settings from "./components/pages/Settings.vue";
 import Tip from "./components/pages/Tip.vue";
 import Thanks from "./components/pages/Thanks.vue";
@@ -16,6 +17,7 @@ const router = new VueRouter({
     routes: [
         { path: '/dashboard', name: 'dashboard', component: Dashboard },
         { path: '/tweets', name: 'tweets', component: Tweets },
+        { path: '/export', name: 'export', component: Export },
         { path: '/settings', name: 'settings', component: Settings },
         { path: '/tip', name: 'tip', component: Tip },
         { path: '/thanks', name: 'thanks', component: Thanks },

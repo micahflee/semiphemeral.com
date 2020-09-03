@@ -1,9 +1,15 @@
 import asyncio
 import json
 import os
+import shutil
+import csv
 from datetime import datetime, timedelta
+import time
+import zipfile
 
 import tweepy
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
 from common import (
     twitter_api,
@@ -174,7 +180,9 @@ async def save_tweet(user, status):
         twitter_user_id=status.author.id,
         twitter_user_screen_name=status.author.screen_name,
         status_id=status.id,
-        text=status.full_text,
+        text=status.full_text.replace(
+            "\x00", ""
+        ),  # For some reason this tweet has null bytes https://twitter.com/mehdirhasan/status/65015127132471296
         in_reply_to_screen_name=status.in_reply_to_screen_name,
         in_reply_to_status_id=status.in_reply_to_status_id,
         in_reply_to_user_id=status.in_reply_to_user_id,
@@ -207,7 +215,8 @@ async def import_tweet_and_thread(user, api, job, progress, status):
         tweet = await save_tweet(user, status)
     else:
         await log(
-            job, f"Tweet of {status.id} already imported",
+            job,
+            f"Tweet of {status.id} already imported",
         )
 
     # Is this tweet a reply?
@@ -240,7 +249,7 @@ async def import_tweet_and_thread(user, api, job, progress, status):
 
                     # On rate limit, try again
                     if error_code == 88:  # 88 = Rate limit exceeded
-                        await update_progress_rate_limit(job, progress, 5)
+                        await update_progress_rate_limit(job, progress, 16)
                     else:
                         # Otherwise (it's been deleted, the user is suspended, unauthorized, blocked), ignore
                         await log(job, f"Error importing parent tweet: {e}")
@@ -341,12 +350,13 @@ async def fetch(job):
                 # Twitter responded with a 404 error, which could mean the user has deleted their account
                 await log(
                     job,
-                    f"404 error from twitter, rescheduling job for 15 minutes from now",
+                    f"404 error from twitter (account does not exist), so pausing user",
                 )
-                await reschedule_job(job, timedelta(minutes=15))
+                await user.update(paused=True).apply()
+                # await reschedule_job(job, timedelta(minutes=15))
                 return
 
-            await update_progress_rate_limit(job, progress, 15)
+            await update_progress_rate_limit(job, progress, 16)
             continue
 
         # Import these tweets, and all their threads
@@ -422,12 +432,13 @@ async def fetch(job):
                 # Twitter responded with a 404 error, which could mean the user has deleted their account
                 await log(
                     job,
-                    f"404 error from twitter, rescheduling job for 15 minutes from now",
+                    f"404 error from twitter (account does not exist), so pausing user",
                 )
-                await reschedule_job(job, timedelta(minutes=15))
+                await user.update(paused=True).apply()
+                # await reschedule_job(job, timedelta(minutes=15))
                 return
 
-            await update_progress_rate_limit(job, progress, 15)
+            await update_progress_rate_limit(job, progress, 16)
             continue
 
         # Import these tweets
@@ -564,7 +575,7 @@ async def delete(job):
                             await tweet.update(is_deleted=True).apply()
                             break
                         elif e.api_code == 429:  # 429 = Too Many Requests
-                            await update_progress_rate_limit(job, progress, 15)
+                            await update_progress_rate_limit(job, progress, 16)
                             # Don't break, so it tries again
                         else:
                             # Unknown error
@@ -613,7 +624,7 @@ async def delete(job):
                             await tweet.update(is_unliked=True).apply()
                             break
                         elif e.api_code == 429:  # 429 = Too Many Requests
-                            await update_progress_rate_limit(job, progress, 15)
+                            await update_progress_rate_limit(job, progress, 16)
                             # Don't break, so it tries again
                         else:
                             # Unknown error
@@ -650,7 +661,7 @@ async def delete(job):
                         await tweet.update(is_deleted=True, text=None).apply()
                         break
                     elif e.api_code == 429:  # 429 = Too Many Requests
-                        await update_progress_rate_limit(job, progress, 15)
+                        await update_progress_rate_limit(job, progress, 16)
                         # Don't break, so it tries again
                     else:
                         # Unknown error
@@ -701,7 +712,8 @@ async def delete(job):
     if not last_nag:
         # Create a nag
         await Nag.create(
-            user_id=user.id, timestamp=datetime.now(),
+            user_id=user.id,
+            timestamp=datetime.now(),
         )
 
         # The user has never been nagged, so this is the first delete
@@ -727,7 +739,8 @@ async def delete(job):
         if should_nag:
             # Create a nag
             await Nag.create(
-                user_id=user.id, timestamp=datetime.now(),
+                user_id=user.id,
+                timestamp=datetime.now(),
             )
 
             # The user has been nagged before -- do some math to get the totals
@@ -834,14 +847,29 @@ async def start_dm_job(dm_job):
             f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sent DM to twitter_id={dm_job.dest_twitter_id}"
         )
     except Exception as e:
-        # If sending the DM failed, try again in 5 minutes
-        await dm_job.update(
-            status="pending", scheduled_timestamp=datetime.now() + timedelta(minutes=5)
-        ).apply()
+        try:
+            error_code = e.args[0][0]["code"]
+        except:
+            error_code = e.api_code
 
-        print(
-            f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), delaying 5 minutes"
-        )
+        # 150: You cannot send messages to users who are not following you.
+        # 349: You cannot send messages to this user.
+        # 108: Cannot find specified user.
+        if error_code == 150 or error_code == 349 or error_code == 108:
+            print(
+                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), marking as failure"
+            )
+            await dm_job.update(status="failed").apply()
+        else:
+            # If sending the DM failed, try again in 5 minutes
+            await dm_job.update(
+                status="pending",
+                scheduled_timestamp=datetime.now() + timedelta(minutes=5),
+            ).apply()
+
+            print(
+                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), delaying 5 minutes"
+            )
 
 
 async def start_block_job(block_job):
@@ -1035,6 +1063,8 @@ async def start_dm_jobs():
         f"DM jobs container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
     )
 
+    minutes = 0
+
     while True:
         tasks = []
 
@@ -1042,6 +1072,7 @@ async def start_dm_jobs():
         dm_job = (
             await DirectMessageJob.query.where(DirectMessageJob.status == "pending")
             .where(DirectMessageJob.scheduled_timestamp <= datetime.now())
+            .order_by(DirectMessageJob.scheduled_timestamp)
             .gino.first()
         )
         if dm_job:
@@ -1069,3 +1100,66 @@ async def start_dm_jobs():
 
         print(f"Waiting 1 minute")
         await asyncio.sleep(60)
+
+        # Only run this once a day
+        if minutes == 0:
+            # Do we need to send reminders?
+            print("Checking if we need to send reminders")
+
+            message = f"Hello! Just in case you forgot about me, your Semiphemeral account has been paused for several months. You can login at https://{os.environ.get('DOMAIN')}/ to unpause your account and start automatically deleting your old tweets and likes, except for the ones you want to keep."
+
+            three_months_ago = datetime.now() - timedelta(days=90)
+            reminded_users = []
+
+            # Find all the paused users
+            users = (
+                await User.query.where(User.blocked == False)
+                .where(User.paused == True)
+                .gino.all()
+            )
+            for user in users:
+                # Get the last job they finished
+                last_job = (
+                    await Job.query.where(Job.user_id == user.id)
+                    .where(Job.status == "finished")
+                    .order_by(Job.finished_timestamp.desc())
+                    .gino.first()
+                )
+                if last_job:
+                    # Was it it more than 3 months ago?
+                    if last_job.finished_timestamp < three_months_ago:
+                        remind = False
+
+                        # Let's make sure we also haven't sent them a DM in the last 3 months
+                        last_dm_job = (
+                            await DirectMessageJob.query.where(
+                                DirectMessageJob.dest_twitter_id == user.twitter_id
+                            )
+                            .order_by(DirectMessageJob.sent_timestamp.desc())
+                            .gino.first()
+                        )
+                        if last_dm_job:
+                            if last_dm_job.scheduled_timestamp < three_months_ago:
+                                remind = True
+                        else:
+                            remind = True
+
+                        if remind:
+                            reminded_users.append(user.twitter_screen_name)
+                            await DirectMessageJob.create(
+                                dest_twitter_id=user.twitter_id,
+                                message=message,
+                                status="pending",
+                                scheduled_timestamp=datetime.now(),
+                            )
+
+            if len(reminded_users) > 0:
+                admin_message = (
+                    f"Sent semiphemeral reminders to {len(reminded_users)} users:\n\n"
+                    + "\n".join(reminded_users)
+                )
+                await send_admin_dm(admin_message)
+
+            minutes += 1
+            if minutes == 1440:
+                minutes = 0
