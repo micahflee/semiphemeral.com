@@ -916,7 +916,7 @@ async def start_block_job(block_job):
                 unblock_timestamp_formatted = unblock_timestamp.strftime("%B %-d, %Y")
 
                 # Send the DM
-                message = f"You have liked at least one tweet from a fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated. See https://{os.environ.get('DOMAIN')}/dashboard for more information.\n\nYou will get automatically unblocked on {unblock_timestamp_formatted}. You can try logging in to reactivate your account then, so long as you stop liking tweets from fascists."
+                message = f"You have liked at least one tweet from a fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated. See https://{os.environ.get('DOMAIN')}/dashboard for information about appealing.\n\nYou will get automatically unblocked on {unblock_timestamp_formatted}. You can reactivate your account then so long as you stop liking tweets from fascists."
 
                 await twitter_api_call(
                     api,
@@ -997,7 +997,7 @@ async def start_unblock_job(unblock_job):
 
         # If we're unblocking a semiphemeral user
         if unblock_job.user_id:
-            user = await User.query.where(id=unblock_job.user_id).gino.first()
+            user = await User.query.where(User.id=unblock_job.user_id).gino.first()
             if user and user.blocked:
                 # Update the user
                 await user.update(paused=True, blocked=False).apply()
