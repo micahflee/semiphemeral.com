@@ -82,7 +82,7 @@ ul.jobs {
             v-bind:statusId="tweet.status_id"
             v-bind:permalink="tweet.permalink"
           ></FascistTweet>
-          <p>If you oppose fascism and think you've been blocked unfairly or by mistake, you can unlike these tweets from prominent fascists (so you don't get automatically blocked again), and then request unblocking:</p>
+          <p>If you oppose fascism and think you've been blocked unfairly or by mistake, you can unlike these tweets (so you don't get automatically blocked again) and then click the button below to unblock yourself:</p>
 
           <p>
             <button
