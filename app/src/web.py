@@ -358,7 +358,7 @@ async def api_get_settings(request):
     ):
         # Check if user is authenticated with DMs twitter app
         try:
-            dms_api = twitter_dms_api(user)
+            dms_api = await twitter_dms_api(user)
             twitter_user = await twitter_api_call(dms_api, "me")
             if session["twitter_id"] == twitter_user.id:
                 is_dm_app_authenticated = True
@@ -424,6 +424,10 @@ async def api_post_settings(request):
         )
 
         # Update settings in the database
+        direct_messages_threshold = int(data["direct_messages_threshold"])
+        if direct_messages_threshold > 29:
+            direct_messages_threshold = 29
+
         await user.update(
             delete_tweets=data["delete_tweets"],
             tweets_days_threshold=data["tweets_days_threshold"],
@@ -438,7 +442,7 @@ async def api_post_settings(request):
             retweets_likes_delete_likes=data["retweets_likes_delete_likes"],
             retweets_likes_likes_threshold=data["retweets_likes_likes_threshold"],
             direct_messages=data["direct_messages"],
-            direct_messages_threshold=data["direct_messages_threshold"],
+            direct_messages_threshold=direct_messages_threshold,
         ).apply()
 
         # Does the user want to force downloading all tweets next time?
