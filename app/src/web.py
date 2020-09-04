@@ -1082,7 +1082,10 @@ async def api_get_dms(request):
 
     is_dm_app_authenticated = await _api_validate_dms_authenticated(user)
 
-    return web.json_response({"is_dm_app_authenticated": is_dm_app_authenticated,})
+    return web.json_response({
+        "direct_messages": user.direct_messages,
+        "is_dm_app_authenticated": is_dm_app_authenticated,
+    })
 
 
 @aiohttp_jinja2.template("index.jinja2")
