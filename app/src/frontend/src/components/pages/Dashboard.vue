@@ -158,8 +158,11 @@ ul.jobs {
             <strong>active</strong>.
             <button class="pause" v-on:click="pauseSemiphemeral">Pause Semiphemeral</button>
           </p>
-          <p v-if="!settingDeleteTweets && !settingRetweetsLikes" class="warning">
-            Warning: Your settings are configured to not delete any tweets, retweets, or likes. Go
+          <p
+            v-if="!settingDeleteTweets && !settingRetweetsLikes && !settingDirectMessages"
+            class="warning"
+          >
+            Warning: Your settings are configured to not delete any tweets, retweets, likes, or direct messages. Go
             <router-link to="/settings">change your settings</router-link>&nbsp;if you want Semiphemeral to delete your old tweets.
           </p>
         </div>
@@ -203,6 +206,7 @@ export default {
       settingBlocked: null,
       settingDeleteTweets: null,
       settingRetweetsLikes: null,
+      settingDirectMessages: null,
       fascistTweets: [],
     };
   },
@@ -354,7 +358,8 @@ export default {
             that.settingPaused = data["setting_paused"];
             that.settingBlocked = data["setting_blocked"];
             that.settingDeleteTweets = data["setting_delete_tweets"];
-            that.settingRetweetsLikes = data["setting_retweet_likes"];
+            that.settingRetweetsLikes = data["setting_retweets_likes"];
+            that.settingDirectMessages = data["setting_direct_messages"];
             that.fascistTweets = data["fascist_tweets"];
           });
         })

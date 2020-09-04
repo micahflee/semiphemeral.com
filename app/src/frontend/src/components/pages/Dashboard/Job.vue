@@ -71,9 +71,9 @@
         <p
           class="status"
           v-if="scheduledTimestampInThePast"
-        >Waiting to delete your old tweets and likes as soon as it's your turn in the queue</p>
+        >Waiting to delete your old tweets, likes, and/or direct messages as soon as it's your turn in the queue</p>
         <p class="status" v-else>
-          Waiting to delete your old tweets and likes, scheduled for
+          Waiting to delete your old tweets, likes, and/or direct messages, scheduled for
           <em>{{ humanReadableScheduledTimestamp }}</em>
         </p>
       </template>
@@ -88,15 +88,19 @@
           <br />Deleted
           <strong>{{ progressTweetsDeleted }} tweets</strong>,
           <strong>{{ progressRetweetsDeleted }} retweets</strong>,
-          <strong>{{ progressLikesDeleted }} likes</strong>
+          <strong>{{ progressLikesDeleted }} likes</strong>,
+          <strong>{{ progressDMsDeleted }} direct messages</strong>
         </p>
       </template>
       <template v-else-if="job.status == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{ humanReadableFinishedTimestamp}}</span>
-          <span
-            class="progress"
-          >Downloaded {{ progressTweetsFetched }} tweets, {{ progressLikesFetched }} likes and deleted {{ progressTweetsDeleted }} tweets, {{ progressRetweetsDeleted }} retweets, {{ progressLikesDeleted }} likes</span>
+          <span class="progress">
+            Downloaded {{ progressTweetsFetched }} tweets, {{ progressLikesFetched }} likes and deleted {{ progressTweetsDeleted }} tweets, {{ progressRetweetsDeleted }} retweets, {{ progressLikesDeleted }} likes
+            <span
+              v-if="progressDMsDeleted != ''"
+            >&amp; {{ progressDMsDeleted }} direct messages</span>
+          </span>
         </p>
       </template>
     </template>
@@ -107,54 +111,57 @@
 export default {
   props: ["job"],
   computed: {
-    progressTweetsFetched: function() {
+    progressTweetsFetched: function () {
       return this.getProgressVal(this.job.progress, "tweets_fetched");
     },
-    progressLikesFetched: function() {
+    progressLikesFetched: function () {
       return this.getProgressVal(this.job.progress, "likes_fetched");
     },
-    progressTweetsDeleted: function() {
+    progressTweetsDeleted: function () {
       return this.getProgressVal(this.job.progress, "tweets_deleted");
     },
-    progressRetweetsDeleted: function() {
+    progressRetweetsDeleted: function () {
       return this.getProgressVal(this.job.progress, "retweets_deleted");
     },
-    progressLikesDeleted: function() {
+    progressLikesDeleted: function () {
       return this.getProgressVal(this.job.progress, "likes_deleted");
     },
-    progressStatus: function() {
+    progressDMsDeleted: function () {
+      return this.getProgressVal(this.job.progress, "dms_deleted");
+    },
+    progressStatus: function () {
       return this.getProgressVal(this.job.progress, "status");
     },
-    scheduledTimestampInThePast: function() {
+    scheduledTimestampInThePast: function () {
       var scheduledTimestamp = Math.floor(
         this.job["scheduled_timestamp"] * 1000
       );
       var nowTimestamp = Date.now();
       return scheduledTimestamp <= nowTimestamp;
     },
-    humanReadableScheduledTimestamp: function() {
+    humanReadableScheduledTimestamp: function () {
       return this.humanReadableTimestamp(this.job["scheduled_timestamp"]);
     },
-    humanReadableStartedTimestamp: function() {
+    humanReadableStartedTimestamp: function () {
       return this.humanReadableTimestamp(this.job["started_timestamp"]);
     },
-    humanReadableFinishedTimestamp: function() {
+    humanReadableFinishedTimestamp: function () {
       return this.humanReadableTimestamp(this.job["finished_timestamp"]);
-    }
+    },
   },
   methods: {
-    humanReadableTimestamp: function(timestamp) {
+    humanReadableTimestamp: function (timestamp) {
       var date = new Date(timestamp * 1000);
       return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
     },
-    getProgressVal: function(progress, key) {
+    getProgressVal: function (progress, key) {
       var p = JSON.parse(progress);
       if (p) {
         return p[key];
       } else {
         return "";
       }
-    }
-  }
+    },
+  },
 };
 </script>

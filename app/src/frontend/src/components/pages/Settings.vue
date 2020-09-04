@@ -328,7 +328,7 @@ export default {
             this.retweetsLikesLikesThreshold
           ),
           direct_messages: this.directMessages,
-          direct_messages_threshold: this.directMessagesThreshold,
+          direct_messages_threshold: Number(this.directMessagesThreshold),
           download_all_tweets: this.downloadAllTweets,
         }),
       })

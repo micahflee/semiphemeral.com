@@ -418,6 +418,8 @@ async def api_post_settings(request):
                 "retweets_likes_retweets_threshold": int,
                 "retweets_likes_delete_likes": bool,
                 "retweets_likes_likes_threshold": int,
+                "direct_messages": bool,
+                "direct_messages_threshold": int,
                 "download_all_tweets": bool,
             },
             data,
@@ -813,6 +815,7 @@ async def api_get_dashboard(request):
             "setting_blocked": user.blocked,
             "setting_delete_tweets": user.delete_tweets,
             "setting_retweets_likes": user.retweets_likes,
+            "setting_direct_messages": user.direct_messages,
             "fascist_tweets": fascist_tweets,
         }
     )

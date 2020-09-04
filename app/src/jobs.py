@@ -13,6 +13,7 @@ from selenium.webdriver.chrome.options import Options
 
 from common import (
     twitter_api,
+    twitter_dms_api,
     twitter_api_call,
     twitter_semiphemeral_dm_api,
     tweets_to_delete,
@@ -533,6 +534,7 @@ async def delete(job):
     progress["tweets_deleted"] = 0
     progress["retweets_deleted"] = 0
     progress["likes_deleted"] = 0
+    progress["dms_deleted"] = 0
 
     # Unretweet and unlike tweets
     if user.retweets_likes:
@@ -671,6 +673,73 @@ async def delete(job):
             await update_progress(job, progress)
 
         await log(job, f"Delete tweets progress: {progress}")
+
+    # Deleting direct messages
+    if user.direct_messages:
+        # Make sure the DMs API authenticates successfully
+        proceed = False
+        try:
+            dms_api = await twitter_dms_api(user)
+            twitter_user = await twitter_api_call(dms_api, "me")
+            proceed = True
+        except:
+            # It doesn't, so disable deleting direct messages
+            await user.update(
+                direct_messages=False,
+                twitter_dms_access_token="",
+                twitter_dms_access_token_secret="",
+            ).apply()
+
+        if proceed:
+            progress["status"] = f"Deleting direct messages"
+            await update_progress(job, progress)
+
+            # Delete DMs
+            datetime_threshold = datetime.utcnow() - timedelta(
+                days=user.direct_messages_threshold
+            )
+
+            # Fetch DMs
+            pages = await loop.run_in_executor(
+                None, tweepy.Cursor(dms_api.list_direct_messages).pages,
+            )
+            while True:
+                try:
+                    page = pages.next()
+                    await log(job, f"Fetch DMs loop: got page with {len(page)} DMs")
+                except StopIteration:
+                    await log(job, f"Hit the end of fetch DMs loop, breaking")
+                    break
+                except tweepy.TweepError as e:
+                    await update_progress_rate_limit(job, progress, 16)
+                    continue
+
+                for dm in page:
+                    created_timestamp = datetime.fromtimestamp(
+                        int(dm.created_timestamp) / 1000
+                    )
+                    if created_timestamp <= datetime_threshold:
+                        # Try deleting the DM in a loop, in case it gets rate-limited
+                        while True:
+                            try:
+                                await loop.run_in_executor(
+                                    None, dms_api.destroy_direct_message, dm.id
+                                )
+                                await log(job, f"Deleted DM {dm.id}")
+                                break
+                            except tweepy.error.TweepError as e:
+                                if e.api_code == 429:  # 429 = Too Many Requests
+                                    await update_progress_rate_limit(job, progress, 16)
+                                    # Don't break, so it tries again
+                                else:
+                                    # Unknown error
+                                    print(f"job_id={job.id} Error deleting DM {e}")
+                                    break
+
+                        progress["dms_deleted"] += 1
+                        await update_progress(job, progress)
+                    else:
+                        await log(job, f"Skipping DM {dm.id}")
 
     progress["status"] = "Finished"
     await update_progress(job, progress)
