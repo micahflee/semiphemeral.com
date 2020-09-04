@@ -456,8 +456,8 @@ async def api_post_settings(request):
             )
             redirect_url = auth.get_authorization_url()
             return web.json_response({"error": False, "redirect_url": redirect_url})
-        except tweepy.TweepError:
-            return web.json_response({"error": True})
+        except tweepy.TweepError as e:
+            return web.json_response({"error": True, "error_message": str(e)})
 
 
 @authentication_required_401

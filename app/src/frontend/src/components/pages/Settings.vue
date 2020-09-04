@@ -355,11 +355,15 @@ export default {
               "Error authenticating with Twitter, status code: " +
                 response.status
             );
+            that.loading = false;
             return;
           }
           response.json().then(function (data) {
             if (data["error"]) {
-              alert("Error authenticating with Twitter");
+              alert(
+                "Error authenticating with Twitter:\n" + data["error_message"]
+              );
+              that.loading = false;
             } else {
               // Redirect to authenticate
               document.location = data["redirect_url"];
