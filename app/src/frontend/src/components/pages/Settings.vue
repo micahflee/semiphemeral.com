@@ -32,6 +32,11 @@ input.small {
 .disabled {
   opacity: 50%;
 }
+
+.dm-note {
+  font-size: 0.8em;
+  color: #666666;
+}
 </style>
 
 <template>
@@ -180,10 +185,18 @@ input.small {
                 type="number"
                 class="small"
                 min="0"
+                max="29"
                 v-model="directMessagesThreshold"
                 v-bind:disabled="!directMessages"
               />
               days
+            </p>
+
+            <p class="dm-note">
+              Twitter only allows Semiphemeral access to the last 30 days of DMs, so you have to delete older DMs manually.
+              <a
+                href="/faq#direct-messages"
+              >Learn more</a> about how this works.
             </p>
           </fieldset>
         </template>
