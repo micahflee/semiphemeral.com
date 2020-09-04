@@ -69,6 +69,9 @@ span.user span a {
         <router-link to="/export">Export</router-link>
       </li>
       <li>
+        <router-link to="/dms">DMs</router-link>
+      </li>
+      <li>
         <router-link to="/settings">Settings</router-link>
       </li>
       <li>

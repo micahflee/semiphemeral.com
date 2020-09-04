@@ -15,11 +15,6 @@
     <p>The tweets page should embed all of the tweets that will get automatically deleted the next time it's your turn to delete. If you just created your account, you need to wait for your tweets to finish downloading the first time first.</p>
     <p>If you've already finished downloading tweets and they're still not getting displayed, this is probably because your web browser is blocking them. Do you have browser extensions like Privacy Badger, or is Firefox's tracking protection blocking the script from twitter.com? Try disabling those thing for semiphemeral.com, and the tweets should get displayed.</p>
 
-    <a name="direct-messages"></a>
-    <h2>How does deleting direct messages works?</h2>
-    <p>Twitter only allows third-party apps (like Semiphemeral) to access the last 30 days of DMs. For example, if you configure Semiphemeral to delete DMs older than 7 days, each time it runs it will delete the DMs between 30 days ago and 7 days ago.</p>
-    <p>Unfortunately, you'll need to manually delete your DMs older than 30 days. But you'll only have to do that once &mdash; after that, Semiphemeral will regularly delete your DMs for you.</p>
-
     <h2>Why is Semiphemeral only deleting my most recent 3,000 tweets?</h2>
     <p>Twitter's API works in mysterious ways. For some users, when you tell the API "give me a list of all of my tweets", it only gives about 3,000 tweets, but for others it returns all of their tweets. Unfortunately there doesn't seem to be anything that Semiphemeral can do about this.</p>
     <p>If Semiphemeral isn't successfully deleting your very old tweets, you can try manually deleting those tweets yourself, and then rely on Semiphemal to automatically delete tweets going forward.</p>

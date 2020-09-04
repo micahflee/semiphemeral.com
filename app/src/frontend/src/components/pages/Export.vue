@@ -21,7 +21,7 @@ a.button {
     <p>Semiphemeral lets you export a spreadsheet (CSV file) of your tweets and retweets. Make sure that Semiphemeral has downloaded your latest tweets before exporting.</p>
 
     <p>
-      <a class="button" href="/export/download">Download Spreadsheet of Tweets</a>
+      <a class="button" href="/export/download">Download spreadsheet of tweets</a>
     </p>
   </div>
 </template>
