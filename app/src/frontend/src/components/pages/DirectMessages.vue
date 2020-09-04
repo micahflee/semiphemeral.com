@@ -42,17 +42,24 @@
         <p>
           <strong>To delete all of your old DMs, upload your "direct-message-headers.js" file here.</strong> Semiphemeral will delete all your old DMs except for the most recent ones as you've specified in your settings.
         </p>
-        <form v-on:submit.prevent="onSubmit">
+        <template v-if="!directMessages">
           <p>
-            <input type="file" />
-            <input
-              v-bind:disabled="loading"
-              class="button"
-              type="submit"
-              value="Delete all my old DMs"
-            />
+            <em>You must enable deleting old direct messages in settings before you can bulk delete your old DMs.</em>
           </p>
-        </form>
+        </template>
+        <template v-else>
+          <form v-on:submit.prevent="onSubmit" v-bind:disabled="!directMessages">
+            <p>
+              <input type="file" />
+              <input
+                v-bind:disabled="loading"
+                class="button"
+                type="submit"
+                value="Delete all my old DMs"
+              />
+            </p>
+          </form>
+        </template>
       </template>
       <template v-else>
         <p>
@@ -70,6 +77,7 @@ export default {
   data: function () {
     return {
       loading: false,
+      directMessages: false,
       isDMAppAuthenticated: false,
     };
   },
@@ -91,6 +99,7 @@ export default {
           }
           response.json().then(function (data) {
             that.isDMAppAuthenticated = data["is_dm_app_authenticated"];
+            that.directMessages = data["direct_messages"];
           });
         })
         .catch(function (err) {
