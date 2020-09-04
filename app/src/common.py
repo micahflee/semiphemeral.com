@@ -37,8 +37,8 @@ async def twitter_api(user):
 
 async def twitter_dms_api(user):
     auth = tweepy.OAuthHandler(
-        os.environ.get("TWITTER_CONSUMER_TOKEN"),
-        os.environ.get("TWITTER_CONSUMER_KEY"),
+        os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
+        os.environ.get("TWITTER_DM_CONSUMER_KEY"),
     )
     auth.set_access_token(
         user.twitter_dms_access_token, user.twitter_dms_access_token_secret
