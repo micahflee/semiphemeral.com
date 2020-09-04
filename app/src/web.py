@@ -87,6 +87,22 @@ async def _api_validate(expected_fields, json_data):
             )
 
 
+async def _api_validate_dms_authenticated(user):
+    if (
+        user.twitter_dms_access_token != ""
+        and user.twitter_dms_access_token_secret != ""
+    ):
+        # Check if user is authenticated with DMs twitter app
+        try:
+            dms_api = await twitter_dms_api(user)
+            twitter_user = await twitter_api_call(dms_api, "me")
+            return True
+        except:
+            pass
+
+    return False
+
+
 def authentication_required_401(func):
     async def wrapper(request):
         session = await get_session(request)
@@ -350,20 +366,7 @@ async def api_get_settings(request):
     user = await _logged_in_user(session)
 
     has_fetched = user.since_id != None
-
-    is_dm_app_authenticated = False
-    if (
-        user.twitter_dms_access_token != ""
-        and user.twitter_dms_access_token_secret != ""
-    ):
-        # Check if user is authenticated with DMs twitter app
-        try:
-            dms_api = await twitter_dms_api(user)
-            twitter_user = await twitter_api_call(dms_api, "me")
-            if session["twitter_id"] == twitter_user.id:
-                is_dm_app_authenticated = True
-        except:
-            pass
+    is_dm_app_authenticated = await _api_validate_dms_authenticated(user)
 
     return web.json_response(
         {
@@ -1069,6 +1072,19 @@ async def api_post_tweets(request):
     return web.json_response(True)
 
 
+@authentication_required_401
+async def api_get_dms(request):
+    """
+    Get information about deleting DMs
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    is_dm_app_authenticated = await _api_validate_dms_authenticated(user)
+
+    return web.json_response({"is_dm_app_authenticated": is_dm_app_authenticated,})
+
+
 @aiohttp_jinja2.template("index.jinja2")
 async def index(request):
     session = await get_session(request)
@@ -1386,6 +1402,7 @@ async def start_web_server():
             web.post("/api/dashboard", api_post_dashboard),
             web.get("/api/tweets", api_get_tweets),
             web.post("/api/tweets", api_post_tweets),
+            web.get("/api/dms", api_get_dms),
             # Web
             web.get("/", index),
             web.get("/privacy", privacy),
@@ -1393,6 +1410,7 @@ async def start_web_server():
             web.get("/tweets", app_main),
             web.get("/export", app_main),
             web.get("/export/download", api_get_export_download),
+            web.get("/dms", app_main),
             web.get("/settings", app_main),
             web.get("/tip", app_main),
             web.get("/thanks", app_main),

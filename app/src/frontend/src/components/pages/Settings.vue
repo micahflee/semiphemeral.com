@@ -194,9 +194,7 @@ input.small {
 
             <p class="dm-note">
               Twitter only allows Semiphemeral access to the last 30 days of DMs, so you have to delete older DMs manually.
-              <a
-                href="/faq#direct-messages"
-              >Learn more</a> about how this works.
+              <router-link to="/dms">Learn more</router-link>&nbsp;about how this works.
             </p>
           </fieldset>
         </template>

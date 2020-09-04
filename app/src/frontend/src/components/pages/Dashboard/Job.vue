@@ -99,7 +99,7 @@
             Downloaded {{ progressTweetsFetched }} tweets, {{ progressLikesFetched }} likes and deleted {{ progressTweetsDeleted }} tweets, {{ progressRetweetsDeleted }} retweets, {{ progressLikesDeleted }} likes
             <span
               v-if="progressDMsDeleted != ''"
-            >&amp; {{ progressDMsDeleted }} direct messages</span>
+            >and {{ progressDMsDeleted }} direct messages</span>
           </span>
         </p>
       </template>
