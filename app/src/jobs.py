@@ -14,7 +14,7 @@ from selenium.webdriver.chrome.options import Options
 from common import (
     twitter_api,
     twitter_api_call,
-    twitter_dm_api,
+    twitter_semiphemeral_dm_api,
     tweets_to_delete,
     send_admin_dm,
 )
@@ -828,7 +828,7 @@ async def start_job(job):
 
 
 async def start_dm_job(dm_job):
-    api = await twitter_dm_api()
+    api = await twitter_semiphemeral_dm_api()
 
     try:
         # Send the DM
@@ -870,7 +870,7 @@ async def start_dm_job(dm_job):
 
 
 async def start_block_job(block_job):
-    api = await twitter_dm_api()
+    api = await twitter_semiphemeral_dm_api()
 
     try:
         # Are they already blocked?
@@ -964,7 +964,7 @@ async def start_block_job(block_job):
 
 
 async def start_unblock_job(unblock_job):
-    api = await twitter_dm_api()
+    api = await twitter_semiphemeral_dm_api()
 
     try:
         # Are they already unblocked?

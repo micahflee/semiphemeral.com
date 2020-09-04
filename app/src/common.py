@@ -35,7 +35,20 @@ async def twitter_api(user):
     return api
 
 
-async def twitter_dm_api():
+async def twitter_dms_api(user):
+    auth = tweepy.OAuthHandler(
+        os.environ.get("TWITTER_CONSUMER_TOKEN"),
+        os.environ.get("TWITTER_CONSUMER_KEY"),
+    )
+    auth.set_access_token(
+        user.twitter_dms_access_token, user.twitter_dms_access_token_secret
+    )
+    api = tweepy.API(auth)
+    return api
+
+
+# The API to send DMs from the @semiphemeral account
+async def twitter_semiphemeral_dm_api():
     auth = tweepy.OAuthHandler(
         os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_DM_CONSUMER_KEY"),
