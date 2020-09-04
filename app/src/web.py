@@ -17,7 +17,13 @@ import stripe
 
 from sqlalchemy import or_
 
-from common import twitter_api, twitter_api_call, tweets_to_delete, send_admin_dm
+from common import (
+    twitter_api,
+    twitter_dms_api,
+    twitter_api_call,
+    tweets_to_delete,
+    send_admin_dm,
+)
 from db import (
     User,
     Tip,
@@ -234,6 +240,58 @@ async def auth_twitter_callback(request):
     raise web.HTTPFound(location="/dashboard")
 
 
+async def auth_twitter_dms_callback(request):
+    params = request.rel_url.query
+    # If denied, I guess just redirect to homepage?
+    if "denied" in params:
+        raise web.HTTPFound(location="/")
+
+    if "oauth_token" not in params or "oauth_verifier" not in params:
+        raise web.HTTPUnauthorized(
+            text="Error, oauth_token and oauth_verifier are required"
+        )
+
+    oauth_token = params["oauth_token"]
+    verifier = params["oauth_verifier"]
+
+    # Authenticate with twitter (DMs)
+    session = await get_session(request)
+    auth = tweepy.OAuthHandler(
+        os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
+        os.environ.get("TWITTER_DM_CONSUMER_KEY"),
+    )
+    auth.request_token = {
+        "oauth_token": oauth_token,
+        "oauth_token_secret": verifier,
+    }
+
+    try:
+        auth.get_access_token(verifier)
+    except tweepy.TweepError:
+        raise web.HTTPUnauthorized(text="Error, failed to get access token")
+
+    try:
+        api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+        twitter_user = await twitter_api_call(api, "me")
+    except tweepy.TweepError as e:
+        raise web.HTTPUnauthorized(text=f"Error, error using Twitter API: {e}")
+
+    # Does this user already exist?
+    user = await User.query.where(User.twitter_id == twitter_user.id).gino.first()
+    if user is None:
+        # Uh, that's weird, there really should already be a user... so just ignore in that case
+        pass
+    else:
+        # Update the user's DM twitter access token and secret
+        await user.update(
+            twitter_dms_access_token=auth.access_token,
+            twitter_dms_access_token_secret=auth.access_token_secret,
+        ).apply()
+
+    # Redirect to settings page again
+    raise web.HTTPFound(location="/settings")
+
+
 async def stripe_callback(request):
     data = await request.json()
 
@@ -293,6 +351,20 @@ async def api_get_settings(request):
 
     has_fetched = user.since_id != None
 
+    is_dm_app_authenticated = False
+    if (
+        user.twitter_dms_access_token != ""
+        and user.twitter_dms_access_token_secret != ""
+    ):
+        # Check if user is authenticated with DMs twitter app
+        try:
+            dms_api = twitter_dms_api(user)
+            twitter_user = await twitter_api_call(dms_api, "me")
+            if session["twitter_id"] == twitter_user.id:
+                is_dm_app_authenticated = True
+        except:
+            pass
+
     return web.json_response(
         {
             "has_fetched": has_fetched,
@@ -308,6 +380,9 @@ async def api_get_settings(request):
             "retweets_likes_retweets_threshold": user.retweets_likes_retweets_threshold,
             "retweets_likes_delete_likes": user.retweets_likes_delete_likes,
             "retweets_likes_likes_threshold": user.retweets_likes_likes_threshold,
+            "direct_messages": user.direct_messages,
+            "direct_messages_threshold": user.direct_messages_threshold,
+            "is_dm_app_authenticated": is_dm_app_authenticated,
         }
     )
 
@@ -322,46 +397,67 @@ async def api_post_settings(request):
     data = await request.json()
 
     # Validate
-    await _api_validate(
-        {
-            "delete_tweets": bool,
-            "tweets_days_threshold": int,
-            "tweets_enable_retweet_threshold": bool,
-            "tweets_retweet_threshold": int,
-            "tweets_enable_like_threshold": bool,
-            "tweets_like_threshold": int,
-            "tweets_threads_threshold": bool,
-            "retweets_likes": bool,
-            "retweets_likes_delete_retweets": bool,
-            "retweets_likes_retweets_threshold": int,
-            "retweets_likes_delete_likes": bool,
-            "retweets_likes_likes_threshold": int,
-            "download_all_tweets": bool,
-        },
-        data,
-    )
+    await _api_validate({"action": str}, data)
+    if data["action"] != "save" and data["action"] != "authenticate_dms":
+        raise web.HTTPBadRequest(text="action must be 'save' or 'authenticate_dms'")
 
-    # Update settings in the database
-    await user.update(
-        delete_tweets=data["delete_tweets"],
-        tweets_days_threshold=data["tweets_days_threshold"],
-        tweets_enable_retweet_threshold=data["tweets_enable_retweet_threshold"],
-        tweets_retweet_threshold=data["tweets_retweet_threshold"],
-        tweets_enable_like_threshold=data["tweets_enable_like_threshold"],
-        tweets_like_threshold=data["tweets_like_threshold"],
-        tweets_threads_threshold=data["tweets_threads_threshold"],
-        retweets_likes=data["retweets_likes"],
-        retweets_likes_delete_retweets=data["retweets_likes_delete_retweets"],
-        retweets_likes_retweets_threshold=data["retweets_likes_retweets_threshold"],
-        retweets_likes_delete_likes=data["retweets_likes_delete_likes"],
-        retweets_likes_likes_threshold=data["retweets_likes_likes_threshold"],
-    ).apply()
+    if data["action"] == "save":
+        # Validate some more
+        await _api_validate(
+            {
+                "action": str,
+                "delete_tweets": bool,
+                "tweets_days_threshold": int,
+                "tweets_enable_retweet_threshold": bool,
+                "tweets_retweet_threshold": int,
+                "tweets_enable_like_threshold": bool,
+                "tweets_like_threshold": int,
+                "tweets_threads_threshold": bool,
+                "retweets_likes": bool,
+                "retweets_likes_delete_retweets": bool,
+                "retweets_likes_retweets_threshold": int,
+                "retweets_likes_delete_likes": bool,
+                "retweets_likes_likes_threshold": int,
+                "download_all_tweets": bool,
+            },
+            data,
+        )
 
-    # Does the user want to force downloading all tweets next time?
-    if data["download_all_tweets"]:
-        await user.update(since_id=None).apply()
+        # Update settings in the database
+        await user.update(
+            delete_tweets=data["delete_tweets"],
+            tweets_days_threshold=data["tweets_days_threshold"],
+            tweets_enable_retweet_threshold=data["tweets_enable_retweet_threshold"],
+            tweets_retweet_threshold=data["tweets_retweet_threshold"],
+            tweets_enable_like_threshold=data["tweets_enable_like_threshold"],
+            tweets_like_threshold=data["tweets_like_threshold"],
+            tweets_threads_threshold=data["tweets_threads_threshold"],
+            retweets_likes=data["retweets_likes"],
+            retweets_likes_delete_retweets=data["retweets_likes_delete_retweets"],
+            retweets_likes_retweets_threshold=data["retweets_likes_retweets_threshold"],
+            retweets_likes_delete_likes=data["retweets_likes_delete_likes"],
+            retweets_likes_likes_threshold=data["retweets_likes_likes_threshold"],
+            direct_messages=data["direct_messages"],
+            direct_messages_threshold=data["direct_messages_threshold"],
+        ).apply()
 
-    return web.json_response(True)
+        # Does the user want to force downloading all tweets next time?
+        if data["download_all_tweets"]:
+            await user.update(since_id=None).apply()
+
+        return web.json_response(True)
+
+    if data["action"] == "authenticate_dms":
+        # Authorize with Twitter
+        try:
+            auth = tweepy.OAuthHandler(
+                os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
+                os.environ.get("TWITTER_DM_CONSUMER_KEY"),
+            )
+            redirect_url = auth.get_authorization_url()
+            return web.json_response({"error": False, "redirect_url": redirect_url})
+        except tweepy.TweepError:
+            return web.json_response({"error": True})
 
 
 @authentication_required_401
@@ -1267,6 +1363,7 @@ async def start_web_server():
             web.get("/auth/login", auth_login),
             web.get("/auth/logout", auth_logout),
             web.get("/auth/twitter_callback", auth_twitter_callback),
+            web.get("/auth/twitter_dms_callback", auth_twitter_dms_callback),
             # Stripe
             web.post("/stripe/callback", stripe_callback),
             # API

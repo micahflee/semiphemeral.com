@@ -13,6 +13,8 @@ class User(db.Model):
     twitter_screen_name = db.Column(db.String)
     twitter_access_token = db.Column(db.String)
     twitter_access_token_secret = db.Column(db.String)
+    twitter_dms_access_token = db.Column(db.String)
+    twitter_dms_access_token_secret = db.Column(db.String)
 
     delete_tweets = db.Column(db.Boolean, default=False)
     tweets_days_threshold = db.Column(db.Integer, default=30)
@@ -27,6 +29,9 @@ class User(db.Model):
     retweets_likes_retweets_threshold = db.Column(db.Integer, default=30)
     retweets_likes_delete_likes = db.Column(db.Boolean, default=True)
     retweets_likes_likes_threshold = db.Column(db.Integer, default=60)
+
+    direct_messages = db.Column(db.Boolean, default=False)
+    direct_messages_threshold = db.Column(db.Integer, default=7)
 
     since_id = db.Column(db.BigInteger)
     last_fetch = db.Column(db.DateTime)

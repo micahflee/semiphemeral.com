@@ -29,7 +29,7 @@ input.small {
   margin: 5px;
 }
 
-fieldset.disabled {
+.disabled {
   opacity: 50%;
 }
 </style>
@@ -163,6 +163,42 @@ fieldset.disabled {
           </p>
         </fieldset>
 
+        <template v-if="isDMAppAuthenticated">
+          <p>
+            <label>
+              <input type="checkbox" v-model="directMessages" />
+              Delete old direct messages
+            </label>
+          </p>
+
+          <fieldset v-bind:class="directMessages ? '' : 'disabled'">
+            <legend>Direct messages</legend>
+
+            <p>
+              Delete direct messages older than
+              <input
+                type="number"
+                class="small"
+                min="0"
+                v-model="directMessagesThreshold"
+                v-bind:disabled="!directMessages"
+              />
+              days
+            </p>
+          </fieldset>
+        </template>
+        <template v-else>
+          <fieldset>
+            <legend class="disabled">Direct messages</legend>
+            <p>
+              Semiphemeral can automatically delete your old direct messages for you. To enable this feature you must allow Semiphemeral access to your DMs.
+              <button
+                v-on:click="authenticateDMs()"
+              >Give Semiphemeral access to my DMs</button>
+            </p>
+          </fieldset>
+        </template>
+
         <p v-if="hasFetched">
           <label>
             <input type="checkbox" v-model="downloadAllTweets" />
@@ -206,15 +242,14 @@ export default {
       retweetsLikesRetweetsThreshold: false,
       retweetsLikesDeleteLikes: false,
       retweetsLikesLikesThreshold: false,
+      directMessages: false,
+      directMessagesThreshold: false,
+      isDMAppAuthenticated: false,
       downloadAllTweets: false,
-      activeExportJobs: [],
-      pendingExportJobs: [],
-      finishedExportJobs: [],
     };
   },
   created: function () {
     this.getSettings();
-    this.fetchExportJobs();
   },
   methods: {
     getSettings: function () {
@@ -246,6 +281,9 @@ export default {
             that.retweetsLikesDeleteLikes = data["retweets_likes_delete_likes"];
             that.retweetsLikesLikesThreshold =
               data["retweets_likes_likes_threshold"];
+            that.directMessages = data["direct_messages"];
+            that.directMessagesThreshold = data["direct_messages_threshold"];
+            that.isDMAppAuthenticated = data["is_dm_app_authenticated"];
           });
         })
         .catch(function (err) {
@@ -259,6 +297,7 @@ export default {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "save",
           delete_tweets: this.deleteTweets,
           tweets_days_threshold: Number(this.tweetsDaysThreshold),
           tweets_enable_retweet_threshold: this.tweetsEnableRetweetThreshold,
@@ -275,6 +314,8 @@ export default {
           retweets_likes_likes_threshold: Number(
             this.retweetsLikesLikesThreshold
           ),
+          direct_messages: this.directMessages,
+          direct_messages_threshold: this.directMessagesThreshold,
           download_all_tweets: this.downloadAllTweets,
         }),
       })
@@ -298,37 +339,35 @@ export default {
           });
       }
     },
-    fetchExportJobs: function () {
+    authenticateDMs: function () {
       var that = this;
       this.loading = true;
-
-      // Get list of pending, active, and finished export jobs
-      fetch("/api/export")
+      fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "authenticate_dms",
+        }),
+      })
         .then(function (response) {
           if (response.status !== 200) {
             console.log(
-              "Error fetching export jobs, status code: " + response.status
+              "Error authenticating with Twitter, status code: " +
+                response.status
             );
-            that.loading = false;
             return;
           }
           response.json().then(function (data) {
-            that.loading = false;
-            if (data["active_export_jobs"])
-              that.activeExportJobs = data["active_export_jobs"];
-            else that.activeExportJobs = [];
-
-            if (data["pending_export_jobs"])
-              that.pendingJobs = data["pending_export_jobs"];
-            else that.pendingExportJobs = [];
-
-            if (data["finished_export_jobs"])
-              that.finishedExportJobs = data["finished_export_jobs"];
-            else that.finishedExportJobs = [];
+            if (data["error"]) {
+              alert("Error authenticating with Twitter");
+            } else {
+              // Redirect to authenticate
+              document.location = data["redirect_url"];
+            }
           });
         })
         .catch(function (err) {
-          console.log("Error fetching export jobs", err);
+          console.log("Error authenticating with Twitter", err);
           that.loading = false;
         });
     },
