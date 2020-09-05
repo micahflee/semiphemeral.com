@@ -48,9 +48,9 @@
           </p>
         </template>
         <template v-else>
-          <form v-on:submit.prevent="onSubmit" v-bind:disabled="!directMessages">
+          <form v-on:submit.prevent="onSubmit">
             <p>
-              <input type="file" />
+              <input ref="file" type="file" accept="text/javascript, application/x-javascript" />
               <input
                 v-bind:disabled="loading"
                 class="button"
@@ -106,7 +106,45 @@ export default {
           console.log("Error fetching DM info", err);
         });
     },
-    onSubmit: function () {},
+    onSubmit: function () {
+      var file = this.$refs.file.files[0];
+      if (file.name != "direct-message-headers.js") {
+        alert(
+          'That\'s the wrong file. It should be named "direct-message-headers.js".'
+        );
+        return;
+      }
+
+      var formData = new FormData();
+      formData.append("file", file);
+
+      var that = this;
+      this.loading = true;
+      fetch("/api/dms", { method: "POST", body: formData })
+        .then(function (response) {
+          that.loading = false;
+
+          if (response.status !== 200) {
+            console.log(
+              "Error uploading file, status code: " + response.status
+            );
+            return;
+          }
+
+          response.json().then(function (data) {
+            if (data["error"]) {
+              alert(data["error_message"]);
+            } else {
+              // TODO: after uploading it, this page should display DeleteDMJobs
+              alert("success");
+            }
+          });
+        })
+        .catch(function (err) {
+          console.log("Error uploading DMs file", err);
+          that.loading = false;
+        });
+    },
   },
 };
 </script>

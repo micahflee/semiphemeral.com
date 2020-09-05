@@ -1082,10 +1082,101 @@ async def api_get_dms(request):
 
     is_dm_app_authenticated = await _api_validate_dms_authenticated(user)
 
-    return web.json_response({
-        "direct_messages": user.direct_messages,
-        "is_dm_app_authenticated": is_dm_app_authenticated,
-    })
+    return web.json_response(
+        {
+            "direct_messages": user.direct_messages,
+            "is_dm_app_authenticated": is_dm_app_authenticated,
+        }
+    )
+
+
+@authentication_required_401
+async def api_post_dms(request):
+    """
+    Upload a direct-message-headers.js file to bulk delete old DMs
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    if not await _api_validate_dms_authenticated(user):
+        return web.json_response(
+            {
+                "error": True,
+                "error_message": "You are not authenticated to the Semiphemeral DMs Twitter app",
+            }
+        )
+    if not user.direct_messages:
+        return web.json_response(
+            {
+                "error": True,
+                "error_message": "You have not enabled deleting direct messages in your settings",
+            }
+        )
+
+    # Validate
+    post = await request.post()
+    dms_file = post.get("file")
+    if not dms_file:
+        return web.json_response(
+            {"error": True, "error_message": "Uploading file failed",}
+        )
+
+    expected_start = b"window.YTD.direct_message_headers.part0 = "
+    content = dms_file.file.read()
+    if not content.startswith(expected_start):
+        return web.json_response(
+            {
+                "error": True,
+                "error_message": "File expected to start with: 'window.YTD.direct_message_headers.part0 = '",
+            }
+        )
+    json_string = content[len(expected_start) :]
+
+    try:
+        conversations = json.loads(json_string)
+    except:
+        return web.json_response(
+            {"error": True, "error_message": "Failed parsing JSON object",}
+        )
+
+    if type(conversations) != list:
+        return web.json_response(
+            {"error": True, "error_message": "JSON object expected to be a list",}
+        )
+
+    for obj in conversations:
+        if type(obj) != dict:
+            return web.json_response(
+                {
+                    "error": True,
+                    "error_message": "JSON object expected to be a list of dicts",
+                }
+            )
+        if "dmConversation" not in obj:
+            return web.json_response(
+                {
+                    "error": True,
+                    "error_message": "JSON object expected to be a list of dicts that contain 'dmConversation' fields",
+                }
+            )
+        dm_conversation = obj["dmConversation"]
+        if "messages" not in dm_conversation:
+            return web.json_response(
+                {
+                    "error": True,
+                    "error_message": "JSON object expected to be a list of dicts that contain 'dmConversations' fields that contain 'messages' fields",
+                }
+            )
+
+    # Save to disk
+    os.makedirs("/var/web/bulk_dms", exist_ok=True)
+    filename = os.path.join("/var/web/bulk_dms", f"{user.id}.json")
+    with open(filename, "w") as f:
+        f.write(json.dumps(conversations, indent="2"))
+
+    # TODO: Create a DeleteDMJob
+
+    return web.json_response({"error": False})
 
 
 @aiohttp_jinja2.template("index.jinja2")
@@ -1406,6 +1497,7 @@ async def start_web_server():
             web.get("/api/tweets", api_get_tweets),
             web.post("/api/tweets", api_post_tweets),
             web.get("/api/dms", api_get_dms),
+            web.post("/api/dms", api_post_dms),
             # Web
             web.get("/", index),
             web.get("/privacy", privacy),
