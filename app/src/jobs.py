@@ -870,15 +870,28 @@ async def delete(job):
 @test_api_creds
 @ensure_user_follows_us
 async def delete_dms(job):
+    await delete_dms_job(job, "dms")
+
+
+@test_api_creds
+@ensure_user_follows_us
+async def delete_dm_groups(job):
+    await delete_dms_job(job, "groups")
+
+
+async def delete_dms_job(job, dm_type):
     user = await User.query.where(User.id == job.user_id).gino.first()
     dms_api = await twitter_dms_api(user)
 
     loop = asyncio.get_running_loop()
 
-    await log(job, "Delete DMs started")
+    if dm_type == "dms":
+        await log(job, "Delete DMs started")
+    elif dm_type == "groups":
+        await log(job, "Delete group DMs started")
 
     # Start the progress
-    progress = {"dms_deleted": 0, "status": "Verifying permissions"}
+    progress = {"dms_deleted": 0, "dms_skipped": 0, "status": "Verifying permissions"}
     await update_progress(job, progress)
 
     # Make sure the DM credentials work
@@ -916,7 +929,10 @@ async def delete_dms(job):
         raise JobCanceled()
 
     # Load the DM metadata
-    filename = os.path.join("/var/bulk_dms", f"{user.id}.json")
+    if dm_type == "dms":
+        filename = os.path.join("/var/bulk_dms", f"dms-{user.id}.json")
+    elif dm_type == "groups":
+        filename = os.path.join("/var/bulk_dms", f"groups-{user.id}.json")
     if not os.path.exists(filename):
         await log(job, f"Filename {filename} does not exist, canceling job")
         await job.update(status="canceled", started_timestamp=datetime.now()).apply()
@@ -939,10 +955,9 @@ async def delete_dms(job):
         days=user.direct_messages_threshold
     )
     for obj in conversations:
-        for message in obj["dmConversation"]["messages"]:
-            # Try block, to skip in case some of these conversations don't have
-            # a valid createdAt or id
-            try:
+        conversation = obj["dmConversation"]
+        for message in conversation["messages"]:
+            if "messageCreate" in message:
                 created_str = message["messageCreate"]["createdAt"]
                 created_timestamp = datetime.strptime(
                     created_str, "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -957,6 +972,9 @@ async def delete_dms(job):
                                 None, dms_api.destroy_direct_message, dm_id
                             )
                             await log(job, f"Deleted DM {dm_id}")
+
+                            progress["dms_deleted"] += 1
+                            await update_progress(job, progress)
                             break
                         except tweepy.error.TweepError as e:
                             if e.api_code == 429:  # 429 = Too Many Requests
@@ -964,14 +982,11 @@ async def delete_dms(job):
                                 # Don't break, so it tries again
                             else:
                                 # Unknown error
-                                print(f"job_id={job.id} Error deleting DM {e}")
+                                await log(job, f"Error deleting DM {dm_id}: {e}")
+
+                                progress["dms_skipped"] += 1
+                                await update_progress(job, progress)
                                 break
-
-                    progress["dms_deleted"] += 1
-                    await update_progress(job, progress)
-
-            except:
-                pass
 
     # Delete the DM metadata file
     try:
@@ -985,7 +1000,10 @@ async def delete_dms(job):
     await log(job, "Delete DMs finished")
 
     # Send a DM to the user
-    message = f"Congratulations, Semiphemeral just finished deleting {progress['dms_deleted']} of your old direct messages."
+    if dm_type == "dms":
+        message = f"Congratulations, Semiphemeral just finished deleting {progress['dms_deleted']} of your old direct messages."
+    elif dm_type == "groups":
+        message = f"Congratulations, Semiphemeral just finished deleting {progress['dms_deleted']} of your old group direct messages."
 
     await DirectMessageJob.create(
         dest_twitter_id=user.twitter_id,
@@ -1013,8 +1031,14 @@ async def start_job(job):
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
 
-        elif job.job_type == "delete_dm":
+        elif job.job_type == "delete_dms":
             await delete_dms(job)
+            await job.update(
+                status="finished", finished_timestamp=datetime.now()
+            ).apply()
+
+        elif job.job_type == "delete_dm_groups":
+            await delete_dm_groups(job)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
@@ -1237,7 +1261,7 @@ async def start_jobs():
     while True:
         tasks = []
 
-        # Run the next 10 fetch, delete, and delete_dm jobs
+        # Run the next 10 fetch, delete, and delete_dms jobs
         ids = []
         for job in (
             await Job.query.where(Job.status == "pending")
@@ -1250,10 +1274,14 @@ async def start_jobs():
             tasks.append(start_job(job))
 
         if len(tasks) > 0:
-            print(f"Running {len(tasks)} fetch/delete jobs {ids}")
+            print(
+                f"Running {len(tasks)} fetch/delete/delete_dms/delete_dm_groups jobs {ids}"
+            )
             await asyncio.gather(*tasks)
         else:
-            print(f"No fetch/delete/delete_dms jobs, waiting 60 seconds")
+            print(
+                f"No fetch/delete/delete_dms/delete_dm_groups jobs, waiting 60 seconds"
+            )
             await asyncio.sleep(60)
 
 

@@ -105,7 +105,7 @@
       </template>
     </template>
 
-    <template v-if="job.job_type == 'delete_dm'">
+    <template v-if="job.job_type == 'delete_dms'">
       <template v-if="job.status == 'pending'">
         <p
           class="status"
@@ -119,16 +119,50 @@
       <template v-else-if="job.status == 'active'">
         <p class="status">{{ progressStatus }}</p>
         <p class="progress">
-          Started deleting on
+          Started deleting old direct messages on
           <em>{{ humanReadableStartedTimestamp }}</em>
           <br />Deleted
-          <strong>{{ progressDMsDeleted }} direct messages</strong>
+          <strong>{{ progressDMsDeleted }} direct messages</strong>, skipped
+          <strong>{{ progressDMsSkipped }} direct messages</strong>
         </p>
       </template>
       <template v-else-if="job.status == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{ humanReadableFinishedTimestamp}}</span>
-          <span class="progress">Deleted {{ progressDMsDeleted }} direct messages</span>
+          <span
+            class="progress"
+          >Deleted {{ progressDMsDeleted }} direct messages (skipped {{ progressDMsSkipped }})</span>
+        </p>
+      </template>
+    </template>
+
+    <template v-if="job.job_type == 'delete_dm_groups'">
+      <template v-if="job.status == 'pending'">
+        <p
+          class="status"
+          v-if="scheduledTimestampInThePast"
+        >Waiting to delete all of your old group direct messages as soon as it's your turn in the queue</p>
+        <p class="status" v-else>
+          Waiting to delete all of your old group direct messages, scheduled for
+          <em>{{ humanReadableScheduledTimestamp }}</em>
+        </p>
+      </template>
+      <template v-else-if="job.status == 'active'">
+        <p class="status">{{ progressStatus }}</p>
+        <p class="progress">
+          Started deleting old group direct messages on
+          <em>{{ humanReadableStartedTimestamp }}</em>
+          <br />Deleted
+          <strong>{{ progressDMsDeleted }} direct messages</strong>
+          (skipped {{ progressDMsSkipped }})
+        </p>
+      </template>
+      <template v-else-if="job.status == 'finished'">
+        <p class="finished">
+          <span class="finished-timestamp">{{ humanReadableFinishedTimestamp}}</span>
+          <span
+            class="progress"
+          >Deleted {{ progressDMsDeleted }} group direct messages (skipped {{ progressDMsSkipped }})</span>
         </p>
       </template>
     </template>
@@ -156,6 +190,9 @@ export default {
     },
     progressDMsDeleted: function () {
       return this.getProgressVal(this.job.progress, "dms_deleted");
+    },
+    progressDMsSkipped: function () {
+      return this.getProgressVal(this.job.progress, "dms_skipped");
     },
     progressStatus: function () {
       return this.getProgressVal(this.job.progress, "status");
