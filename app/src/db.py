@@ -65,7 +65,9 @@ class Job(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    job_type = db.Column(db.String)  # "fetch", "delete", "delete_dm"
+    job_type = db.Column(
+        db.String
+    )  # "fetch", "delete", "delete_dms", "delete_dm_groups"
     status = db.Column(
         db.String
     )  # "pending", "active", "finished", "canceled", "blocked"

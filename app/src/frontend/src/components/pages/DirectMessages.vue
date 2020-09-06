@@ -38,9 +38,13 @@
             target="_blank"
           >download your Twitter archive from here</a>. When you request an archive from Twitter it may take them a day or two before it's ready. When it's ready, you will download a zip file containing your archive.
         </p>
-        <p>Unzip your Twitter archive. There should be a folder called "data", and inside there should be a file called "direct-message-headers.js" containing the metadata for all of your DMs.</p>
+        <p>Unzip your Twitter archive. There should be a folder called "data", and inside there should be many files including:</p>
+        <ul>
+          <li>"direct-message-headers.js", containing the metadata for all of your DMs</li>
+          <li>"direct-message-group-headers.js", containing the metadata for all of your group DMs</li>
+        </ul>
         <p>
-          <strong>To delete all of your old DMs, upload your "direct-message-headers.js" file here.</strong> Semiphemeral will delete all your old DMs except for the most recent ones as you've specified in your settings.
+          <strong>To delete your old DMs, upload your "direct-message-headers.js" or "direct-message-group-headers.js" file here.</strong> Semiphemeral will delete all of your old DMs listed in these files except for the most recent ones as you've specified in your settings.
         </p>
         <template v-if="!directMessages">
           <p>
@@ -50,7 +54,7 @@
         <template v-else>
           <template v-if="isDMJobOngoing">
             <p>
-              <em>All your old direct messages will soon be deleted. Check the dashboard for progress updates.</em>
+              <em>Your old direct messages will soon be deleted. Check the dashboard for progress updates.</em>
             </p>
           </template>
           <template v-else>
@@ -61,7 +65,7 @@
                   v-bind:disabled="loading"
                   class="button"
                   type="submit"
-                  value="Delete all my old DMs"
+                  value="Delete these old DMs"
                 />
               </p>
             </form>
@@ -117,9 +121,12 @@ export default {
     },
     onSubmit: function () {
       var file = this.$refs.file.files[0];
-      if (file.name != "direct-message-headers.js") {
+      if (
+        file.name != "direct-message-headers.js" &&
+        file.name != "direct-message-group-headers.js"
+      ) {
         alert(
-          'That\'s the wrong file. It should be named "direct-message-headers.js".'
+          'That\'s the wrong file. It should be named "direct-message-headers.js" or "direct-message-group-headers.js".'
         );
         return;
       }

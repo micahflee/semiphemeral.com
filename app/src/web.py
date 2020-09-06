@@ -1083,19 +1083,13 @@ async def api_get_dms(request):
 
     is_dm_app_authenticated = await _api_validate_dms_authenticated(user)
 
-    pending_job = (
+    job = (
         await Job.query.where(Job.user_id == user.id)
-        .where(Job.job_type == "delete_dm")
-        .where(Job.status == "pending")
+        .where(or_(Job.job_type == "delete_dms", Job.job_type == "delete_dm_groups"))
+        .where(or_(Job.status == "pending", Job.status == "active"))
         .gino.first()
     )
-    active_job = (
-        await Job.query.where(Job.user_id == user.id)
-        .where(Job.job_type == "delete_dm")
-        .where(Job.status == "active")
-        .gino.first()
-    )
-    is_dm_job_ongoing = pending_job is not None or active_job is not None
+    is_dm_job_ongoing = job is not None
 
     return web.json_response(
         {
@@ -1137,16 +1131,24 @@ async def api_post_dms(request):
             {"error": True, "error_message": "Uploading file failed",}
         )
 
-    expected_start = b"window.YTD.direct_message_headers.part0 = "
+    # Detect if this is direct-message-headers.js or direct-message-group-headers.js
+    expected_dm_start = b"window.YTD.direct_message_headers.part0 = "
+    expected_dm_group_start = b"window.YTD.direct_message_group_headers.part0 = "
+
     content = dms_file.file.read()
-    if not content.startswith(expected_start):
+    if content.startswith(expected_dm_start):
+        dm_type = "dms"
+        json_string = content[len(expected_dm_start) :]
+    elif content.startswith(expected_dm_group_start):
+        dm_type = "groups"
+        json_string = content[len(expected_dm_group_start) :]
+    else:
         return web.json_response(
             {
                 "error": True,
-                "error_message": "File expected to start with: 'window.YTD.direct_message_headers.part0 = '",
+                "error_message": "This does not appear to be a direct-message-headers.js or direct-message-group-headers.js file",
             }
         )
-    json_string = content[len(expected_start) :]
 
     try:
         conversations = json.loads(json_string)
@@ -1185,14 +1187,19 @@ async def api_post_dms(request):
             )
 
     # Save to disk
-    filename = os.path.join("/var/bulk_dms", f"{user.id}.json")
+    if dm_type == "dms":
+        job_type = "delete_dms"
+        filename = os.path.join("/var/bulk_dms", f"dms-{user.id}.json")
+    elif dm_type == "groups":
+        job_type = "delete_dm_groups"
+        filename = os.path.join("/var/bulk_dms", f"groups-{user.id}.json")
     with open(filename, "w") as f:
         f.write(json.dumps(conversations, indent=2))
 
-    # Create a new delete_dm job
+    # Create a new delete_dms job
     await Job.create(
         user_id=user.id,
-        job_type="delete_dm",
+        job_type=job_type,
         status="pending",
         scheduled_timestamp=datetime.now(),
     )
