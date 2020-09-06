@@ -1,14 +1,5 @@
 FROM python:3.8-buster
 
-# Install chrome and chromedriver
-RUN cd /tmp && \
-    wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    apt-get update && \
-    apt-get install -y ./google-chrome-stable_current_amd64.deb && \
-    wget https://chromedriver.storage.googleapis.com/85.0.4183.87/chromedriver_linux64.zip && \
-    unzip chromedriver_linux64.zip && \
-    mv chromedriver /usr/local/bin/chromedriver
-
 # Install nodejs
 RUN curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | bash && \
     . /root/.bashrc && \
