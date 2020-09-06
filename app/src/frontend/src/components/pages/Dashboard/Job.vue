@@ -104,6 +104,34 @@
         </p>
       </template>
     </template>
+
+    <template v-if="job.job_type == 'delete_dm'">
+      <template v-if="job.status == 'pending'">
+        <p
+          class="status"
+          v-if="scheduledTimestampInThePast"
+        >Waiting to delete all of your old direct messages as soon as it's your turn in the queue</p>
+        <p class="status" v-else>
+          Waiting to delete all of your old direct messages, scheduled for
+          <em>{{ humanReadableScheduledTimestamp }}</em>
+        </p>
+      </template>
+      <template v-else-if="job.status == 'active'">
+        <p class="status">{{ progressStatus }}</p>
+        <p class="progress">
+          Started deleting on
+          <em>{{ humanReadableStartedTimestamp }}</em>
+          <br />Deleted
+          <strong>{{ progressDMsDeleted }} direct messages</strong>
+        </p>
+      </template>
+      <template v-else-if="job.status == 'finished'">
+        <p class="finished">
+          <span class="finished-timestamp">{{ humanReadableFinishedTimestamp}}</span>
+          <span class="progress">Deleted {{ progressDMsDeleted }} direct messages</span>
+        </p>
+      </template>
+    </template>
   </div>
 </template>
 

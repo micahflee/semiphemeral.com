@@ -37,6 +37,10 @@ class JobRescheduled(Exception):
     pass
 
 
+class JobCanceled(Exception):
+    pass
+
+
 class UserBlocked(Exception):
     pass
 
@@ -738,6 +742,7 @@ async def delete(job):
 
                         progress["dms_deleted"] += 1
                         await update_progress(job, progress)
+
                     else:
                         await log(job, f"Skipping DM {dm.id}")
 
@@ -862,36 +867,166 @@ async def delete(job):
             )
 
 
+@test_api_creds
+@ensure_user_follows_us
+async def delete_dms(job):
+    user = await User.query.where(User.id == job.user_id).gino.first()
+    dms_api = await twitter_dms_api(user)
+
+    loop = asyncio.get_running_loop()
+
+    await log(job, "Delete DMs started")
+
+    # Start the progress
+    progress = {"dms_deleted": 0, "status": "Verifying permissions"}
+    await update_progress(job, progress)
+
+    # Make sure the DM credentials work
+    dm_creds_work = False
+    if (
+        user.twitter_dms_access_token != ""
+        and user.twitter_dms_access_token_secret != ""
+    ):
+        try:
+            while True:
+                try:
+                    await loop.run_in_executor(None, dms_api.me)
+                    break
+                except tweepy.error.TweepError as e:
+                    if e.api_code == 429:  # 429 = Too Many Requests
+                        await update_progress_rate_limit(job, progress, 16)
+                        # Don't break, so it tries again
+                    else:
+                        # Unknown error
+                        print(f"job_id={job.id} Error deleting DM {e}")
+                        break
+            dm_creds_work = True
+        except:
+            pass
+
+    if not dm_creds_work:
+        await log(job, "DMs Twitter API creds don't work, canceling job")
+        await job.update(status="canceled", started_timestamp=datetime.now()).apply()
+        raise JobCanceled()
+
+    # Make sure deleting DMs is enabled
+    if not user.direct_messages:
+        await log(job, "Deleting DMs is not enabled, canceling job")
+        await job.update(status="canceled", started_timestamp=datetime.now()).apply()
+        raise JobCanceled()
+
+    # Load the DM metadata
+    filename = os.path.join("/var/bulk_dms", f"{user.id}.json")
+    if not os.path.exists(filename):
+        await log(job, f"Filename {filename} does not exist, canceling job")
+        await job.update(status="canceled", started_timestamp=datetime.now()).apply()
+        raise JobCanceled()
+    with open(filename) as f:
+        try:
+            conversations = json.loads(f.read())
+        except:
+            await log(job, f"Cannot decode JSON, canceling job")
+            await job.update(
+                status="canceled", started_timestamp=datetime.now()
+            ).apply()
+            raise JobCanceled()
+
+    # Delete DMs
+    progress["status"] = "Deleting old direct messages"
+    await update_progress(job, progress)
+
+    datetime_threshold = datetime.utcnow() - timedelta(
+        days=user.direct_messages_threshold
+    )
+    for obj in conversations:
+        for message in obj["dmConversation"]["messages"]:
+            # Try block, to skip in case some of these conversations don't have
+            # a valid createdAt or id
+            try:
+                created_str = message["messageCreate"]["createdAt"]
+                created_timestamp = datetime.strptime(
+                    created_str, "%Y-%m-%dT%H:%M:%S.%fZ"
+                )
+                if created_timestamp <= datetime_threshold:
+                    dm_id = int(message["messageCreate"]["id"])
+
+                    # Try deleting the DM in a loop, in case it gets rate-limited
+                    while True:
+                        try:
+                            await loop.run_in_executor(
+                                None, dms_api.destroy_direct_message, dm_id
+                            )
+                            await log(job, f"Deleted DM {dm_id}")
+                            break
+                        except tweepy.error.TweepError as e:
+                            if e.api_code == 429:  # 429 = Too Many Requests
+                                await update_progress_rate_limit(job, progress, 16)
+                                # Don't break, so it tries again
+                            else:
+                                # Unknown error
+                                print(f"job_id={job.id} Error deleting DM {e}")
+                                break
+
+                    progress["dms_deleted"] += 1
+                    await update_progress(job, progress)
+
+            except:
+                pass
+
+    # Delete the DM metadata file
+    try:
+        os.remove(filename)
+    except:
+        pass
+
+    progress["status"] = "Finished"
+    await update_progress(job, progress)
+
+    await log(job, "Delete DMs finished")
+
+    # Send a DM to the user
+    message = f"Congratulations, Semiphemeral just finished deleting {progress['dms_deleted']} of your old direct messages."
+
+    await DirectMessageJob.create(
+        dest_twitter_id=user.twitter_id,
+        message=message,
+        status="pending",
+        scheduled_timestamp=datetime.now(),
+    )
+
+
 async def start_job(job):
     await log(job, "Starting job")
     await job.update(status="active", started_timestamp=datetime.now()).apply()
 
-    if job.job_type == "fetch":
-        try:
+    try:
+        if job.job_type == "fetch":
             await fetch(job)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
-        except UserBlocked:
-            await job.update(
-                status="blocked", finished_timestamp=datetime.now()
-            ).apply()
-        except JobRescheduled:
-            pass
 
-    elif job.job_type == "delete":
-        try:
+        elif job.job_type == "delete":
             await fetch(job)
             await delete(job)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
-        except UserBlocked:
+
+        elif job.job_type == "delete_dm":
+            await delete_dms(job)
             await job.update(
-                status="blocked", finished_timestamp=datetime.now()
+                status="finished", finished_timestamp=datetime.now()
             ).apply()
-        except JobRescheduled:
-            pass
+
+    except UserBlocked:
+        await job.update(status="blocked", finished_timestamp=datetime.now()).apply()
+
+    except JobRescheduled:
+        pass
+
+    except JobCanceled:
+        pass
 
     await log(job, "Finished job")
 
@@ -1102,7 +1237,7 @@ async def start_jobs():
     while True:
         tasks = []
 
-        # Run the next 10 fetch and delete jobs
+        # Run the next 10 fetch, delete, and delete_dm jobs
         ids = []
         for job in (
             await Job.query.where(Job.status == "pending")
@@ -1118,7 +1253,7 @@ async def start_jobs():
             print(f"Running {len(tasks)} fetch/delete jobs {ids}")
             await asyncio.gather(*tasks)
         else:
-            print(f"No fetch/delete jobs, waiting 60 seconds")
+            print(f"No fetch/delete/delete_dms jobs, waiting 60 seconds")
             await asyncio.sleep(60)
 
 
