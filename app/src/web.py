@@ -6,6 +6,7 @@ import asyncio
 import functools
 import subprocess
 import csv
+import json
 from datetime import datetime, timedelta
 from aiohttp import web
 from aiohttp_session import setup, get_session, new_session
@@ -1082,10 +1083,25 @@ async def api_get_dms(request):
 
     is_dm_app_authenticated = await _api_validate_dms_authenticated(user)
 
+    pending_job = (
+        await Job.query.where(Job.user_id == user.id)
+        .where(Job.job_type == "delete_dm")
+        .where(Job.status == "pending")
+        .gino.first()
+    )
+    active_job = (
+        await Job.query.where(Job.user_id == user.id)
+        .where(Job.job_type == "delete_dm")
+        .where(Job.status == "active")
+        .gino.first()
+    )
+    is_dm_job_ongoing = pending_job is not None or active_job is not None
+
     return web.json_response(
         {
             "direct_messages": user.direct_messages,
             "is_dm_app_authenticated": is_dm_app_authenticated,
+            "is_dm_job_ongoing": is_dm_job_ongoing,
         }
     )
 
@@ -1169,12 +1185,17 @@ async def api_post_dms(request):
             )
 
     # Save to disk
-    os.makedirs("/var/web/bulk_dms", exist_ok=True)
-    filename = os.path.join("/var/web/bulk_dms", f"{user.id}.json")
+    filename = os.path.join("/var/bulk_dms", f"{user.id}.json")
     with open(filename, "w") as f:
-        f.write(json.dumps(conversations, indent="2"))
+        f.write(json.dumps(conversations, indent=2))
 
-    # TODO: Create a DeleteDMJob
+    # Create a new delete_dm job
+    await Job.create(
+        user_id=user.id,
+        job_type="delete_dm",
+        status="pending",
+        scheduled_timestamp=datetime.now(),
+    )
 
     return web.json_response({"error": False})
 

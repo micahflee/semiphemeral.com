@@ -48,17 +48,24 @@
           </p>
         </template>
         <template v-else>
-          <form v-on:submit.prevent="onSubmit">
+          <template v-if="isDMJobOngoing">
             <p>
-              <input ref="file" type="file" accept="text/javascript, application/x-javascript" />
-              <input
-                v-bind:disabled="loading"
-                class="button"
-                type="submit"
-                value="Delete all my old DMs"
-              />
+              <em>All your old direct messages will soon be deleted. Check the dashboard for progress updates.</em>
             </p>
-          </form>
+          </template>
+          <template v-else>
+            <form v-on:submit.prevent="onSubmit">
+              <p>
+                <input ref="file" type="file" accept="text/javascript, application/x-javascript" />
+                <input
+                  v-bind:disabled="loading"
+                  class="button"
+                  type="submit"
+                  value="Delete all my old DMs"
+                />
+              </p>
+            </form>
+          </template>
         </template>
       </template>
       <template v-else>
@@ -79,6 +86,7 @@ export default {
       loading: false,
       directMessages: false,
       isDMAppAuthenticated: false,
+      isDMJobOngoing: false,
     };
   },
   created: function () {
@@ -99,6 +107,7 @@ export default {
           }
           response.json().then(function (data) {
             that.isDMAppAuthenticated = data["is_dm_app_authenticated"];
+            that.isDMJobOngoing = data["is_dm_job_ongoing"];
             that.directMessages = data["direct_messages"];
           });
         })
@@ -135,8 +144,7 @@ export default {
             if (data["error"]) {
               alert(data["error_message"]);
             } else {
-              // TODO: after uploading it, this page should display DeleteDMJobs
-              alert("success");
+              that.getDMInfo();
             }
           });
         })

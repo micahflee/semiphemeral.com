@@ -95,9 +95,9 @@
         owner: "1000"
         mode: 0700
     
-    - name: ensure export volume directory has the right permissions
+    - name: ensure bulk_dms volume directory has the right permissions
       file:
-        path: /opt/semiphemeral/data/export
+        path: /opt/semiphemeral/data/bulk_dms
         state: directory
         owner: "1000"
         mode: 0700
