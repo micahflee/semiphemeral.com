@@ -502,7 +502,9 @@ async def api_get_export_download(request):
     user = await _logged_in_user(session)
 
     # Create the CSV
-    os.makedirs(os.path.join("/tmp", "export", str(user.twitter_screen_name)))
+    os.makedirs(
+        os.path.join("/tmp", "export", str(user.twitter_screen_name)), exist_ok=True
+    )
     csv_filename = os.path.join(
         "/tmp", "export", str(user.twitter_screen_name), "export.csv"
     )
