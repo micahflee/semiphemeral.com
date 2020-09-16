@@ -216,12 +216,12 @@ async def import_tweet_and_thread(user, api, job, progress, status):
     )
     if not tweet:
         # Save the tweet
-        await log(job, f"Saving tweet: {status.id}")
+        # await log(job, f"Saving tweet: {status.id}")
         tweet = await save_tweet(user, status)
-    else:
-        await log(
-            job, f"Tweet of {status.id} already imported",
-        )
+    # else:
+    #     await log(
+    #         job, f"Tweet of {status.id} already imported",
+    #     )
 
     # Is this tweet a reply?
     if tweet.in_reply_to_status_id:
@@ -456,7 +456,7 @@ async def fetch(job):
             )
             if not tweet:
                 # Save the tweet
-                await log(job, f"Saving tweet: {status.id}")
+                # await log(job, f"Saving tweet: {status.id}")
                 await save_tweet(user, status)
 
             progress["likes_fetched"] += 1
