@@ -104,7 +104,7 @@ import PageButton from "./Tweets/PageButton.vue";
 
 export default {
   props: ["userScreenName"],
-  data: function() {
+  data: function () {
     return {
       loading: false,
       tweets: [],
@@ -116,11 +116,11 @@ export default {
       numPages: 1,
       countPerPage: 50,
       pageNumbers: [],
-      info: ""
+      info: "",
     };
   },
   computed: {
-    numberOfTweetsStagedForDeletion: function() {
+    numberOfTweetsStagedForDeletion: function () {
       var count = 0;
       for (var i = 0; i < this.tweets.length; i++) {
         if (!this.tweets[i].exclude) {
@@ -128,45 +128,45 @@ export default {
         }
       }
       return count;
-    }
+    },
   },
-  created: function() {
+  created: function () {
     this.fetchTweets();
   },
   watch: {
-    showReplies: function() {
+    showReplies: function () {
       this.filterTweets();
     },
-    filterQuery: function() {
+    filterQuery: function () {
       this.filterTweets();
-    }
+    },
   },
   methods: {
-    fetchTweets: function() {
+    fetchTweets: function () {
       var that = this;
       this.loading = true;
 
       // Get all saved tweets
       fetch("/api/tweets")
-        .then(function(response) {
+        .then(function (response) {
           if (response.status !== 200) {
             console.log(
               "Error fetching tweets, status code: " + response.status
             );
             return;
           }
-          response.json().then(function(data) {
+          response.json().then(function (data) {
             that.tweets = data["tweets"];
             that.filterTweets();
             that.loading = false;
           });
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error fetching tweets", err);
           that.loading = false;
         });
     },
-    filterTweets: function(page = 0) {
+    filterTweets: function (page = 0) {
       if (page == "previous") {
         this.page--;
       } else if (page == "next") {
@@ -229,7 +229,7 @@ export default {
       // The info text box
       this.updateInfo();
     },
-    updateInfo: function() {
+    updateInfo: function () {
       this.info =
         "Page " +
         this.commaFormatted(this.page) +
@@ -247,19 +247,19 @@ export default {
         this.info += this.tweets.length + " tweets | ";
       }
       this.info +=
-        this.numberOfTweetsStagedForDeletion + " tweets staged for deletion";
+        this.numberOfTweetsStagedForDeletion + " tweets okay to delete";
     },
-    commaFormatted: function(x) {
+    commaFormatted: function (x) {
       return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     },
-    changeExclude: function(id, exclude) {
+    changeExclude: function (id, exclude) {
       this.tweets[id].exclude = exclude;
       this.updateInfo();
-    }
+    },
   },
   components: {
     Tweet: Tweet,
-    PageButton: PageButton
-  }
+    PageButton: PageButton,
+  },
 };
 </script>
