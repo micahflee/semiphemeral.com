@@ -1020,16 +1020,20 @@ async def api_post_dashboard(request):
 @authentication_required_401
 async def api_get_tweets(request):
     """
-    Respond with the current user's list of tweets that should be deleted based on the
-    criteria in the user's settings
+    Respond with the current user's list of tweets
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
 
-    tweets = await tweets_to_delete(user, include_manually_excluded=True)
     tweets_for_client = []
-
-    for tweet in tweets:
+    for tweet in (
+        await Tweet.query.where(Tweet.user_id == user.id)
+        .where(Tweet.twitter_user_id == user.twitter_id)
+        .where(Tweet.is_deleted == False)
+        .where(Tweet.is_retweet == False)
+        .order_by(Tweet.created_at.desc())
+        .gino.all()
+    ):
         created_at = tweet.created_at.timestamp()
         is_reply = tweet.in_reply_to_status_id is not None
         tweets_for_client.append(

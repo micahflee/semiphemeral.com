@@ -25,8 +25,8 @@
     <div class="info">
       <label>
         <input ref="excludeCheckbox" type="checkbox" v-model="exclude" />
-        <span v-if="exclude" class="excluded">Excluded from deletion</span>
-        <span v-else>Staged for deletion</span>
+        <span v-if="exclude" class="excluded">Tweet excluded from deletion</span>
+        <span v-else>It's okay if this tweet gets deleted</span>
         <span v-if="loading">
           <img src="/static/img/loading.gif" title="Loading" />
         </span>
@@ -52,7 +52,7 @@ function addScript() {
     const s = document.createElement("script");
     s.setAttribute("src", "https://platform.twitter.com/widgets.js");
     document.body.appendChild(s);
-    addScriptPromise = new Promise(resolve => {
+    addScriptPromise = new Promise((resolve) => {
       s.onload = () => {
         resolve(window.twttr);
       };
@@ -63,31 +63,31 @@ function addScript() {
 
 export default {
   props: ["tweet", "userScreenName"],
-  data: function() {
+  data: function () {
     return {
       loading: false,
       exclude: null,
       previousStatusId: null,
-      error: ""
+      error: "",
     };
   },
-  created: function() {
+  created: function () {
     this.exclude = this.tweet.exclude;
   },
-  mounted: function() {
+  mounted: function () {
     this.$nextTick(this.embedTweet);
   },
-  beforeUpdate: function() {
+  beforeUpdate: function () {
     // If the tweet div id is "tweet-123", this will set previousStatusId to "123"
     this.previousStatusId = this.$refs.embeddedTweet
       .getAttribute("id")
       .split("-")[1];
   },
-  updated: function() {
+  updated: function () {
     this.$nextTick(this.embedTweet);
   },
   computed: {
-    twitterPermalink: function() {
+    twitterPermalink: function () {
       return (
         "https://twitter.com/" +
         this.userScreenName +
@@ -95,12 +95,12 @@ export default {
         this.tweet.status_id
       );
     },
-    embeddedTweetId: function() {
+    embeddedTweetId: function () {
       return "tweet-" + this.tweet.status_id;
-    }
+    },
   },
   watch: {
-    exclude: function(newExclude, oldExclude) {
+    exclude: function (newExclude, oldExclude) {
       // Skip if this is the first time
       if (newExclude == null || oldExclude == null) {
         return;
@@ -121,14 +121,14 @@ export default {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status_id: that.tweet.status_id,
-          exclude: that.exclude
-        })
+          exclude: that.exclude,
+        }),
       })
-        .then(function(response) {
+        .then(function (response) {
           that.loading = false;
           that.$refs.excludeCheckbox.disabled = false;
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error toggling exclude", err);
           that.loading = false;
           that.$refs.excludeCheckbox.disabled = false;
@@ -139,10 +139,10 @@ export default {
           that.exclude = !oldExclude;
           that.error = "Error toggling exclude";
         });
-    }
+    },
   },
   methods: {
-    embedTweet: function() {
+    embedTweet: function () {
       // If the tweet itself hasn't changed, no need to re-embed it
       if (this.previousStatusId == this.tweet["status_id"]) {
         return;
@@ -161,7 +161,7 @@ export default {
 
       // Embed the tweet
       var that = this;
-      Promise.resolve(window.twttr ? window.twttr : addScript()).then(function(
+      Promise.resolve(window.twttr ? window.twttr : addScript()).then(function (
         twttr
       ) {
         twttr.widgets.createTweetEmbed(
@@ -170,7 +170,7 @@ export default {
           { dnt: true }
         );
       });
-    }
-  }
+    },
+  },
 };
 </script>
