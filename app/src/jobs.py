@@ -156,7 +156,7 @@ async def start_job_while_rate_limited(job, before_ts):
         seconds_left = sixteen_minutes_in_seconds - diff.seconds
         if seconds_left <= 0:
             break
-    
+
         # Should we run another job while we're waiting?
         new_job = (
             await Job.query.where(Job.status == "pending")
@@ -858,28 +858,29 @@ async def delete(job):
                 .gino.all()
             )
             for job in jobs:
-                p = json.loads(job.progress)
+                if job.progress:
+                    p = json.loads(job.progress)
 
-                if "tweets_deleted" in p:
-                    total_progress["tweets_deleted"] += p["tweets_deleted"]
-                if "retweets_deleted" in p:
-                    total_progress["retweets_deleted"] += p["retweets_deleted"]
-                if "likes_deleted" in p:
-                    total_progress["likes_deleted"] += p["likes_deleted"]
-
-                if job.finished_timestamp > last_nag.timestamp:
                     if "tweets_deleted" in p:
-                        total_progress_since_last_nag["tweets_deleted"] += p[
-                            "tweets_deleted"
-                        ]
+                        total_progress["tweets_deleted"] += p["tweets_deleted"]
                     if "retweets_deleted" in p:
-                        total_progress_since_last_nag["retweets_deleted"] += p[
-                            "retweets_deleted"
-                        ]
+                        total_progress["retweets_deleted"] += p["retweets_deleted"]
                     if "likes_deleted" in p:
-                        total_progress_since_last_nag["likes_deleted"] += p[
-                            "likes_deleted"
-                        ]
+                        total_progress["likes_deleted"] += p["likes_deleted"]
+
+                    if job.finished_timestamp > last_nag.timestamp:
+                        if "tweets_deleted" in p:
+                            total_progress_since_last_nag["tweets_deleted"] += p[
+                                "tweets_deleted"
+                            ]
+                        if "retweets_deleted" in p:
+                            total_progress_since_last_nag["retweets_deleted"] += p[
+                                "retweets_deleted"
+                            ]
+                        if "likes_deleted" in p:
+                            total_progress_since_last_nag["likes_deleted"] += p[
+                                "likes_deleted"
+                            ]
 
             message = f"Since you've been using Semiphemeral, I have deleted {total_progress['tweets_deleted']} tweets, unretweeted {total_progress['retweets_deleted']} tweets, and unliked {total_progress['likes_deleted']} tweets for you.\n\nJust since last month, I've deleted {total_progress_since_last_nag['tweets_deleted']} tweets, unretweeted {total_progress_since_last_nag['retweets_deleted']} tweets, and unliked {total_progress_since_last_nag['likes_deleted']} tweets.\n\nSemiphemeral is free, but running this service costs money. Care to chip in? Visit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
 

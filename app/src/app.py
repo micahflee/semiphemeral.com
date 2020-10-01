@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 import subprocess
 import asyncio
 import asyncpg
@@ -24,6 +25,8 @@ async def main():
             if os.environ.get("SEMIPHEMERAL_WEB") == "1":
                 await start_web_server()
             elif os.environ.get("SEMIPHEMERAL_JOBS") == "1":
+                # Long twitter threads need big recursion limits
+                sys.setrecursionlimit(5000)
                 await start_jobs()
             elif os.environ.get("SEMIPHEMERAL_DM_JOBS") == "1":
                 await start_dm_jobs()
