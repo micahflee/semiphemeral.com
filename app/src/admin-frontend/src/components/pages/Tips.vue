@@ -13,7 +13,7 @@ li .tip-user {
   display: inline-block;
   vertical-align: middle;
   margin-right: 0.5em;
-  width: 120px;
+  width: 150px;
   font-size: 0.9em;
 }
 
@@ -21,7 +21,7 @@ li .tip-date {
   display: inline-block;
   vertical-align: middle;
   margin-right: 0.5em;
-  width: 120px;
+  width: 160px;
   font-size: 0.8em;
   color: #666666;
 }
@@ -31,7 +31,7 @@ li .tip-amount {
   vertical-align: middle;
   font-size: 0.8em;
   color: #009900;
-  min-width: 55px;
+  min-width: 80px;
   margin-right: 10px;
 }
 
@@ -55,7 +55,9 @@ li .tip-receipt {
       <ul>
         <li v-for="tip in tips">
           <span class="tip-user">
-            <a v-bind:href="tip.twitter_link" target="_blank">{{ tip.twitter_username }}</a>
+            <a v-bind:href="tip.twitter_link" target="_blank">{{
+              tip.twitter_username
+            }}</a>
           </span>
           <span class="tip-date">{{ formatTipDate(tip.timestamp) }}</span>
           <span class="tip-amount">
@@ -67,7 +69,11 @@ li .tip-receipt {
           </span>
           <span class="tip-receipt">
             <a v-bind:href="tip.receipt_url" target="_blank">
-              <img title="Receipt" alt="Receipt" src="/static/img/receipt.png" />
+              <img
+                title="Receipt"
+                alt="Receipt"
+                src="/static/img/receipt.png"
+              />
             </a>
           </span>
         </li>
@@ -79,40 +85,40 @@ li .tip-receipt {
 <script>
 export default {
   props: ["userScreenName"],
-  data: function() {
+  data: function () {
     return {
       loading: false,
-      tips: []
+      tips: [],
     };
   },
-  created: function() {
+  created: function () {
     this.fetchTips();
   },
   methods: {
-    fetchTips: function() {
+    fetchTips: function () {
       var that = this;
       this.loading = true;
 
       // Get lists of tips
       fetch("/admin_api/tips")
-        .then(function(response) {
+        .then(function (response) {
           if (response.status !== 200) {
             console.log("Error fetching tips, status code: " + response.status);
             that.loading = false;
             return;
           }
-          response.json().then(function(data) {
+          response.json().then(function (data) {
             that.loading = false;
             if (data["tips"]) that.tips = data["tips"];
             else that.tips = [];
           });
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error fetching tips", err);
           that.loading = false;
         });
     },
-    formatTipDate: function(timestamp) {
+    formatTipDate: function (timestamp) {
       var date = new Date(timestamp * 1000);
       var month_num = date.getMonth() + 1;
       var month = "";
@@ -143,9 +149,9 @@ export default {
       }
       return month + " " + date.getDate() + ", " + date.getFullYear();
     },
-    formatTipAmount: function(amount) {
+    formatTipAmount: function (amount) {
       return "$" + (amount / 100).toFixed(2);
-    }
-  }
+    },
+  },
 };
 </script>
