@@ -151,26 +151,25 @@ async def update_progress(job, progress):
 async def start_job_while_rate_limited(job, before_ts):
     sixteen_minutes_in_seconds = 16 * 60
 
-    # Should we run another job while we're waiting?
-    new_job = (
-        await Job.query.where(Job.status == "pending")
-        .where(Job.scheduled_timestamp <= datetime.now())
-        .order_by(Job.scheduled_timestamp)
-        .gino.first()
-    )
-    if new_job:
-        await log(job, f"Rate limited so starting a new job in the background")
-        await start_job(new_job)
-
+    while True:
         diff = datetime.now() - before_ts
         seconds_left = sixteen_minutes_in_seconds - diff.seconds
-
-        if seconds_left > 0:
-            await start_job_while_rate_limited(job, before_ts)
-    else:
-        # Wait 16 minutes
-        await log(job, f"No pending jobs, so sleeping 16 minutes")
-        await asyncio.sleep(sixteen_minutes_in_seconds)
+        if seconds_left <= 0:
+            break
+    
+        # Should we run another job while we're waiting?
+        new_job = (
+            await Job.query.where(Job.status == "pending")
+            .where(Job.scheduled_timestamp <= datetime.now())
+            .order_by(Job.scheduled_timestamp)
+            .gino.first()
+        )
+        if new_job:
+            await log(job, f"Rate limited so starting a new job in the background")
+            await start_job(new_job)
+        else:
+            await log(job, f"No pending jobs, so sleeping 1 minute")
+            await asyncio.sleep(60)
 
 
 async def update_progress_rate_limit(job, progress):

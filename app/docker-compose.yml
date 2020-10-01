@@ -49,7 +49,7 @@ services:
     depends_on:
       - web
     
-  jobs1:
+  jobs:
     restart: always
     build: "src"
     environment:
@@ -66,56 +66,6 @@ services:
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
       - SECONDS_TO_SLEEP=10
-    volumes:
-      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
-    networks:
-      - default
-      - host_private
-    depends_on:
-      - web
-
-  jobs2:
-    restart: always
-    build: "src"
-    environment:
-      - SEMIPHEMERAL_JOBS=1
-      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
-      - DOMAIN={{ domain }}
-      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
-      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
-      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
-      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
-      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
-      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
-      - DATABASE_URI={{ database_uri }}
-      - ADMIN_USERNAME={{ admin_username }}
-      - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=20
-    volumes:
-      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
-    networks:
-      - default
-      - host_private
-    depends_on:
-      - web
-
-  jobs3:
-    restart: always
-    build: "src"
-    environment:
-      - SEMIPHEMERAL_JOBS=1
-      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
-      - DOMAIN={{ domain }}
-      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
-      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
-      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
-      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
-      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
-      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
-      - DATABASE_URI={{ database_uri }}
-      - ADMIN_USERNAME={{ admin_username }}
-      - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=30
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
