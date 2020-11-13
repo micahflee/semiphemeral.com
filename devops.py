@@ -138,7 +138,9 @@ def _ansible_apply(deploy_environment, update_only=False):
     admin_frontend_node_modules_dir = os.path.join(
         _get_root_dir(), "app/src/admin-frontend/node_modules"
     )
-    admin_frontend_node_modules_dir_exists = os.path.exists(admin_frontend_node_modules_dir)
+    admin_frontend_node_modules_dir_exists = os.path.exists(
+        admin_frontend_node_modules_dir
+    )
     if admin_frontend_node_modules_dir_exists:
         shutil.move(admin_frontend_node_modules_dir, admin_tmp_dir.name)
 
@@ -154,7 +156,8 @@ def _ansible_apply(deploy_environment, update_only=False):
         )
     if admin_frontend_node_modules_dir_exists:
         shutil.move(
-            os.path.join(admin_tmp_dir.name, "node_modules"), admin_frontend_node_modules_dir
+            os.path.join(admin_tmp_dir.name, "node_modules"),
+            admin_frontend_node_modules_dir,
         )
 
     # Write the inventory file
@@ -174,7 +177,13 @@ def _ansible_apply(deploy_environment, update_only=False):
 
     # Run update app playbook
     p = subprocess.run(
-        ["ansible-playbook", "-i", inventory_filename, "-e", f"app_tgz={app_tgz}",]
+        [
+            "ansible-playbook",
+            "-i",
+            inventory_filename,
+            "-e",
+            f"app_tgz={app_tgz}",
+        ]
         + _ansible_variables(deploy_environment)
         + ["update_app.yaml"],
         cwd=os.path.join(_get_root_dir(), "ansible"),
@@ -394,7 +403,11 @@ def forward_postgres(deploy_environment):
     click.echo(f"postbird connection URL: {terraform_output['postbird_url']}")
     _ssh(
         deploy_environment,
-        ["-N", "-L", f"5432:{terraform_output['database_host']}:25060",],
+        [
+            "-N",
+            "-L",
+            f"5432:{terraform_output['database_host']}:25060",
+        ],
     )
 
 
