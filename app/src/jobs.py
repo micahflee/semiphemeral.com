@@ -1274,9 +1274,9 @@ async def start_unblock_job(unblock_job):
 async def start_jobs():
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         await asyncio.sleep(5)
-    await send_admin_dm(
-        f"jobs container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
-    )
+    # await send_admin_dm(
+    #     f"jobs container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
+    # )
 
     seconds_to_sleep = int(os.environ.get("SECONDS_TO_SLEEP"))
     print(f"Sleeping {seconds_to_sleep} seconds")
