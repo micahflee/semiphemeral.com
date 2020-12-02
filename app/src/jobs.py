@@ -148,28 +148,28 @@ async def update_progress(job, progress):
     await job.update(progress=json.dumps(progress)).apply()
 
 
-async def start_job_while_rate_limited(job, before_ts):
-    sixteen_minutes_in_seconds = 16 * 60
+# async def start_job_while_rate_limited(job, before_ts):
+#     sixteen_minutes_in_seconds = 16 * 60
 
-    while True:
-        diff = datetime.now() - before_ts
-        seconds_left = sixteen_minutes_in_seconds - diff.seconds
-        if seconds_left <= 0:
-            break
+#     while True:
+#         diff = datetime.now() - before_ts
+#         seconds_left = sixteen_minutes_in_seconds - diff.seconds
+#         if seconds_left <= 0:
+#             break
 
-        # Should we run another job while we're waiting?
-        new_job = (
-            await Job.query.where(Job.status == "pending")
-            .where(Job.scheduled_timestamp <= datetime.now())
-            .order_by(Job.scheduled_timestamp)
-            .gino.first()
-        )
-        if new_job:
-            await log(job, f"Rate limited so starting a new job in the background")
-            await start_job(new_job)
-        else:
-            await log(job, f"No pending jobs, so sleeping 1 minute")
-            await asyncio.sleep(60)
+#         # Should we run another job while we're waiting?
+#         new_job = (
+#             await Job.query.where(Job.status == "pending")
+#             .where(Job.scheduled_timestamp <= datetime.now())
+#             .order_by(Job.scheduled_timestamp)
+#             .gino.first()
+#         )
+#         if new_job:
+#             await log(job, f"Rate limited so starting a new job in the background")
+#             await start_job(new_job)
+#         else:
+#             await log(job, f"No pending jobs, so sleeping 1 minute")
+#             await asyncio.sleep(60)
 
 
 async def update_progress_rate_limit(job, progress):
@@ -183,8 +183,13 @@ async def update_progress_rate_limit(job, progress):
     ] = f"I hit Twitter's rate limit, so I have to wait a bit before continuing ..."
     await update_progress(job, progress)
 
+    # Wait 16 minutes
+    await asyncio.sleep(16 * 60)
+
     # If we can, start a new job while rate limited
-    await start_job_while_rate_limited(job, datetime.now())
+    # Commented out because of a bug where the new job gets rate-limited, then
+    # that gets rate-limited, etc., and for some reason this job never resumes...
+    # await start_job_while_rate_limited(job, datetime.now())
 
     # Change status message back
     progress["status"] = old_status
@@ -729,7 +734,8 @@ async def delete(job):
 
             # Fetch DMs
             pages = await loop.run_in_executor(
-                None, tweepy.Cursor(dms_api.list_direct_messages).pages,
+                None,
+                tweepy.Cursor(dms_api.list_direct_messages).pages,
             )
             while True:
                 try:
@@ -809,7 +815,8 @@ async def delete(job):
     if not last_nag:
         # Create a nag
         await Nag.create(
-            user_id=user.id, timestamp=datetime.now(),
+            user_id=user.id,
+            timestamp=datetime.now(),
         )
 
         # The user has never been nagged, so this is the first delete
@@ -835,7 +842,8 @@ async def delete(job):
         if should_nag:
             # Create a nag
             await Nag.create(
-                user_id=user.id, timestamp=datetime.now(),
+                user_id=user.id,
+                timestamp=datetime.now(),
             )
 
             # The user has been nagged before -- do some math to get the totals
@@ -1039,7 +1047,7 @@ async def delete_dms_job(job, dm_type):
 
 
 async def start_job(job):
-    await log(job, "Starting job")
+    await log(job, f"Starting job {job.id}")
     await job.update(status="active", started_timestamp=datetime.now()).apply()
 
     try:
@@ -1286,23 +1294,15 @@ async def start_jobs():
     while True:
         tasks = []
 
-        # Run the next 10 fetch, delete, and delete_dms jobs
-        ids = []
-        for job in (
+        # Run the next fetch, delete, or delete_dms job
+        job = (
             await Job.query.where(Job.status == "pending")
             .where(Job.scheduled_timestamp <= datetime.now())
             .order_by(Job.scheduled_timestamp)
-            .limit(10)
-            .gino.all()
-        ):
-            ids.append(job.id)
-            tasks.append(start_job(job))
-
-        if len(tasks) > 0:
-            print(
-                f"Running {len(tasks)} fetch/delete/delete_dms/delete_dm_groups jobs {ids}"
-            )
-            await asyncio.gather(*tasks)
+            .gino.first()
+        )
+        if job:
+            await start_job(job)
         else:
             print(
                 f"No fetch/delete/delete_dms/delete_dm_groups jobs, waiting 60 seconds"
