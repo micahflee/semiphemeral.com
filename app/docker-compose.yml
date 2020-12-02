@@ -77,7 +77,7 @@ services:
     restart: always
     build: "src"
     environment:
-      - SEMIPHEMERAL_JOBS=2
+      - SEMIPHEMERAL_JOBS=1
       - DEPLOY_ENVIRONMENT={{ deploy_environment }}
       - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
@@ -102,7 +102,7 @@ services:
     restart: always
     build: "src"
     environment:
-      - SEMIPHEMERAL_JOBS=3
+      - SEMIPHEMERAL_JOBS=1
       - DEPLOY_ENVIRONMENT={{ deploy_environment }}
       - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
@@ -127,7 +127,7 @@ services:
     restart: always
     build: "src"
     environment:
-      - SEMIPHEMERAL_JOBS=4
+      - SEMIPHEMERAL_JOBS=1
       - DEPLOY_ENVIRONMENT={{ deploy_environment }}
       - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
@@ -152,7 +152,7 @@ services:
     restart: always
     build: "src"
     environment:
-      - SEMIPHEMERAL_JOBS=5
+      - SEMIPHEMERAL_JOBS=1
       - DEPLOY_ENVIRONMENT={{ deploy_environment }}
       - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
