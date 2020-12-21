@@ -581,7 +581,12 @@ async def api_post_tip(request):
 
     # Validate
     await _api_validate(
-        {"token": str, "amount": str, "other_amount": [str, float],}, data,
+        {
+            "token": str,
+            "amount": str,
+            "other_amount": [str, float],
+        },
+        data,
     )
     if (
         data["amount"] != "100"
@@ -1134,7 +1139,10 @@ async def api_post_dms(request):
     dms_file = post.get("file")
     if not dms_file:
         return web.json_response(
-            {"error": True, "error_message": "Uploading file failed",}
+            {
+                "error": True,
+                "error_message": "Uploading file failed",
+            }
         )
 
     # Detect if this is direct-message-headers.js or direct-message-group-headers.js
@@ -1160,12 +1168,18 @@ async def api_post_dms(request):
         conversations = json.loads(json_string)
     except:
         return web.json_response(
-            {"error": True, "error_message": "Failed parsing JSON object",}
+            {
+                "error": True,
+                "error_message": "Failed parsing JSON object",
+            }
         )
 
     if type(conversations) != list:
         return web.json_response(
-            {"error": True, "error_message": "JSON object expected to be a list",}
+            {
+                "error": True,
+                "error_message": "JSON object expected to be a list",
+            }
         )
 
     for obj in conversations:
@@ -1240,7 +1254,68 @@ async def app_admin(request):
 
 @admin_required
 async def app_admin_redirect(request):
-    raise web.HTTPFound(location="/admin/users")
+    raise web.HTTPFound(location="/admin/jobs")
+
+
+@admin_required
+async def admin_api_get_jobs(request):
+    active_jobs = (
+        await Job.query.where(Job.status == "active")
+        .order_by(Job.started_timestamp)
+        .gino.all()
+    )
+
+    pending_jobs = (
+        await Job.query.where(Job.status == "pending")
+        .order_by(Job.scheduled_timestamp)
+        .gino.all()
+    )
+
+    async def to_client(jobs):
+        jobs_json = []
+        for job in jobs:
+            if job.scheduled_timestamp:
+                scheduled_timestamp = job.scheduled_timestamp.timestamp()
+            else:
+                scheduled_timestamp = None
+            if job.started_timestamp:
+                started_timestamp = job.started_timestamp.timestamp()
+            else:
+                started_timestamp = None
+            if job.finished_timestamp:
+                finished_timestamp = job.finished_timestamp.timestamp()
+            else:
+                finished_timestamp = None
+
+            user = await User.query.where(User.id == job.user_id).gino.first()
+            if user:
+                twitter_username = user.twitter_screen_name
+                twitter_link = f"https://twitter.com/{user.twitter_screen_name}"
+            else:
+                twitter_username = None
+                twitter_link = None
+
+            jobs_json.append(
+                {
+                    "id": job.id,
+                    "user_id": job.user_id,
+                    "twitter_username": twitter_username,
+                    "twitter_link": twitter_link,
+                    "job_type": job.job_type,
+                    "progress": job.progress,
+                    "status": job.status,
+                    "scheduled_timestamp": scheduled_timestamp,
+                    "started_timestamp": started_timestamp,
+                }
+            )
+        return jobs_json
+
+    return web.json_response(
+        {
+            "active_jobs": await to_client(active_jobs),
+            "pending_jobs": await to_client(pending_jobs),
+        }
+    )
 
 
 @admin_required
@@ -1353,7 +1428,10 @@ async def admin_api_get_fascists(request):
         fascists_json = []
         for fascist in fascists:
             fascists_json.append(
-                {"username": fascist.username, "comment": fascist.comment,}
+                {
+                    "username": fascist.username,
+                    "comment": fascist.comment,
+                }
             )
         return fascists_json
 
@@ -1550,6 +1628,7 @@ async def start_web_server():
             web.get("/admin/fascists", app_admin),
             web.get("/admin/tips", app_admin),
             # Admin API
+            web.get("/admin_api/jobs", admin_api_get_jobs),
             web.get("/admin_api/users", admin_api_get_users),
             web.get("/admin_api/users/{user_id}", admin_api_get_user),
             web.post("/admin_api/users/impersonate", admin_api_post_user_impersonate),

@@ -60,6 +60,9 @@ span.user span a {
     </span>
     <ul>
       <li>
+        <router-link to="/admin/jobs">Jobs</router-link>
+      </li>
+      <li>
         <router-link to="/admin/users">Users</router-link>
       </li>
       <li>
@@ -70,7 +73,11 @@ span.user span a {
       </li>
     </ul>
     <span class="user">
-      <img v-if="userScreenName" v-bind:src="userProfileUrl" v-bind:title="logoutTitle" />
+      <img
+        v-if="userScreenName"
+        v-bind:src="userProfileUrl"
+        v-bind:title="logoutTitle"
+      />
       <span>
         <a href="/auth/logout">Log out</a>
       </span>
@@ -82,9 +89,9 @@ span.user span a {
 export default {
   props: ["userScreenName", "userProfileUrl"],
   computed: {
-    logoutTitle: function() {
+    logoutTitle: function () {
       return "Logged in as @" + this.userScreenName;
-    }
-  }
+    },
+  },
 };
 </script>
