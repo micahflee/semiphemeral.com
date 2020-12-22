@@ -42,6 +42,7 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
+      - SECONDS_TO_SLEEP=1
     networks:
       - default
       - host_private

@@ -148,31 +148,16 @@ async def update_progress(job, progress):
     await job.update(progress=json.dumps(progress)).apply()
 
 
-# async def start_job_while_rate_limited(job, before_ts):
-#     sixteen_minutes_in_seconds = 16 * 60
-
-#     while True:
-#         diff = datetime.now() - before_ts
-#         seconds_left = sixteen_minutes_in_seconds - diff.seconds
-#         if seconds_left <= 0:
-#             break
-
-#         # Should we run another job while we're waiting?
-#         new_job = (
-#             await Job.query.where(Job.status == "pending")
-#             .where(Job.scheduled_timestamp <= datetime.now())
-#             .order_by(Job.scheduled_timestamp)
-#             .gino.first()
-#         )
-#         if new_job:
-#             await log(job, f"Rate limited so starting a new job in the background")
-#             await start_job(new_job)
-#         else:
-#             await log(job, f"No pending jobs, so sleeping 1 minute")
-#             await asyncio.sleep(60)
-
-
 async def update_progress_rate_limit(job, progress):
+    # If this job has been going on for 24 hours, start over
+    if datetime.now() - job.started_timestamp >= timedelta(hours=24):
+        await log(
+            job,
+            f"Hit twitter rate limit, this job has lasted a long time so rescheduling ...",
+        )
+        await reschedule_job(job, timedelta(minutes=15))
+        return
+
     await log(job, f"Hit twitter rate limit, pausing ...")
 
     old_status = progress["status"]
@@ -185,11 +170,6 @@ async def update_progress_rate_limit(job, progress):
 
     # Wait 16 minutes
     await asyncio.sleep(16 * 60)
-
-    # If we can, start a new job while rate limited
-    # Commented out because of a bug where the new job gets rate-limited, then
-    # that gets rate-limited, etc., and for some reason this job never resumes...
-    # await start_job_while_rate_limited(job, datetime.now())
 
     # Change status message back
     progress["status"] = old_status
@@ -1288,9 +1268,6 @@ async def start_unblock_job(unblock_job):
 async def start_jobs():
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         await asyncio.sleep(5)
-    # await send_admin_dm(
-    #     f"jobs container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
-    # )
 
     seconds_to_sleep = int(os.environ.get("SECONDS_TO_SLEEP"))
     print(f"Sleeping {seconds_to_sleep} seconds")
@@ -1298,8 +1275,6 @@ async def start_jobs():
 
     # Infinitely loop looking for pending jobs
     while True:
-        tasks = []
-
         # Run the next fetch, delete, or delete_dms job
         job = (
             await Job.query.where(Job.status == "pending")
