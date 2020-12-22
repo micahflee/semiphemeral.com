@@ -1624,6 +1624,7 @@ async def start_web_server():
             web.get("/faq", app_main),
             # Admin
             web.get("/admin", app_admin_redirect),
+            web.get("/admin/jobs", app_admin),
             web.get("/admin/users", app_admin),
             web.get("/admin/fascists", app_admin),
             web.get("/admin/tips", app_admin),
