@@ -103,9 +103,16 @@ def ensure_user_follows_us(func):
         elif not friendship.following:
             # Make follow request
             print(f"user_id={user.id} not following, making follow request")
-            await twitter_api_call(
-                api, "create_friendship", screen_name="semiphemeral", follow=True
-            )
+            try:
+                await twitter_api_call(
+                    api, "create_friendship", screen_name="semiphemeral", follow=True
+                )
+            except:
+                print(
+                    f"user_id={user.id} failed to make follow request, pause the user"
+                )
+                await user.update(paused=True).apply()
+                return
 
         return await func(job)
 
@@ -416,7 +423,7 @@ async def fetch(job):
                 if tweet:
                     await tweet.update(thread_id=thread.id).apply()
 
-        await log(job, f"Fetch tweets loop progress: {progress}")
+        # await log(job, f"Fetch tweets loop progress: {progress}")
         await update_progress(job, progress)
 
     # Update progress
@@ -470,7 +477,7 @@ async def fetch(job):
 
             progress["likes_fetched"] += 1
 
-        await log(job, f"Fetch likes loop progress: {progress}")
+        # await log(job, f"Fetch likes loop progress: {progress}")
         await update_progress(job, progress)
 
     # All done, update the since_id
@@ -599,7 +606,7 @@ async def delete(job):
                 progress["retweets_deleted"] += 1
                 await update_progress(job, progress)
 
-            await log(job, f"Delete retweets progress: {progress}")
+            # await log(job, f"Delete retweets progress: {progress}")
 
         # Unlike
         if user.retweets_likes_delete_likes:
@@ -648,7 +655,7 @@ async def delete(job):
                 progress["likes_deleted"] += 1
                 await update_progress(job, progress)
 
-            await log(job, f"Delete likes progress: {progress}")
+            # await log(job, f"Delete likes progress: {progress}")
 
     # Deleting tweets
     if user.delete_tweets:
@@ -685,7 +692,7 @@ async def delete(job):
             progress["tweets_deleted"] += 1
             await update_progress(job, progress)
 
-        await log(job, f"Delete tweets progress: {progress}")
+        # await log(job, f"Delete tweets progress: {progress}")
 
     # Deleting direct messages
     if user.direct_messages:
@@ -1027,7 +1034,7 @@ async def delete_dms_job(job, dm_type):
 
 
 async def start_job(job):
-    await log(job, f"Starting job {job.id}")
+    await log(job, f"Starting job")
     await job.update(status="active", started_timestamp=datetime.now()).apply()
 
     try:
@@ -1200,14 +1207,28 @@ async def start_block_job(block_job):
             f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} blocked user {block_job.twitter_username}"
         )
     except Exception as e:
-        # Try again in 5 minutes
-        await block_job.update(
-            status="pending", scheduled_timestamp=datetime.now() + timedelta(minutes=5)
-        ).apply()
+        try:
+            error_code = e.args[0][0]["code"]
+        except:
+            error_code = e.api_code
 
-        print(
-            f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} failed ({e}), delaying 5 minutes"
-        )
+        # 108: Cannot find specified user.
+        # 89: Invalid or expired token.
+        if error_code == 108 or error_code == 89:
+            print(
+                f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} failed ({e}), marking as failure"
+            )
+            await block_job.update(status="failed").apply()
+        else:
+            # Try again in 5 minutes
+            await block_job.update(
+                status="pending",
+                scheduled_timestamp=datetime.now() + timedelta(minutes=5),
+            ).apply()
+
+            print(
+                f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} failed ({e}), delaying 5 minutes"
+            )
 
 
 async def start_unblock_job(unblock_job):
@@ -1255,14 +1276,23 @@ async def start_unblock_job(unblock_job):
             f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} unblocked user {unblock_job.twitter_username}"
         )
     except Exception as e:
-        # Try again in 5 minutes
-        await unblock_job.update(
-            status="pending", scheduled_timestamp=datetime.now() + timedelta(minutes=5)
-        ).apply()
+        # 108: Cannot find specified user.
+        # 89: Invalid or expired token.
+        if error_code == 108 or error_code == 89:
+            print(
+                f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} failed ({e}), marking as failure"
+            )
+            await unblock_job.update(status="failed").apply()
+        else:
+            # Try again in 5 minutes
+            await unblock_job.update(
+                status="pending",
+                scheduled_timestamp=datetime.now() + timedelta(minutes=5),
+            ).apply()
 
-        print(
-            f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} failed ({e}), delaying 5 minutes"
-        )
+            print(
+                f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} failed ({e}), delaying 5 minutes"
+            )
 
 
 async def start_jobs():
