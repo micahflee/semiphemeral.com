@@ -65,7 +65,14 @@ async def tweets_to_delete(user, include_manually_excluded=False):
     """
     Return the tweets that are staged for deletion for this user
     """
-    datetime_threshold = datetime.utcnow() - timedelta(days=user.tweets_days_threshold)
+    try:
+        datetime_threshold = datetime.utcnow() - timedelta(
+            days=user.tweets_days_threshold
+        )
+    except OverflowError:
+        # If we get "OverflowError: date value out of range", set the date to July 1, 2006,
+        # shortly before Twitter was launched
+        datetime_threshold = datetime(2006, 7, 1)
 
     # Get all the tweets to delete that have threads
     query = (
