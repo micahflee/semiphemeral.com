@@ -1113,7 +1113,13 @@ async def start_dm_job(dm_job):
         # 150: You cannot send messages to users who are not following you.
         # 349: You cannot send messages to this user.
         # 108: Cannot find specified user.
-        if error_code == 150 or error_code == 349 or error_code == 108:
+        # 89: Invalid or expired token.
+        if (
+            error_code == 150
+            or error_code == 349
+            or error_code == 108
+            or error_code == 89
+        ):
             print(
                 f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), marking as failure"
             )
