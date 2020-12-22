@@ -41,7 +41,7 @@ li .job-progress {
   display: block;
   font-size: 0.9em;
   font-family: monospace;
-  color: #333;
+  color: #666;
   margin-left: 65px;
 }
 </style>
@@ -77,16 +77,14 @@ li .job-progress {
       <ul>
         <li v-for="job in pending_jobs">
           <span class="job-id">{{ job.id }}</span>
-          <div v-if="job.twitter_username != None">
-            <span class="job-user">
-              <a v-bind:href="job.twitter_link" target="_blank">{{
-                job.twitter_username
-              }}</a>
-            </span>
-          </div>
-          <div v-else>
+          <span class="job-user" v-if="job.twitter_username != None">
+            <a v-bind:href="job.twitter_link" target="_blank">{{
+              job.twitter_username
+            }}</a>
+          </span>
+          <span class="job-user" v-else>
             <p>unknown user</p>
-          </div>
+          </span>
           <span class="job-type">{{ job.job_type }}</span>
           <span class="job-date"
             >scheduled {{ formatJobDate(job.scheduled_timestamp) }}</span
