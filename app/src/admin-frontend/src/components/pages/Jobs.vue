@@ -55,7 +55,7 @@ li .job-progress {
       <ul>
         <li v-for="job in active_jobs">
           <span class="job-id">{{ job.id }}</span>
-          <span class="job-user" v-if="job.twitter_username != None">
+          <span class="job-user" v-if="job.twitter_username != null">
             <a v-bind:href="job.twitter_link" target="_blank">{{
               job.twitter_username
             }}</a>
@@ -77,7 +77,7 @@ li .job-progress {
       <ul>
         <li v-for="job in pending_jobs">
           <span class="job-id">{{ job.id }}</span>
-          <span class="job-user" v-if="job.twitter_username != None">
+          <span class="job-user" v-if="job.twitter_username != null">
             <a v-bind:href="job.twitter_link" target="_blank">{{
               job.twitter_username
             }}</a>
