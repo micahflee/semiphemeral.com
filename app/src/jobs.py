@@ -1276,6 +1276,11 @@ async def start_unblock_job(unblock_job):
             f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} unblocked user {unblock_job.twitter_username}"
         )
     except Exception as e:
+        try:
+            error_code = e.args[0][0]["code"]
+        except:
+            error_code = e.api_code
+
         # 108: Cannot find specified user.
         # 89: Invalid or expired token.
         if error_code == 108 or error_code == 89:
