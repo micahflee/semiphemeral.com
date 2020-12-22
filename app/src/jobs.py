@@ -173,19 +173,10 @@ async def start_job_while_rate_limited(job, before_ts):
             await asyncio.sleep(seconds_left)
     else:
         await log(job, f"No pending jobs, so sleeping 16 minute")
-        await asyncio.sleep(16*60)
+        await asyncio.sleep(16 * 60)
 
 
 async def update_progress_rate_limit(job, progress):
-    # If this job has been going on for 24 hours, start over
-    if datetime.now() - job.started_timestamp >= timedelta(hours=24):
-        await log(
-            job,
-            f"Hit twitter rate limit, this job has lasted a long time so rescheduling ...",
-        )
-        await reschedule_job(job, timedelta(minutes=15))
-        return
-
     await log(job, f"Hit twitter rate limit, pausing ...")
 
     old_status = progress["status"]
