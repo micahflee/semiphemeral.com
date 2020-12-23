@@ -65,6 +65,9 @@ li .job-progress {
           </span>
           <span class="job-type">{{ job.job_type }}</span>
           <span class="job-date"
+            >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
+          >
+          <span class="job-date"
             >started {{ formatJobDate(job.started_timestamp) }} UTC</span
           >
           <span class="job-progress">{{ job.progress }}</span>
