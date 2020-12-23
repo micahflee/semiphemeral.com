@@ -32,7 +32,7 @@ li .job-date {
   display: inline-block;
   vertical-align: middle;
   margin-right: 10px;
-  width: 250px;
+  width: 280px;
   font-size: 0.8em;
   color: #666666;
 }
@@ -49,10 +49,6 @@ li .job-progress {
 <template>
   <div>
     <h1>Jobs</h1>
-
-    <p>
-      <em>Current datetime: {{ currentDateFormatted() }}</em>
-    </p>
 
     <div v-if="active_jobs.length > 0">
       <h2>{{ active_jobs.length }} active jobs</h2>
@@ -205,9 +201,6 @@ export default {
         ":" +
         this.addZero(date.getUTCMinutes())
       );
-    },
-    currentDateFormatted: function () {
-      return this.formatJobDate(Date.now());
     },
   },
 };
