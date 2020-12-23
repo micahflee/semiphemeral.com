@@ -50,6 +50,10 @@ li .job-progress {
   <div>
     <h1>Jobs</h1>
 
+    <p>
+      <em>Current datetime: {{ currentDateFormatted() }}</em>
+    </p>
+
     <div v-if="active_jobs.length > 0">
       <h2>{{ active_jobs.length }} active jobs</h2>
       <ul>
@@ -65,7 +69,7 @@ li .job-progress {
           </span>
           <span class="job-type">{{ job.job_type }}</span>
           <span class="job-date"
-            >started {{ formatJobDate(job.started_timestamp) }}</span
+            >started {{ formatJobDate(job.started_timestamp) }} UTC</span
           >
           <span class="job-progress">{{ job.progress }}</span>
         </li>
@@ -87,7 +91,28 @@ li .job-progress {
           </span>
           <span class="job-type">{{ job.job_type }}</span>
           <span class="job-date"
-            >scheduled {{ formatJobDate(job.scheduled_timestamp) }}</span
+            >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
+          >
+        </li>
+      </ul>
+    </div>
+
+    <div v-if="future_jobs.length > 0">
+      <h2>{{ future_jobs.length }} future jobs</h2>
+      <ul>
+        <li v-for="job in future_jobs">
+          <span class="job-id">{{ job.id }}</span>
+          <span class="job-user" v-if="job.twitter_username != null">
+            <a v-bind:href="job.twitter_link" target="_blank">{{
+              job.twitter_username
+            }}</a>
+          </span>
+          <span class="job-user" v-else>
+            <p>unknown user</p>
+          </span>
+          <span class="job-type">{{ job.job_type }}</span>
+          <span class="job-date"
+            >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
           >
         </li>
       </ul>
@@ -103,6 +128,7 @@ export default {
       loading: false,
       active_jobs: [],
       pending_jobs: [],
+      future_jobs: [],
     };
   },
   created: function () {
@@ -125,12 +151,19 @@ export default {
             that.loading = false;
             that.active_jobs = data["active_jobs"];
             that.pending_jobs = data["pending_jobs"];
+            that.future_jobs = data["future_jobs"];
           });
         })
         .catch(function (err) {
           console.log("Error fetching jobs", err);
           that.loading = false;
         });
+    },
+    addZero: function (i) {
+      if (i < 10) {
+        i = "0" + i;
+      }
+      return i;
     },
     formatJobDate: function (timestamp) {
       var date = new Date(timestamp * 1000);
@@ -164,14 +197,17 @@ export default {
       return (
         month +
         " " +
-        date.getDate() +
+        date.getUTCDate() +
         ", " +
-        date.getFullYear() +
+        date.getUTCFullYear() +
         " " +
-        date.getHours() +
+        this.addZero(date.getUTCHours()) +
         ":" +
-        date.getMinutes()
+        this.addZero(date.getUTCMinutes())
       );
+    },
+    currentDateFormatted: function () {
+      return this.formatJobDate(Date.now());
     },
   },
 };
