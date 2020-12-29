@@ -72,9 +72,12 @@ form #card-errors {
 
 <template>
   <div>
-    <script src="https://js.stripe.com/v3/"></script>
     <h1>Care to chip in?</h1>
-    <p>Semiphemeral is free. Every day a bot will automatically delete your old tweets and likes (except for the ones you want to keep), keeping your social media presence a bit more private.</p>
+    <p>
+      Semiphemeral is free. Every day a bot will automatically delete your old
+      tweets and likes (except for the ones you want to keep), keeping your
+      social media presence a bit more private.
+    </p>
     <p>Hosting this service costs money though, so tips are appreciated.</p>
 
     <form action="/api/tip" method="post" v-on:submit.prevent="onSubmit">
@@ -83,31 +86,45 @@ form #card-errors {
         <ul>
           <li>
             <label>
-              <input type="radio" name="amount" value="100" v-model="amount" /> $1
+              <input type="radio" name="amount" value="100" v-model="amount" />
+              $1
             </label>
           </li>
           <li>
             <label>
-              <input type="radio" name="amount" value="500" v-model="amount" /> $5
+              <input type="radio" name="amount" value="500" v-model="amount" />
+              $5
             </label>
           </li>
           <li>
             <label>
-              <input type="radio" name="amount" value="1337" v-model="amount" /> $13.37
+              <input type="radio" name="amount" value="1337" v-model="amount" />
+              $13.37
             </label>
           </li>
           <li>
             <label>
-              <input type="radio" name="amount" value="2000" v-model="amount" /> $20
+              <input type="radio" name="amount" value="2000" v-model="amount" />
+              $20
             </label>
           </li>
           <li>
             <label>
-              <input type="radio" name="amount" value="other" v-model="amount" /> Other
+              <input
+                type="radio"
+                name="amount"
+                value="other"
+                v-model="amount"
+              />
+              Other
             </label>
             <span v-if="amount == 'other'">
               $
-              <input type="text" v-model.number="otherAmount" class="other-amount" />
+              <input
+                type="text"
+                v-model.number="otherAmount"
+                class="other-amount"
+              />
             </span>
           </li>
         </ul>
@@ -140,7 +157,11 @@ form #card-errors {
           </span>
           <span class="tip-receipt">
             <a v-bind:href="tip.receipt_url" target="_blank">
-              <img title="Receipt" alt="Receipt" src="/static/img/receipt.png" />
+              <img
+                title="Receipt"
+                alt="Receipt"
+                src="/static/img/receipt.png"
+              />
             </a>
           </span>
         </li>
@@ -152,7 +173,7 @@ form #card-errors {
 <script>
 export default {
   props: ["userScreenName"],
-  data: function() {
+  data: function () {
     return {
       loading: false,
       errorMessage: null,
@@ -161,54 +182,54 @@ export default {
       stripeCard: false,
       amount: "500",
       otherAmount: "",
-      tips: []
+      tips: [],
     };
   },
-  created: function() {
+  created: function () {
     var that = this;
 
     // Get the publishable Stripe API key
     fetch("/api/tip")
-      .then(function(response) {
+      .then(function (response) {
         if (response.status !== 200) {
           console.log(
             "Error fetching tip variables, status code: " + response.status
           );
           return;
         }
-        response.json().then(function(data) {
+        response.json().then(function (data) {
           that.stripePublishableKey = data["stripe_publishable_key"];
           that.initStripe();
         });
       })
-      .catch(function(err) {
+      .catch(function (err) {
         console.log("Error fetching tip variables", err);
       });
 
     this.fetchHistory();
   },
   methods: {
-    fetchHistory: function() {
+    fetchHistory: function () {
       var that = this;
 
       // Get the history of tips
       fetch("/api/tip/history")
-        .then(function(response) {
+        .then(function (response) {
           if (response.status !== 200) {
             console.log(
               "Error fetching tip history, status code: " + response.status
             );
             return;
           }
-          response.json().then(function(data) {
+          response.json().then(function (data) {
             that.tips = data;
           });
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error fetching tip history", err);
         });
     },
-    initStripe: function() {
+    initStripe: function () {
       // Initialize Stripe
       this.stripe = Stripe(this.stripePublishableKey);
       var elements = this.stripe.elements();
@@ -217,12 +238,12 @@ export default {
       this.stripeCard = elements.create("card");
       this.stripeCard.mount("#card-element");
     },
-    onSubmit: function() {
+    onSubmit: function () {
       var that = this;
       this.errorMessage = null;
       this.loading = true;
 
-      this.stripe.createToken(this.stripeCard).then(function(result) {
+      this.stripe.createToken(this.stripeCard).then(function (result) {
         if (result.error) {
           that.errorMessage = result.error.message;
           that.loading = false;
@@ -236,12 +257,12 @@ export default {
             body: JSON.stringify({
               token: token.id,
               amount: that.amount,
-              other_amount: that.otherAmount
-            })
+              other_amount: that.otherAmount,
+            }),
           })
-            .then(function(response) {
+            .then(function (response) {
               that.loading = false;
-              response.json().then(function(data) {
+              response.json().then(function (data) {
                 if (data["error"]) {
                   that.errorMessage = data["error_message"];
                 } else {
@@ -254,7 +275,7 @@ export default {
                 that.loading = false;
               });
             })
-            .catch(function(err) {
+            .catch(function (err) {
               console.log("Error submitting card", err);
               that.errorMessage = "Error submitting card: " + err;
               that.loading = false;
@@ -262,7 +283,7 @@ export default {
         }
       });
     },
-    formatTipDate: function(timestamp) {
+    formatTipDate: function (timestamp) {
       var date = new Date(timestamp * 1000);
       var month_num = date.getMonth() + 1;
       var month = "";
@@ -293,9 +314,9 @@ export default {
       }
       return month + " " + date.getDate() + ", " + date.getFullYear();
     },
-    formatTipAmount: function(amount) {
+    formatTipAmount: function (amount) {
       return "$" + (amount / 100).toFixed(2);
-    }
-  }
+    },
+  },
 };
 </script>
