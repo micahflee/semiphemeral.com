@@ -1126,7 +1126,7 @@ async def start_dm_job(dm_job):
             or error_code == 89
         ):
             print(
-                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), marking as failure"
+                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}) error code {error_code}, marking as failure"
             )
             await dm_job.update(status="failed").apply()
         else:
