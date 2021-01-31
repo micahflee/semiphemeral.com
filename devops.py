@@ -311,9 +311,9 @@ def deploy(deploy_environment):
 
     # deploy with terraform again, this time only allowing the devops IP to access 80 and 443
     # (but all all IPs for production)
-    if deploy_environment == "staging":
-        if not _terraform_apply(deploy_environment, [devops_ip], [devops_ip]):
-            return
+    # if deploy_environment == "staging":
+    #     if not _terraform_apply(deploy_environment, [devops_ip], [devops_ip]):
+    #         return
 
 
 @main.command()
@@ -345,33 +345,24 @@ def terraform(deploy_environment, open_firewall):
     if open_firewall or deploy_environment == "production":
         _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
     else:
-        _terraform_apply(deploy_environment, [devops_ip], [devops_ip])
+        # _terraform_apply(deploy_environment, [devops_ip], [devops_ip])
+        _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
 
 
 @main.command()
-@click.argument("deploy_environment", nargs=1)
-def destroy(deploy_environment):
-    """Destroy infrastructure"""
-    if not _validate_env(deploy_environment):
-        return
+def destroy_staging():
+    """Destroy staging infrastructure"""
+    deploy_environment = "staging"
 
     cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
     devops_ip = _get_devops_ip()
 
-    if deploy_environment == "staging":
-        ip_vars = [
-            "-var",
-            f"ssh_ips={json.dumps([devops_ip])}",
-            "-var",
-            f"inbound_ips={json.dumps([devops_ip])}",
-        ]
-    else:
-        ip_vars = [
-            "-var",
-            f"ssh_ips={json.dumps([devops_ip])}",
-            "-var",
-            f'inbound_ips=["0.0.0.0/0","::/0"]',
-        ]
+    ip_vars = [
+        "-var",
+        f"ssh_ips={json.dumps([devops_ip])}",
+        "-var",
+        f"inbound_ips={json.dumps([devops_ip])}",
+    ]
 
     # terraform destroy
     p = subprocess.run(
