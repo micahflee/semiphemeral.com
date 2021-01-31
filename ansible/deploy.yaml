@@ -20,13 +20,13 @@
         name: "{{ packages }}"
       vars:
         packages:
-        - unattended-upgrades
-        - certbot
-        - apt-transport-https
-        - ca-certificates
-        - curl
-        - gnupg2
-        - software-properties-common
+          - unattended-upgrades
+          - certbot
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg2
+          - software-properties-common
 
     - name: ensure digitalocean apt key is added
       apt_key:
@@ -63,11 +63,11 @@
         name: "{{ packages }}"
       vars:
         packages:
-        - docker-ce
-        - docker-ce-cli
-        - containerd.io
-        - docker-compose
-        - python3-pip
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose
+          - python3-pip
 
     - name: ensure docker python module is installed
       shell: pip3 install --upgrade pyyaml docker docker-compose
@@ -94,7 +94,7 @@
         state: directory
         owner: "1000"
         mode: 0700
-    
+
     - name: ensure bulk_dms volume directory has the right permissions
       file:
         path: /opt/semiphemeral/data/bulk_dms
@@ -114,10 +114,10 @@
         src: ./etc/logrotate.d/semiphemeral
         dest: /etc/logrotate.d/semiphemeral
 
-    - name: ensure we have a Let's Encrypt certificate (staging)
-      shell: certbot certonly --staging --standalone -n --agree-tos --email micah@micahflee.com -d {{ domain }}
-      when: deploy_environment == "staging"
+    # - name: ensure we have a Let's Encrypt certificate (staging)
+    #   shell: certbot certonly --staging --standalone -n --agree-tos --email micah@micahflee.com -d {{ domain }}
+    #   when: deploy_environment == "staging"
 
     - name: ensure we have a Let's Encrypt certificate (production)
       shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ domain }}
-      when: deploy_environment == "production"
+      # when: deploy_environment == "production"
