@@ -245,17 +245,12 @@ async def import_tweet_and_thread(user, api, job, progress, status):
     # Is the tweet already saved?
     tweet = await (
         Tweet.query.where(Tweet.user_id == user.id)
-        .where(Tweet.status_id == status.id)
+        .where(Tweet.status_id == str(status.id))
         .gino.first()
     )
     if not tweet:
         # Save the tweet
-        # await log(job, f"Saving tweet: {status.id}")
         tweet = await save_tweet(user, status)
-    # else:
-    #     await log(
-    #         job, f"Tweet of {status.id} already imported",
-    #     )
 
     # Is this tweet a reply?
     if tweet.in_reply_to_status_id:
@@ -409,7 +404,7 @@ async def fetch(job):
         threads = {}
         for status in page:
             if status.in_reply_to_status_id:
-                status_ids = await calculate_thread(user, status.id)
+                status_ids = await calculate_thread(user, str(status.id))
                 root_status_id = status_ids[0]
                 if root_status_id in threads:
                     for status_id in status_ids:
@@ -485,17 +480,15 @@ async def fetch(job):
             # Is the tweet already saved?
             tweet = await (
                 Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.status_id == status.id)
+                .where(Tweet.status_id == str(status.id))
                 .gino.first()
             )
             if not tweet:
                 # Save the tweet
-                # await log(job, f"Saving tweet: {status.id}")
                 await save_tweet(user, status)
 
             progress["likes_fetched"] += 1
 
-        # await log(job, f"Fetch likes loop progress: {progress}")
         await update_progress(job, progress)
 
     # All done, update the since_id
