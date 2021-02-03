@@ -30,6 +30,18 @@
         src: ../app/src/alembic.ini
         dest: /opt/semiphemeral/app/src/alembic.ini
 
+    - name: ensure containers are down
+      docker_compose:
+        state: absent
+        pull: yes
+        build: true
+        project_src: /opt/semiphemeral/app
+
+    - name: run database migrations
+      shell: |
+        cd /opt/semiphemeral/app && docker-compose build
+        docker run app_web poetry run alembic upgrade head
+
     - name: ensure containers are up
       docker_compose:
         state: present

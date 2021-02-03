@@ -11,10 +11,6 @@ from jobs import start_jobs, start_dm_jobs
 
 
 async def main():
-    # Run database migrations
-    print("Running database migrations")
-    subprocess.run(["alembic", "upgrade", "head"])
-
     # Connect to the database
     print("Connecting to the database")
     await connect_db()

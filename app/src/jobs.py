@@ -216,15 +216,15 @@ async def save_tweet(user, status):
     return await Tweet.create(
         user_id=user.id,
         created_at=status.created_at,
-        twitter_user_id=status.author.id,
+        twitter_user_id=str(status.author.id),
         twitter_user_screen_name=status.author.screen_name,
-        status_id=status.id,
+        status_id=str(status.id),
         text=status.full_text.replace(
             "\x00", ""
         ),  # For some reason this tweet has null bytes https://twitter.com/mehdirhasan/status/65015127132471296
         in_reply_to_screen_name=status.in_reply_to_screen_name,
-        in_reply_to_status_id=status.in_reply_to_status_id,
-        in_reply_to_user_id=status.in_reply_to_user_id,
+        in_reply_to_status_id=str(status.in_reply_to_status_id),
+        in_reply_to_user_id=str(status.in_reply_to_user_id),
         retweet_count=status.retweet_count,
         favorite_count=status.favorite_count,
         retweeted=status.retweeted,
@@ -1001,7 +1001,7 @@ async def delete_dms_job(job, dm_type):
                     created_str, "%Y-%m-%dT%H:%M:%S.%fZ"
                 )
                 if created_timestamp <= datetime_threshold:
-                    dm_id = int(message["messageCreate"]["id"])
+                    dm_id = message["messageCreate"]["id"]
 
                     # Try deleting the DM in a loop, in case it gets rate-limited
                     while True:
