@@ -9,7 +9,7 @@ class User(db.Model):
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
-    twitter_id = db.Column(db.BigInteger)
+    twitter_id = db.Column(db.String)
     twitter_screen_name = db.Column(db.String)
     twitter_access_token = db.Column(db.String)
     twitter_access_token_secret = db.Column(db.String)
@@ -33,7 +33,7 @@ class User(db.Model):
     direct_messages = db.Column(db.Boolean, default=False)
     direct_messages_threshold = db.Column(db.Integer, default=7)
 
-    since_id = db.Column(db.BigInteger)
+    since_id = db.Column(db.String)
     last_fetch = db.Column(db.DateTime)
     paused = db.Column(db.Boolean, default=True)
     blocked = db.Column(db.Boolean)
@@ -81,7 +81,7 @@ class DirectMessageJob(db.Model):
     __tablename__ = "direct_message_jobs"
 
     id = db.Column(db.Integer, primary_key=True)
-    dest_twitter_id = db.Column(db.BigInteger)
+    dest_twitter_id = db.Column(db.String)
     message = db.Column(db.String)
     status = db.Column(db.String)  # "pending", "sent", "failed"
     scheduled_timestamp = db.Column(db.DateTime)
@@ -110,24 +110,12 @@ class UnblockJob(db.Model):
     unblocked_timestamp = db.Column(db.DateTime)
 
 
-# class ExportJob(db.Model):
-#     __tablename__ = "export_jobs"
-
-#     id = db.Column(db.Integer, primary_key=True)
-#     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-#     status = db.Column(db.String)  # "pending", "active", "finished"
-#     progress = db.Column(db.String)  # JSON object
-#     scheduled_timestamp = db.Column(db.DateTime)
-#     started_timestamp = db.Column(db.DateTime)
-#     finished_timestamp = db.Column(db.DateTime)
-
-
 class Thread(db.Model):
     __tablename__ = "threads"
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    root_status_id = db.Column(db.BigInteger)
+    root_status_id = db.Column(db.String)
     should_exclude = db.Column(db.Boolean)
 
 
@@ -137,13 +125,13 @@ class Tweet(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     created_at = db.Column(db.DateTime)
-    twitter_user_id = db.Column(db.BigInteger)
+    twitter_user_id = db.Column(db.String)
     twitter_user_screen_name = db.Column(db.String)
-    status_id = db.Column(db.BigInteger)
+    status_id = db.Column(db.String)
     text = db.Column(db.String)
     in_reply_to_screen_name = db.Column(db.String)
-    in_reply_to_status_id = db.Column(db.BigInteger)
-    in_reply_to_user_id = db.Column(db.BigInteger)
+    in_reply_to_status_id = db.Column(db.String)
+    in_reply_to_user_id = db.Column(db.String)
     retweet_count = db.Column(db.Integer)
     favorite_count = db.Column(db.Integer)
     retweeted = db.Column(db.Boolean)

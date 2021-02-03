@@ -163,7 +163,7 @@ async def auth_login(request):
 
         # Validate user
         twitter_user = await twitter_api_call(api, "me")
-        if session["twitter_id"] == twitter_user.id:
+        if session["twitter_id"] == str(twitter_user.id):
             raise web.HTTPFound("/dashboard")
 
     # Otherwise, authorize with Twitter
@@ -224,14 +224,14 @@ async def auth_twitter_callback(request):
         raise web.HTTPUnauthorized(text=f"Error, error using Twitter API: {e}")
 
     # Save values in the session
-    session["twitter_id"] = twitter_user.id
+    session["twitter_id"] = str(twitter_user.id)
 
     # Does this user already exist?
-    user = await User.query.where(User.twitter_id == twitter_user.id).gino.first()
+    user = await User.query.where(User.twitter_id == str(twitter_user.id)).gino.first()
     if user is None:
         # Create a new user
         user = await User.create(
-            twitter_id=twitter_user.id,
+            twitter_id=str(twitter_user.id),
             twitter_screen_name=twitter_user.screen_name,
             twitter_access_token=auth.access_token,
             twitter_access_token_secret=auth.access_token_secret,
@@ -294,7 +294,7 @@ async def auth_twitter_dms_callback(request):
         raise web.HTTPUnauthorized(text=f"Error, error using Twitter API: {e}")
 
     # Does this user already exist?
-    user = await User.query.where(User.twitter_id == twitter_user.id).gino.first()
+    user = await User.query.where(User.twitter_id == str(twitter_user.id)).gino.first()
     if user is None:
         # Uh, that's weird, there really should already be a user... so just ignore in that case
         pass
@@ -1416,8 +1416,8 @@ async def admin_api_post_user_impersonate(request):
     data = await request.json()
 
     # Validate
-    await _api_validate({"twitter_id": int}, data)
-    if data["twitter_id"] == 0:
+    await _api_validate({"twitter_id": str}, data)
+    if data["twitter_id"] == "0":
         del session["impersonating_twitter_id"]
     else:
         impersonating_user = await User.query.where(

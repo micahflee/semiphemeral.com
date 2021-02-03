@@ -12,10 +12,9 @@
     <template v-if="impersonatingTwitterUsername != null">
       <p>
         You are impersonating twitter user
-        <a
-          target="_blank"
-          v-bind:href="impersonatingLink"
-        >@{{ impersonatingTwitterUsername }}</a>.
+        <a target="_blank" v-bind:href="impersonatingLink"
+          >@{{ impersonatingTwitterUsername }}</a
+        >.
         <button v-on:click="stopImpersonating">Stop impersonating.</button>
       </p>
     </template>
@@ -115,7 +114,7 @@ export default {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          twitter_id: 0,
+          twitter_id: "0",
         }),
       })
         .then(function (response) {

@@ -1,0 +1,9 @@
+startup_message off
+shelltitle "$ |bash"
+hardstatus alwayslastline
+hardstatus string "%{= ky}%-Lw%{=r}%20>%n %t%{= ky}%+Lw %{= ky}%-=| %{= kw}%M%d %c%{-} %{=r} ${USER}@%H "
+
+register p gT
+register n gt
+bindkey ^[[5;5~ process p
+bindkey ^[[6;5~ process n

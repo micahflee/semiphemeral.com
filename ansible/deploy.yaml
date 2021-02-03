@@ -120,4 +120,14 @@
 
     - name: ensure we have a Let's Encrypt certificate (production)
       shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ domain }}
+
       # when: deploy_environment == "production"
+    - name: ensure /root/.screenrc is there
+      copy:
+        src: "root/.screenrc"
+        dest: /root/.screenrc
+
+    - name: ensure /root/.vimrc is there
+      copy:
+        src: "root/.vimrc"
+        dest: /root/.vimrc
