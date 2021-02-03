@@ -87,7 +87,7 @@ def ensure_user_follows_us(func):
             await twitter_api_call(
                 api,
                 "show_friendship",
-                source_id=user.twitter_id,
+                source_id=int(user.twitter_id),
                 target_screen_name="semiphemeral",
             )
         )[0]
@@ -264,10 +264,14 @@ async def import_tweet_and_thread(user, api, job, progress, status):
             # If we don't have the parent tweet, import it
             while True:  # loop in case we get rate-limited
                 try:
+                    try:
+                        in_reply_to_status_id = int(tweet.in_reply_to_status_id)
+                    except:
+                        in_reply_to_status_id = None
                     parent_status = await twitter_api_call(
                         api,
                         "get_status",
-                        id=tweet.in_reply_to_status_id,
+                        id=in_reply_to_status_id,
                         tweet_mode="extended",
                     )
                     await import_tweet_and_thread(
@@ -1183,7 +1187,7 @@ async def start_block_job(block_job):
                 await twitter_api_call(
                     api,
                     "send_direct_message",
-                    recipient_id=user.twitter_id,
+                    recipient_id=int(user.twitter_id),
                     text=message,
                 )
                 print(
@@ -1273,7 +1277,7 @@ async def start_unblock_job(unblock_job):
 
         # If we're unblocking a semiphemeral user
         if unblock_job.user_id:
-            user = await User.query.where(id=unblock_job.user_id).gino.first()
+            user = await User.query.where(User.id == unblock_job.user_id).gino.first()
             if user and user.blocked:
                 # Update the user
                 await user.update(paused=True, blocked=False).apply()
