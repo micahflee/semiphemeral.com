@@ -1263,7 +1263,8 @@ async def start_block_job(block_job):
 
         # 108: Cannot find specified user.
         # 89: Invalid or expired token.
-        if error_code == 108 or error_code == 89:
+        # 50: User not found.
+        if error_code == 108 or error_code == 89 or error_code == 50:
             print(
                 f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} failed ({e}), marking as failure"
             )
@@ -1332,7 +1333,8 @@ async def start_unblock_job(unblock_job):
 
         # 108: Cannot find specified user.
         # 89: Invalid or expired token.
-        if error_code == 108 or error_code == 89:
+        # 50: User not found.
+        if error_code == 108 or error_code == 89 or error_code == 50:
             print(
                 f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} failed ({e}), marking as failure"
             )
