@@ -303,7 +303,7 @@ async def import_tweet_and_thread(
                         )
                     else:
                         # Otherwise (it's been deleted, the user is suspended, unauthorized, blocked), ignore
-                        await log(job, f"Error importing parent tweet: {e}")
+                        # await log(job, f"Error importing parent tweet: {e}")
                         break
 
 
