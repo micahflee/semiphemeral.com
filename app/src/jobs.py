@@ -50,7 +50,7 @@ async def log(job, s):
 
 
 def test_api_creds(func):
-    async def wrapper(job):
+    async def wrapper(job, dont_start_new_jobs_after_ts):
         """
         Make sure the API creds work, and if not pause semiphemeral for the user
         """
@@ -67,13 +67,13 @@ def test_api_creds(func):
             await job.update(status="canceled").apply()
             return False
 
-        return await func(job)
+        return await func(job, dont_start_new_jobs_after_ts)
 
     return wrapper
 
 
 def ensure_user_follows_us(func):
-    async def wrapper(job):
+    async def wrapper(job, dont_start_new_jobs_after_ts):
         user = await User.query.where(User.id == job.user_id).gino.first()
 
         # Make an exception for semiphemeral user, because semiphemeral can't follow semiphemeral
@@ -114,7 +114,7 @@ def ensure_user_follows_us(func):
                 await user.update(paused=True).apply()
                 return
 
-        return await func(job)
+        return await func(job, dont_start_new_jobs_after_ts)
 
     return wrapper
 
@@ -156,16 +156,12 @@ async def update_progress(job, progress):
 
 
 async def start_job_while_rate_limited(job, dont_start_new_jobs_after_ts):
-    sixteen_minutes_in_seconds = 16 * 60
-
     # If dont_start_new_jobs_after_ts isn't set, set it to 16 minutes from now
     if not dont_start_new_jobs_after_ts:
-        dont_start_new_jobs_after_ts = datetime.now + sixteen_minutes_in_seconds
+        dont_start_new_jobs_after_ts = datetime.now() + timedelta(minutes=16)
 
     while True:
-        diff = datetime.now() - dont_start_new_jobs_after_ts
-        seconds_left = sixteen_minutes_in_seconds - diff.seconds
-        if seconds_left <= 0:
+        if datetime.now() >= dont_start_new_jobs_after_ts:
             break
 
         # Should we run another job while we're waiting?
@@ -196,9 +192,14 @@ async def update_progress_rate_limit(job, progress, dont_start_new_jobs_after_ts
     await update_progress(job, progress)
 
     # Don't attempt to start any new jobs if it's after dont_start_new_jobs_after_ts
-    if dont_start_new_jobs_after_ts and datetime.now() < dont_start_new_jobs_after_ts:
+    if dont_start_new_jobs_after_ts == None or (
+        datetime.now() < dont_start_new_jobs_after_ts
+    ):
         # Start a new job while rate limited
         await start_job_while_rate_limited(job, dont_start_new_jobs_after_ts)
+    else:
+        await log(job, "Sleeping 16 minutes")
+        await asyncio.sleep(60 * 16)
 
     # Change status message back
     progress["status"] = old_status
@@ -281,7 +282,12 @@ async def import_tweet_and_thread(
                         tweet_mode="extended",
                     )
                     await import_tweet_and_thread(
-                        user, api, job, progress, parent_status
+                        user,
+                        api,
+                        job,
+                        progress,
+                        parent_status,
+                        dont_start_new_jobs_after_ts,
                     )
                     break
                 except tweepy.error.TweepError as e:
@@ -408,7 +414,9 @@ async def fetch(job, dont_start_new_jobs_after_ts):
 
         # Import these tweets, and all their threads
         for status in page:
-            await import_tweet_and_thread(user, api, job, progress, status)
+            await import_tweet_and_thread(
+                user, api, job, progress, status, dont_start_new_jobs_after_ts
+            )
             progress["tweets_fetched"] += 1
 
         await update_progress(job, progress)
