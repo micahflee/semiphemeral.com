@@ -155,11 +155,15 @@ async def update_progress(job, progress):
     await job.update(progress=json.dumps(progress)).apply()
 
 
-async def start_job_while_rate_limited(job, before_ts):
+async def start_job_while_rate_limited(job, dont_start_new_jobs_after_ts):
     sixteen_minutes_in_seconds = 16 * 60
 
+    # If dont_start_new_jobs_after_ts isn't set, set it to 16 minutes from now
+    if not dont_start_new_jobs_after_ts:
+        dont_start_new_jobs_after_ts = datetime.now + sixteen_minutes_in_seconds
+
     while True:
-        diff = datetime.now() - before_ts
+        diff = datetime.now() - dont_start_new_jobs_after_ts
         seconds_left = sixteen_minutes_in_seconds - diff.seconds
         if seconds_left <= 0:
             break
@@ -173,13 +177,14 @@ async def start_job_while_rate_limited(job, before_ts):
         )
         if new_job:
             await log(job, f"Rate limited so starting a new job in the background")
-            await start_job(new_job)
+            # Make sure to pass the new job dont_start_new_jobs_after_ts so it will know when to stop launching new jobs
+            await start_job(new_job, dont_start_new_jobs_after_ts)
         else:
             await log(job, f"No pending jobs, so sleeping 1 minute")
             await asyncio.sleep(60)
 
 
-async def update_progress_rate_limit(job, progress):
+async def update_progress_rate_limit(job, progress, dont_start_new_jobs_after_ts=None):
     await log(job, f"Hit twitter rate limit, pausing ...")
 
     old_status = progress["status"]
@@ -190,11 +195,10 @@ async def update_progress_rate_limit(job, progress):
     ] = f"I hit Twitter's rate limit, so I have to wait a bit before continuing ..."
     await update_progress(job, progress)
 
-    # Wait 16 minutes
-    # await asyncio.sleep(16 * 60)
-
-    # If we can, start a new job while rate limited
-    await start_job_while_rate_limited(job, datetime.now())
+    # Don't attempt to start any new jobs if it's after dont_start_new_jobs_after_ts
+    if dont_start_new_jobs_after_ts and datetime.now() < dont_start_new_jobs_after_ts:
+        # Start a new job while rate limited
+        await start_job_while_rate_limited(job, dont_start_new_jobs_after_ts)
 
     # Change status message back
     progress["status"] = old_status
@@ -237,7 +241,9 @@ async def save_tweet(user, status):
     )
 
 
-async def import_tweet_and_thread(user, api, job, progress, status):
+async def import_tweet_and_thread(
+    user, api, job, progress, status, dont_start_new_jobs_after_ts
+):
     """
     This imports a tweet, and recursively imports all tweets that it's in reply to,
     and returns the number of tweets fetched
@@ -286,7 +292,9 @@ async def import_tweet_and_thread(user, api, job, progress, status):
 
                     # On rate limit, try again
                     if error_code == 88:  # 88 = Rate limit exceeded
-                        await update_progress_rate_limit(job, progress)
+                        await update_progress_rate_limit(
+                            job, progress, dont_start_new_jobs_after_ts
+                        )
                     else:
                         # Otherwise (it's been deleted, the user is suspended, unauthorized, blocked), ignore
                         await log(job, f"Error importing parent tweet: {e}")
@@ -339,7 +347,7 @@ async def calculate_excluded_threads(user):
 
 @test_api_creds
 @ensure_user_follows_us
-async def fetch(job):
+async def fetch(job, dont_start_new_jobs_after_ts):
     user = await User.query.where(User.id == job.user_id).gino.first()
     api = await twitter_api(user)
 
@@ -393,7 +401,9 @@ async def fetch(job):
                 # await reschedule_job(job, timedelta(minutes=15))
                 return
 
-            await update_progress_rate_limit(job, progress)
+            await update_progress_rate_limit(
+                job, progress, dont_start_new_jobs_after_ts
+            )
             continue
 
         # Import these tweets, and all their threads
@@ -475,7 +485,9 @@ async def fetch(job):
                 # await reschedule_job(job, timedelta(minutes=15))
                 return
 
-            await update_progress_rate_limit(job, progress)
+            await update_progress_rate_limit(
+                job, progress, dont_start_new_jobs_after_ts
+            )
             continue
 
         # Import these tweets
@@ -556,7 +568,7 @@ async def fetch(job):
 
 @test_api_creds
 @ensure_user_follows_us
-async def delete(job):
+async def delete(job, dont_start_new_jobs_after_ts):
     user = await User.query.where(User.id == job.user_id).gino.first()
     api = await twitter_api(user)
 
@@ -611,7 +623,9 @@ async def delete(job):
                             await tweet.update(is_deleted=True).apply()
                             break
                         elif e.api_code == 429:  # 429 = Too Many Requests
-                            await update_progress_rate_limit(job, progress)
+                            await update_progress_rate_limit(
+                                job, progress, dont_start_new_jobs_after_ts
+                            )
                             # Don't break, so it tries again
                         else:
                             # Unknown error
@@ -660,7 +674,9 @@ async def delete(job):
                             await tweet.update(is_unliked=True).apply()
                             break
                         elif e.api_code == 429:  # 429 = Too Many Requests
-                            await update_progress_rate_limit(job, progress)
+                            await update_progress_rate_limit(
+                                job, progress, dont_start_new_jobs_after_ts
+                            )
                             # Don't break, so it tries again
                         else:
                             # Unknown error
@@ -697,7 +713,9 @@ async def delete(job):
                         await tweet.update(is_deleted=True, text=None).apply()
                         break
                     elif e.api_code == 429:  # 429 = Too Many Requests
-                        await update_progress_rate_limit(job, progress)
+                        await update_progress_rate_limit(
+                            job, progress, dont_start_new_jobs_after_ts
+                        )
                         # Don't break, so it tries again
                     else:
                         # Unknown error
@@ -747,7 +765,9 @@ async def delete(job):
                     await log(job, f"Hit the end of fetch DMs loop, breaking")
                     break
                 except tweepy.TweepError as e:
-                    await update_progress_rate_limit(job, progress)
+                    await update_progress_rate_limit(
+                        job, progress, dont_start_new_jobs_after_ts
+                    )
                     continue
 
                 for dm in page:
@@ -765,7 +785,9 @@ async def delete(job):
                                 break
                             except tweepy.error.TweepError as e:
                                 if e.api_code == 429:  # 429 = Too Many Requests
-                                    await update_progress_rate_limit(job, progress)
+                                    await update_progress_rate_limit(
+                                        job, progress, dont_start_new_jobs_after_ts
+                                    )
                                     # Don't break, so it tries again
                                 else:
                                     # Unknown error
@@ -904,17 +926,17 @@ async def delete(job):
 
 @test_api_creds
 @ensure_user_follows_us
-async def delete_dms(job):
-    await delete_dms_job(job, "dms")
+async def delete_dms(job, dont_start_new_jobs_after_ts):
+    await delete_dms_job(job, "dms", dont_start_new_jobs_after_ts)
 
 
 @test_api_creds
 @ensure_user_follows_us
-async def delete_dm_groups(job):
-    await delete_dms_job(job, "groups")
+async def delete_dm_groups(job, dont_start_new_jobs_after_ts):
+    await delete_dms_job(job, "groups", dont_start_new_jobs_after_ts)
 
 
-async def delete_dms_job(job, dm_type):
+async def delete_dms_job(job, dm_type, dont_start_new_jobs_after_ts):
     user = await User.query.where(User.id == job.user_id).gino.first()
     dms_api = await twitter_dms_api(user)
 
@@ -942,7 +964,9 @@ async def delete_dms_job(job, dm_type):
                     break
                 except tweepy.error.TweepError as e:
                     if e.api_code == 429:  # 429 = Too Many Requests
-                        await update_progress_rate_limit(job, progress)
+                        await update_progress_rate_limit(
+                            job, progress, dont_start_new_jobs_after_ts
+                        )
                         # Don't break, so it tries again
                     else:
                         # Unknown error
@@ -1013,7 +1037,9 @@ async def delete_dms_job(job, dm_type):
                             break
                         except tweepy.error.TweepError as e:
                             if e.api_code == 429:  # 429 = Too Many Requests
-                                await update_progress_rate_limit(job, progress)
+                                await update_progress_rate_limit(
+                                    job, progress, dont_start_new_jobs_after_ts
+                                )
                                 # Don't break, so it tries again
                             else:
                                 # Unknown error
@@ -1048,32 +1074,32 @@ async def delete_dms_job(job, dm_type):
     )
 
 
-async def start_job(job):
+async def dont_start_new_jobs_after_ts(job, dont_start_new_jobs_after_ts):
     await log(job, f"Starting job")
     await job.update(status="active", started_timestamp=datetime.now()).apply()
 
     try:
         if job.job_type == "fetch":
-            await fetch(job)
+            await fetch(job, dont_start_new_jobs_after_ts)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
 
         elif job.job_type == "delete":
-            await fetch(job)
-            await delete(job)
+            await fetch(job, dont_start_new_jobs_after_ts)
+            await delete(job, dont_start_new_jobs_after_ts)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
 
         elif job.job_type == "delete_dms":
-            await delete_dms(job)
+            await delete_dms(job, dont_start_new_jobs_after_ts)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
 
         elif job.job_type == "delete_dm_groups":
-            await delete_dm_groups(job)
+            await delete_dm_groups(job, dont_start_new_jobs_after_ts)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
@@ -1333,7 +1359,7 @@ async def start_jobs():
             .gino.first()
         )
         if job:
-            await start_job(job)
+            await start_job(job, None)
         else:
             print(
                 f"No fetch/delete/delete_dms/delete_dm_groups jobs, waiting 60 seconds"
