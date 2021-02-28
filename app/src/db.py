@@ -75,6 +75,7 @@ class Job(db.Model):
     scheduled_timestamp = db.Column(db.DateTime)
     started_timestamp = db.Column(db.DateTime)
     finished_timestamp = db.Column(db.DateTime)
+    container_name = db.Column(db.String)
 
 
 class DirectMessageJob(db.Model):

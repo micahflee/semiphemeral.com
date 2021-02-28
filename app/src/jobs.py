@@ -1084,7 +1084,11 @@ async def delete_dms_job(job, dm_type, dont_start_new_jobs_after_ts):
 
 async def start_job(job, dont_start_new_jobs_after_ts):
     await log(job, f"Starting job")
-    await job.update(status="active", started_timestamp=datetime.now()).apply()
+    await job.update(
+        status="active",
+        started_timestamp=datetime.now(),
+        container_name=os.environ.get("CONTAINER_NAME"),
+    ).apply()
 
     try:
         if job.job_type == "fetch":
