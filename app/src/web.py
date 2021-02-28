@@ -1261,6 +1261,7 @@ async def app_admin_redirect(request):
 async def admin_api_get_jobs(request):
     active_jobs = (
         await Job.query.where(Job.status == "active")
+        .order_by(Job.container_name)
         .order_by(Job.started_timestamp)
         .gino.all()
     )
@@ -1294,6 +1295,10 @@ async def admin_api_get_jobs(request):
                 finished_timestamp = job.finished_timestamp.timestamp()
             else:
                 finished_timestamp = None
+            if job.container_name:
+                container_name = job.container_name
+            else:
+                container_name = "null"
 
             user = await User.query.where(User.id == job.user_id).gino.first()
             if user:
@@ -1314,6 +1319,7 @@ async def admin_api_get_jobs(request):
                     "status": job.status,
                     "scheduled_timestamp": scheduled_timestamp,
                     "started_timestamp": started_timestamp,
+                    "container_name": container_name,
                 }
             )
         return jobs_json

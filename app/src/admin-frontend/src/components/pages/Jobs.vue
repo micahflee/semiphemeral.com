@@ -20,6 +20,14 @@ li .job-user {
   font-size: 0.9em;
 }
 
+li .container-name {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 10px;
+  width: 150px;
+  font-size: 0.9em;
+}
+
 li .job-type {
   display: inline-block;
   vertical-align: middle;
@@ -64,6 +72,7 @@ li .job-progress {
             <p>unknown user</p>
           </span>
           <span class="job-type">{{ job.job_type }}</span>
+          <span class="job-container-name">{{ job.container_name }}</span>
           <span class="job-date"
             >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
           >
