@@ -1334,6 +1334,8 @@ async def start_unblock_job(unblock_job):
 
 
 async def job_runner(job_runner_id):
+    await asyncio.sleep(job_runner_id * 2)
+
     # Infinitely loop looking for pending jobs
     while True:
         # Run the next fetch, delete, or delete_dms job
