@@ -1065,7 +1065,7 @@ async def start_job(job, job_runner_id):
     await job.update(
         status="active",
         started_timestamp=datetime.now(),
-        container_name=job_runner_id,
+        container_name=f"runner_id={job_runner_id}",
     ).apply()
 
     try:
