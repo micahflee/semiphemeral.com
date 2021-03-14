@@ -1362,7 +1362,8 @@ async def start_jobs():
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         await asyncio.sleep(5)
 
-    seconds_to_sleep = int(os.environ.get("SECONDS_TO_SLEEP"))
+    container_name = os.environ.get("CONTAINER_NAME")
+    seconds_to_sleep = int(container_name[4:]) + 2
     print(f"Sleeping {seconds_to_sleep} seconds")
     await asyncio.sleep(seconds_to_sleep)
 
