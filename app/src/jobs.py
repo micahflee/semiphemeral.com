@@ -1356,6 +1356,8 @@ async def start_jobs():
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         await asyncio.sleep(5)
 
+    print("Sleeping 10 seconds")
+    await asyncio.sleep(10)
     await asyncio.gather(*[job_runner(job_runner_id) for job_runner_id in range(200)])
 
 
