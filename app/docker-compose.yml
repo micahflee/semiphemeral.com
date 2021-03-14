@@ -26,6 +26,21 @@ services:
       - default
       - host_private
 
+  proxy:
+    restart: always
+    build: "proxy"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt/live/{{ domain }}/fullchain.pem:/etc/nginx/ssl/fullchain.pem
+      - /etc/letsencrypt/live/{{ domain }}/privkey.pem:/etc/nginx/ssl/privkey.pem
+      - /opt/semiphemeral/data/proxy:/var/log/nginx
+    networks:
+      - default
+    depends_on:
+      - web
+
   dm_jobs:
     restart: always
     build: "src"
@@ -42,7 +57,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=1
     networks:
       - default
       - host_private
@@ -66,7 +80,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=3
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -92,7 +105,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=4
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -118,7 +130,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=5
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -144,7 +155,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=6
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -170,7 +180,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=7
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -196,7 +205,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=8
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -222,7 +230,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=9
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -248,7 +255,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=10
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -274,7 +280,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=11
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -300,7 +305,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=12
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -326,7 +330,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=13
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -352,7 +355,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=14
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -378,7 +380,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=15
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -404,7 +405,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=16
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -430,7 +430,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=17
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -456,7 +455,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=18
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -482,7 +480,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=19
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -508,7 +505,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=20
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -534,7 +530,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=21
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -560,7 +555,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=22
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -586,7 +580,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=23
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -612,7 +605,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=24
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -638,7 +630,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=25
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -664,7 +655,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=26
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -690,7 +680,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=27
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -716,7 +705,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=28
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -742,7 +730,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=29
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -768,7 +755,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=30
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -794,7 +780,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=31
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -820,7 +805,6 @@ services:
       - DATABASE_URI={{ database_uri }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
-      - SECONDS_TO_SLEEP=32
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
@@ -829,18 +813,1753 @@ services:
     depends_on:
       - web
 
-  proxy:
+  jobs31:
     restart: always
-    build: "proxy"
-    ports:
-      - "80:80"
-      - "443:443"
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs31
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
     volumes:
-      - /etc/letsencrypt/live/{{ domain }}/fullchain.pem:/etc/nginx/ssl/fullchain.pem
-      - /etc/letsencrypt/live/{{ domain }}/privkey.pem:/etc/nginx/ssl/privkey.pem
-      - /opt/semiphemeral/data/proxy:/var/log/nginx
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     networks:
       - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs32:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs32
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs33:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs33
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs34:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs34
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs35:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs35
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs36:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs36
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs37:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs37
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs38:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs38
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs39:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs39
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs40:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs40
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs41:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs41
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs42:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs42
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs43:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs43
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs44:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs44
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs45:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs45
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs46:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs46
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs47:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs47
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs48:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs48
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs49:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs49
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs50:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs50
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs51:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs51
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs52:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs52
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs53:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs53
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs54:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs54
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs55:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs55
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs56:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs56
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs57:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs57
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs58:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs58
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs59:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs59
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs60:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs60
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs61:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs61
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs62:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs62
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs63:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs63
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs64:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs64
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs65:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs65
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs66:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs66
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs67:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs67
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs68:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs68
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs69:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs69
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs70:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs70
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs71:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs71
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs72:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs72
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs73:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs73
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs74:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs74
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs75:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs75
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs76:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs76
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs77:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs77
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs78:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs78
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs79:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs79
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs80:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs80
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs81:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs81
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs82:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs82
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs83:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs83
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs84:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs84
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs85:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs85
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs86:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs86
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs87:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs87
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs88:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs88
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs89:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs89
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs90:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs90
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs91:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs91
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs92:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs92
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs93:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs93
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs94:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs94
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs95:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs95
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs96:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs96
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs97:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs97
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs98:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs98
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs99:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs99
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - web
+
+  jobs100:
+    restart: always
+    build: "src"
+    environment:
+      - CONTAINER_NAME=jobs100
+      - SEMIPHEMERAL_JOBS=1
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI={{ database_uri }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
+    networks:
+      - default
+      - host_private
     depends_on:
       - web
 
