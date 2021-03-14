@@ -78,7 +78,7 @@ def ensure_user_follows_us(func):
 
         # Make an exception for semiphemeral user, because semiphemeral can't follow semiphemeral
         if user.twitter_screen_name == "semiphemeral":
-            return await func(job)
+            return await func(job, dont_start_new_jobs_after_ts)
 
         api = await twitter_api(user)
 
@@ -191,15 +191,18 @@ async def update_progress_rate_limit(job, progress, dont_start_new_jobs_after_ts
     ] = f"I hit Twitter's rate limit, so I have to wait a bit before continuing ..."
     await update_progress(job, progress)
 
-    # Don't attempt to start any new jobs if it's after dont_start_new_jobs_after_ts
-    if dont_start_new_jobs_after_ts == None or (
-        datetime.now() < dont_start_new_jobs_after_ts
-    ):
-        # Start a new job while rate limited
-        await start_job_while_rate_limited(job, dont_start_new_jobs_after_ts)
-    else:
-        await log(job, "Sleeping 16 minutes")
-        await asyncio.sleep(60 * 16)
+    # # Don't attempt to start any new jobs if it's after dont_start_new_jobs_after_ts
+    # if dont_start_new_jobs_after_ts == None or (
+    #     datetime.now() < dont_start_new_jobs_after_ts
+    # ):
+    #     # Start a new job while rate limited
+    #     await start_job_while_rate_limited(job, dont_start_new_jobs_after_ts)
+    # else:
+    #     await log(job, "Sleeping 16 minutes")
+    #     await asyncio.sleep(60 * 16)
+
+    await log(job, "Sleeping 16 minutes")
+    await asyncio.sleep(60 * 16)
 
     # Change status message back
     progress["status"] = old_status
