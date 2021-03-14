@@ -175,7 +175,7 @@ async def update_progress_rate_limit(job, progress, job_runner_id=None):
     progress["status"] = old_status
     await update_progress(job, progress)
 
-    await log(job, "#{job_runner_id} Finished waiting, resuming")
+    await log(job, f"#{job_runner_id} Finished waiting, resuming")
 
 
 async def save_tweet(user, status):
@@ -325,7 +325,7 @@ async def fetch(job, job_runner_id):
 
     since_id = user.since_id
 
-    await log(job, "#{job_runner_id} Fetch started")
+    await log(job, f"#{job_runner_id} Fetch started")
 
     loop = asyncio.get_running_loop()
 
@@ -523,7 +523,7 @@ async def fetch(job, job_runner_id):
             scheduled_timestamp=datetime.now(),
         )
         # Don't send any DMs
-        await log(job, "#{job_runner_id} Blocking user")
+        await log(job, f"#{job_runner_id} Blocking user")
         raise UserBlocked
 
     # Fetch is done! If semiphemeral is paused, send a DM
@@ -554,7 +554,7 @@ async def delete(job, job_runner_id):
 
     loop = asyncio.get_running_loop()
 
-    await log(job, "#{job_runner_id} Delete started")
+    await log(job, f"#{job_runner_id} Delete started")
 
     # Start the progress
     progress = json.loads(job.progress)
@@ -784,7 +784,7 @@ async def delete(job, job_runner_id):
     progress["status"] = "Finished"
     await update_progress(job, progress)
 
-    await log(job, "#{job_runner_id} Delete finished")
+    await log(job, f"#{job_runner_id} Delete finished")
 
     # Delete is done!
 
@@ -924,9 +924,9 @@ async def delete_dms_job(job, dm_type, job_runner_id):
     loop = asyncio.get_running_loop()
 
     if dm_type == "dms":
-        await log(job, "#{job_runner_id} Delete DMs started")
+        await log(job, f"#{job_runner_id} Delete DMs started")
     elif dm_type == "groups":
-        await log(job, "#{job_runner_id} Delete group DMs started")
+        await log(job, f"#{job_runner_id} Delete group DMs started")
 
     # Start the progress
     progress = {"dms_deleted": 0, "dms_skipped": 0, "status": "Verifying permissions"}
@@ -957,14 +957,14 @@ async def delete_dms_job(job, dm_type, job_runner_id):
 
     if not dm_creds_work:
         await log(
-            job, "#{job_runner_id} DMs Twitter API creds don't work, canceling job"
+            job, f"#{job_runner_id} DMs Twitter API creds don't work, canceling job"
         )
         await job.update(status="canceled", started_timestamp=datetime.now()).apply()
         raise JobCanceled()
 
     # Make sure deleting DMs is enabled
     if not user.direct_messages:
-        await log(job, "#{job_runner_id} Deleting DMs is not enabled, canceling job")
+        await log(job, f"#{job_runner_id} Deleting DMs is not enabled, canceling job")
         await job.update(status="canceled", started_timestamp=datetime.now()).apply()
         raise JobCanceled()
 
@@ -1044,7 +1044,7 @@ async def delete_dms_job(job, dm_type, job_runner_id):
     progress["status"] = "Finished"
     await update_progress(job, progress)
 
-    await log(job, "#{job_runner_id} Delete DMs finished")
+    await log(job, f"#{job_runner_id} Delete DMs finished")
 
     # Send a DM to the user
     if dm_type == "dms":
@@ -1344,7 +1344,7 @@ async def job_runner(job_runner_id):
             .gino.first()
         )
         if job:
-            await start_job(job, None)
+            await start_job(job, job_runner_id)
         else:
             print(
                 f"#{job_runner_id} No fetch/delete/delete_dms/delete_dm_groups jobs, waiting 60 seconds"
@@ -1356,7 +1356,7 @@ async def start_jobs():
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         await asyncio.sleep(5)
 
-    await asyncio.gather([job_runner(job_runner_id) for job_runner_id in range(60)])
+    await asyncio.gather(*[job_runner(job_runner_id) for job_runner_id in range(200)])
 
 
 async def start_dm_jobs():
