@@ -8,7 +8,7 @@ li .job-id {
   display: inline-block;
   vertical-align: middle;
   margin-right: 10px;
-  width: 50px;
+  width: 60px;
   font-size: 0.9em;
 }
 
@@ -20,11 +20,11 @@ li .job-user {
   font-size: 0.9em;
 }
 
-li .container-name {
+li .job-container-name {
   display: inline-block;
   vertical-align: middle;
   margin-right: 10px;
-  width: 150px;
+  width: 50px;
   font-size: 0.9em;
 }
 

@@ -1066,7 +1066,7 @@ async def start_job(job, job_runner_id):
     await job.update(
         status="active",
         started_timestamp=datetime.now(),
-        container_name=f"runner_id={job_runner_id}",
+        container_name=f"{job_runner_id}",
     ).apply()
 
     try:
@@ -1362,10 +1362,8 @@ async def job_runner(gino_db, job_runner_id):
             await start_job(job, job_runner_id)
 
         else:
-            print(
-                f"#{job_runner_id} No fetch/delete/delete_dms/delete_dm_groups jobs, waiting 60 seconds"
-            )
-            await asyncio.sleep(60)
+            # print(f"#{job_runner_id} No jobs, waiting 10 minutes")
+            await asyncio.sleep(60 * 10)
 
 
 async def start_jobs(gino_db):
