@@ -158,4 +158,4 @@ async def connect_db():
     )
     database_uri = os.environ.get("DATABASE_URI")
 
-    await db.set_bind(database_uri, ssl=ctx)
+    return await db.set_bind(database_uri, ssl=ctx)
