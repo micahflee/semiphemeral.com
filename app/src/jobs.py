@@ -1376,7 +1376,7 @@ async def start_jobs(gino_db):
     print("Sleeping 10 seconds")
     await asyncio.sleep(10)
     await asyncio.gather(
-        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(500)]
+        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(1000)]
     )
 
 
