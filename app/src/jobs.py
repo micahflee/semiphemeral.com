@@ -1333,20 +1333,35 @@ async def start_unblock_job(unblock_job):
             )
 
 
-async def job_runner(job_runner_id):
+async def job_runner(gino_db, job_runner_id):
     await asyncio.sleep(job_runner_id * 2)
 
     # Infinitely loop looking for pending jobs
     while True:
-        # Run the next fetch, delete, or delete_dms job
-        job = (
-            await Job.query.where(Job.status == "pending")
-            .where(Job.scheduled_timestamp <= datetime.now())
-            .order_by(Job.scheduled_timestamp)
-            .gino.first()
-        )
-        if job:
+        # Select the next pending job, locking the row
+        async with gino_db.acquire() as conn:
+            job_id = None
+            await conn.all("BEGIN")
+            r = await conn.all(
+                text(
+                    "SELECT id FROM jobs WHERE status='pending' AND scheduled_timestamp <= :scheduled_timestamp ORDER BY scheduled_timestamp LIMIT 1 FOR UPDATE SKIP LOCKED"
+                ),
+                scheduled_timestamp=datetime.now(),
+            )
+            if len(r) > 0:
+                job_id = r[0][0]
+                await conn.all(
+                    text("UPDATE jobs SET status='active' WHERE id=:job_id"),
+                    job_id=job_id,
+                )
+            await conn.all("COMMIT")
+
+        if job_id:
+            job = await Job.query.where(Job.id == job_id)
+
+        if job_id and job:
             await start_job(job, job_runner_id)
+
         else:
             print(
                 f"#{job_runner_id} No fetch/delete/delete_dms/delete_dm_groups jobs, waiting 60 seconds"
@@ -1354,13 +1369,15 @@ async def job_runner(job_runner_id):
             await asyncio.sleep(60)
 
 
-async def start_jobs():
+async def start_jobs(gino_db):
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         await asyncio.sleep(5)
 
     print("Sleeping 10 seconds")
     await asyncio.sleep(10)
-    await asyncio.gather(*[job_runner(job_runner_id) for job_runner_id in range(500)])
+    await asyncio.gather(
+        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(500)]
+    )
 
 
 async def start_dm_jobs():

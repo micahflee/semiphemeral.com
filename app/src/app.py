@@ -13,7 +13,7 @@ from jobs import start_jobs, start_dm_jobs
 async def main():
     # Connect to the database
     print("Connecting to the database")
-    await connect_db()
+    gino_db = await connect_db()
 
     # Start
     while True:
@@ -23,7 +23,7 @@ async def main():
             elif os.environ.get("SEMIPHEMERAL_JOBS") == "1":
                 # Long twitter threads need big recursion limits
                 sys.setrecursionlimit(5000)
-                await start_jobs()
+                await start_jobs(gino_db)
             elif os.environ.get("SEMIPHEMERAL_DM_JOBS") == "1":
                 await start_dm_jobs()
             break
