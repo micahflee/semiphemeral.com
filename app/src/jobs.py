@@ -1335,8 +1335,6 @@ async def start_unblock_job(unblock_job):
 
 
 async def job_runner(gino_db, job_runner_id):
-    await asyncio.sleep(job_runner_id * 2)
-
     # Infinitely loop looking for pending jobs
     while True:
         # Select the next pending job, locking the row
@@ -1381,7 +1379,7 @@ async def start_jobs(gino_db):
     ).gino.status()
 
     await asyncio.gather(
-        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(1000)]
+        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(2000)]
     )
 
 
@@ -1427,8 +1425,8 @@ async def start_dm_jobs():
             print(f"Running {len(tasks)} DM/block/unblock jobs")
             await asyncio.gather(*tasks)
 
-        print(f"Waiting 1 minute")
-        await asyncio.sleep(60)
+        print(f"Waiting 1.5 minutes")
+        await asyncio.sleep(90)
 
         # # Only run this once a day
         # if minutes == 0:
