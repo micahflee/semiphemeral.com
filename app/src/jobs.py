@@ -31,6 +31,7 @@ from db import (
     Thread,
     Fascist,
 )
+from sqlalchemy.sql import text
 
 
 class JobRescheduled(Exception):
