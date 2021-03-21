@@ -1557,12 +1557,6 @@ async def maintenance_refresh_logging(request=None):
 
 
 async def start_web_server():
-    # In case the app crashed in the middle of any previous jobs, change all "active"
-    # jobs to "pending" so they'll start over
-    await Job.update.values(status="pending").where(
-        Job.status == "active"
-    ).gino.status()
-
     # If staging, start by pausing all users and cancel all pending jobs
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         print("Staging environment, so pausing all users and canceling all jobs")

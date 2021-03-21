@@ -1358,7 +1358,7 @@ async def job_runner(gino_db, job_runner_id):
             await conn.all("COMMIT")
 
         if job_id:
-            job = await Job.query.where(Job.id == job_id)
+            job = await Job.query.where(Job.id == job_id).gino.first()
 
         if job_id and job:
             await start_job(job, job_runner_id)
@@ -1374,8 +1374,12 @@ async def start_jobs(gino_db):
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         await asyncio.sleep(5)
 
-    print("Sleeping 10 seconds")
-    await asyncio.sleep(10)
+    # In case the app crashed in the middle of any previous jobs, change all "active"
+    # jobs to "pending" so they'll start over
+    await Job.update.values(status="pending").where(
+        Job.status == "active"
+    ).gino.status()
+
     await asyncio.gather(
         *[job_runner(gino_db, job_runner_id) for job_runner_id in range(1000)]
     )
