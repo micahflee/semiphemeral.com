@@ -32,6 +32,8 @@ from db import (
     Fascist,
 )
 from sqlalchemy.sql import text
+from gino.exceptions import NoSuchRowError
+from asyncpg.exceptions import ForeignKeyViolationError
 
 
 class JobRescheduled(Exception):
@@ -189,28 +191,33 @@ async def save_tweet(user, status):
     else:
         is_fascist = False
 
-    return await Tweet.create(
-        user_id=user.id,
-        created_at=status.created_at,
-        twitter_user_id=str(status.author.id),
-        twitter_user_screen_name=status.author.screen_name,
-        status_id=str(status.id),
-        text=status.full_text.replace(
-            "\x00", ""
-        ),  # For some reason this tweet has null bytes https://twitter.com/mehdirhasan/status/65015127132471296
-        in_reply_to_screen_name=status.in_reply_to_screen_name,
-        in_reply_to_status_id=str(status.in_reply_to_status_id),
-        in_reply_to_user_id=str(status.in_reply_to_user_id),
-        retweet_count=status.retweet_count,
-        favorite_count=status.favorite_count,
-        retweeted=status.retweeted,
-        favorited=status.favorited,
-        is_retweet=hasattr(status, "retweeted_status"),
-        is_deleted=False,
-        is_unliked=False,
-        exclude_from_delete=False,
-        is_fascist=is_fascist,
-    )
+    try:
+        return await Tweet.create(
+            user_id=user.id,
+            created_at=status.created_at,
+            twitter_user_id=str(status.author.id),
+            twitter_user_screen_name=status.author.screen_name,
+            status_id=str(status.id),
+            text=status.full_text.replace(
+                "\x00", ""
+            ),  # For some reason this tweet has null bytes https://twitter.com/mehdirhasan/status/65015127132471296
+            in_reply_to_screen_name=status.in_reply_to_screen_name,
+            in_reply_to_status_id=str(status.in_reply_to_status_id),
+            in_reply_to_user_id=str(status.in_reply_to_user_id),
+            retweet_count=status.retweet_count,
+            favorite_count=status.favorite_count,
+            retweeted=status.retweeted,
+            favorited=status.favorited,
+            is_retweet=hasattr(status, "retweeted_status"),
+            is_deleted=False,
+            is_unliked=False,
+            exclude_from_delete=False,
+            is_fascist=is_fascist,
+        )
+    except ForeignKeyViolationError:
+        # If the user isn't in the database (maybe the user deleted their account, but a
+        # job is still running?) just ignore
+        pass
 
 
 async def import_tweet_and_thread(user, api, job, progress, status, job_runner_id):
@@ -1361,7 +1368,12 @@ async def job_runner(gino_db, job_runner_id):
             job = await Job.query.where(Job.id == job_id).gino.first()
 
         if job_id and job:
-            await start_job(job, job_runner_id)
+            try:
+                await start_job(job, job_runner_id)
+            except NoSuchRowError:
+                print(
+                    f"#{job_runner_id} gino.exceptions.NoSuchRowError, moving on to the next job"
+                )
 
         else:
             # print(f"#{job_runner_id} No jobs, waiting 10 minutes")
