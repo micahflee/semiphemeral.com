@@ -4,6 +4,10 @@ ul {
   padding: 0;
 }
 
+li {
+  white-space: nowrap;
+}
+
 li .job-id {
   display: inline-block;
   vertical-align: middle;
@@ -12,19 +16,19 @@ li .job-id {
   font-size: 0.9em;
 }
 
-li .job-user {
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 10px;
-  width: 150px;
-  font-size: 0.9em;
-}
-
 li .job-container-name {
   display: inline-block;
   vertical-align: middle;
   margin-right: 10px;
   width: 50px;
+  font-size: 0.9em;
+}
+
+li .job-user {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 10px;
+  width: 150px;
   font-size: 0.9em;
 }
 
@@ -46,11 +50,9 @@ li .job-date {
 }
 
 li .job-progress {
-  display: block;
   font-size: 0.9em;
   font-family: monospace;
   color: #666;
-  margin-left: 65px;
 }
 </style>
 
@@ -63,6 +65,7 @@ li .job-progress {
       <ul>
         <li v-for="job in active_jobs">
           <span class="job-id">{{ job.id }}</span>
+          <span class="job-container-name">{{ job.container_name }}</span>
           <span class="job-user" v-if="job.twitter_username != null">
             <a v-bind:href="job.twitter_link" target="_blank">{{
               job.twitter_username
@@ -72,7 +75,6 @@ li .job-progress {
             <p>unknown user</p>
           </span>
           <span class="job-type">{{ job.job_type }}</span>
-          <span class="job-container-name">{{ job.container_name }}</span>
           <span class="job-date"
             >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
           >
