@@ -1074,6 +1074,9 @@ async def delete_dms_job(job, dm_type, job_runner_id):
 
 
 async def start_job(job, job_runner_id):
+    # Stagger job starting times a bit, to stagger database locking
+    asyncio.sleep(job_runner_id)
+
     await log(job, f"#{job_runner_id} Starting job")
     await job.update(
         status="active",
@@ -1396,7 +1399,7 @@ async def start_jobs(gino_db):
     ).gino.status()
 
     await asyncio.gather(
-        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(500)]
+        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(3000)]
     )
 
 
