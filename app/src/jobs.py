@@ -1133,11 +1133,13 @@ async def start_dm_job(dm_job):
         # 349: You cannot send messages to this user.
         # 108: Cannot find specified user.
         # 89: Invalid or expired token.
+        # 389: You cannot send messages to users you have blocked.
         if (
             error_code == 150
             or error_code == 349
             or error_code == 108
             or error_code == 89
+            or error_code == 389
         ):
             print(
                 f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}) error code {error_code}, marking as failure"
@@ -1377,7 +1379,7 @@ async def start_jobs(gino_db):
     ).gino.status()
 
     await asyncio.gather(
-        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(2000)]
+        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(500)]
     )
 
 
