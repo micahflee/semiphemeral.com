@@ -1261,7 +1261,6 @@ async def app_admin_redirect(request):
 async def admin_api_get_jobs(request):
     active_jobs = (
         await Job.query.where(Job.status == "active")
-        .order_by(Job.container_name)
         .order_by(Job.started_timestamp)
         .gino.all()
     )

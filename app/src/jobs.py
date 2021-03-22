@@ -779,9 +779,14 @@ async def delete(job, job_runner_id):
                                     )
                                     # Don't break, so it tries again
                                 else:
-                                    # Unknown error
-                                    print(f"job_id={job.id} Error deleting DM {e}")
-                                    break
+                                    if (
+                                        e.api_code == 89
+                                    ):  # 89 = Invalid or expired token.
+                                        pass
+                                    else:
+                                        # Unknown error
+                                        print(f"job_id={job.id} Error deleting DM {e}")
+                                        break
 
                         progress["dms_deleted"] += 1
                         await update_progress(job, progress)
