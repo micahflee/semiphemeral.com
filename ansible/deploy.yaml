@@ -114,14 +114,9 @@
         src: ./etc/logrotate.d/semiphemeral
         dest: /etc/logrotate.d/semiphemeral
 
-    # - name: ensure we have a Let's Encrypt certificate (staging)
-    #   shell: certbot certonly --staging --standalone -n --agree-tos --email micah@micahflee.com -d {{ domain }}
-    #   when: deploy_environment == "staging"
-
     - name: ensure we have a Let's Encrypt certificate (production)
       shell: certbot certonly --standalone -n --agree-tos --email micah@micahflee.com -d {{ domain }}
 
-      # when: deploy_environment == "production"
     - name: ensure /root/.screenrc is there
       copy:
         src: "root/.screenrc"
@@ -131,3 +126,36 @@
       copy:
         src: "root/.vimrc"
         dest: /root/.vimrc
+
+    - name: check if swap file exists
+      stat:
+        path: /swapfile
+      register: swapfile
+
+    - name: create 16GB swapfile
+      shell: fallocate -l 16G /swapfile
+      when: swapfile.stat.exists == false
+
+    - name: ensure swapfile has the right permissions
+      file:
+        path: /swapfile
+        owner: "root"
+        group: "root"
+        mode: "0600"
+
+    - name: check if swapfile is formatted
+      shell: file /swapfile | grep "swap file (new style)"
+      ignore_errors: yes
+      register: file_swapfile
+
+    - name: format swapfile
+      shell: mkswap /swapfile
+      when: file_swapfile.rc != 0
+
+    - name: ensure /etc/fstab has the swap file
+      copy:
+        src: "etc/fstab"
+        dest: /etc/fstab
+
+    - name: make sure swap is on
+      shell: swapon --all
