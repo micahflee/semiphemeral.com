@@ -1429,7 +1429,7 @@ async def start_jobs(gino_db):
     ).gino.status()
 
     await asyncio.gather(
-        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(3000)]
+        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(500)]
     )
 
 
