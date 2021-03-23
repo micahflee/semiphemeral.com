@@ -40,6 +40,7 @@ from asyncpg.exceptions import ForeignKeyViolationError
 # A queue of pending jobs
 job_q = queue.Queue()
 job_q_lock = False
+job_q_last_refresh = None
 
 
 class JobRescheduled(Exception):
@@ -1365,7 +1366,9 @@ async def job_runner(gino_db, job_runner_id):
         while job_q_lock:
             await asyncio.sleep(1)
 
-        if job_q.qsize() == 0:
+        # If there are no jobs in the queue and it hasn't been refreshed in the last hour
+        one_hour_ago = datetime.now() - timedelta(hours=1)
+        if job_q.qsize() == 0 and (not job_q_last_refresh or job_q_last_refresh < one_hour_ago):
             job_q_lock = True
 
             print(
@@ -1401,6 +1404,7 @@ async def job_runner(gino_db, job_runner_id):
             )
 
             job_q_lock = False
+            job_q_last_refresh = datetime.now()
 
         try:
             job_id = job_q.get(block=False)
