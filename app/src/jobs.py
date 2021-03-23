@@ -6,6 +6,7 @@ import csv
 from datetime import datetime, timedelta
 import time
 import zipfile
+import queue
 
 import tweepy
 from selenium import webdriver
@@ -34,6 +35,11 @@ from db import (
 from sqlalchemy.sql import text
 from gino.exceptions import NoSuchRowError
 from asyncpg.exceptions import ForeignKeyViolationError
+
+
+# A queue of pending jobs
+job_q = queue.Queue()
+job_q_lock = False
 
 
 class JobRescheduled(Exception):
@@ -1352,39 +1358,63 @@ async def start_unblock_job(unblock_job):
 
 
 async def job_runner(gino_db, job_runner_id):
-    # Infinitely loop looking for pending jobs
+    global job_q, job_q_lock
+
     while True:
-        # Select the next pending job, locking the row
-        async with gino_db.acquire() as conn:
-            job_id = None
-            await conn.all("BEGIN")
-            r = await conn.all(
-                text(
-                    "SELECT id FROM jobs WHERE status='pending' AND scheduled_timestamp <= :scheduled_timestamp ORDER BY scheduled_timestamp LIMIT 1 FOR UPDATE SKIP LOCKED"
-                ),
-                scheduled_timestamp=datetime.now(),
+        # Wait until the job queue isn't locked
+        while job_q_lock:
+            await asyncio.sleep(1)
+
+        if job_q.qsize() == 0:
+            job_q_lock = True
+
+            print(
+                f"#{job_runner_id} Job queue is empty, replenishing from the database"
             )
-            if len(r) > 0:
-                job_id = r[0][0]
+
+            # Add all pending job_ids to the queue
+            async with gino_db.acquire() as conn:
+                now = datetime.now()
+
+                await conn.all("BEGIN")
+                r = await conn.all(
+                    text(
+                        "SELECT id FROM jobs WHERE status='pending' AND scheduled_timestamp <= :scheduled_timestamp ORDER BY scheduled_timestamp FOR UPDATE SKIP LOCKED"
+                    ),
+                    scheduled_timestamp=now,
+                )
+
+                for row in r:
+                    job_id = row[0]
+                    job_q.put(job_id)
+
                 await conn.all(
-                    text("UPDATE jobs SET status='active' WHERE id=:job_id"),
-                    job_id=job_id,
+                    text(
+                        "UPDATE jobs SET status='active' WHERE status='pending' AND scheduled_timestamp <= :scheduled_timestamp"
+                    ),
+                    scheduled_timestamp=now,
                 )
-            await conn.all("COMMIT")
+                await conn.all("COMMIT")
 
-        if job_id:
+            print(
+                f"#{job_runner_id} There are {job_q.qsize()} pending jobs in the queue"
+            )
+
+            job_q_lock = False
+
+        try:
+            job_id = job_q.get(block=False)
             job = await Job.query.where(Job.id == job_id).gino.first()
+            if job:
+                try:
+                    await start_job(job, job_runner_id)
+                except NoSuchRowError:
+                    print(
+                        f"#{job_runner_id} gino.exceptions.NoSuchRowError, moving on to the next job"
+                    )
 
-        if job_id and job:
-            try:
-                await start_job(job, job_runner_id)
-            except NoSuchRowError:
-                print(
-                    f"#{job_runner_id} gino.exceptions.NoSuchRowError, moving on to the next job"
-                )
-
-        else:
-            # print(f"#{job_runner_id} No jobs, waiting 10 minutes")
+        except queue.Empty:
+            print(f"#{job_runner_id} No jobs, waiting 10 minutes")
             await asyncio.sleep(60 * 10)
 
 
