@@ -86,6 +86,27 @@ li .job-progress {
       </ul>
     </div>
 
+    <div v-if="queued_jobs.length > 0">
+      <h2>{{ queued_jobs.length }} queued jobs</h2>
+      <ul>
+        <li v-for="job in queued_jobs">
+          <span class="job-id">{{ job.id }}</span>
+          <span class="job-user" v-if="job.twitter_username != null">
+            <a v-bind:href="job.twitter_link" target="_blank">{{
+              job.twitter_username
+            }}</a>
+          </span>
+          <span class="job-user" v-else>
+            <p>unknown user</p>
+          </span>
+          <span class="job-type">{{ job.job_type }}</span>
+          <span class="job-date"
+            >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
+          >
+        </li>
+      </ul>
+    </div>
+
     <div v-if="pending_jobs.length > 0">
       <h2>{{ pending_jobs.length }} pending jobs</h2>
       <ul>
@@ -137,6 +158,7 @@ export default {
     return {
       loading: false,
       active_jobs: [],
+      queued_jobs: [],
       pending_jobs: [],
       future_jobs: [],
     };
@@ -160,6 +182,7 @@ export default {
           response.json().then(function (data) {
             that.loading = false;
             that.active_jobs = data["active_jobs"];
+            that.queued_jobs = data["queued_jobs"];
             that.pending_jobs = data["pending_jobs"];
             that.future_jobs = data["future_jobs"];
           });

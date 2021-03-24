@@ -1082,7 +1082,7 @@ async def delete_dms_job(job, dm_type, job_runner_id):
 
 async def start_job(job, job_runner_id):
     # Stagger job starting times a bit, to stagger database locking
-    asyncio.sleep(job_runner_id)
+    await asyncio.sleep(job_runner_id)
 
     await log(job, f"#{job_runner_id} Starting job")
     await job.update(
@@ -1359,7 +1359,7 @@ async def start_unblock_job(unblock_job):
 
 
 async def job_runner(gino_db, job_runner_id):
-    global job_q, job_q_lock
+    global job_q, job_q_lock, job_q_last_refresh
 
     while True:
         # Wait until the job queue isn't locked
@@ -1368,7 +1368,9 @@ async def job_runner(gino_db, job_runner_id):
 
         # If there are no jobs in the queue and it hasn't been refreshed in the last hour
         one_hour_ago = datetime.now() - timedelta(hours=1)
-        if job_q.qsize() == 0 and (not job_q_last_refresh or job_q_last_refresh < one_hour_ago):
+        if job_q.qsize() == 0 and (
+            not job_q_last_refresh or job_q_last_refresh < one_hour_ago
+        ):
             job_q_lock = True
 
             print(
@@ -1393,7 +1395,7 @@ async def job_runner(gino_db, job_runner_id):
 
                 await conn.all(
                     text(
-                        "UPDATE jobs SET status='active' WHERE status='pending' AND scheduled_timestamp <= :scheduled_timestamp"
+                        "UPDATE jobs SET status='queued' WHERE status='pending' AND scheduled_timestamp <= :scheduled_timestamp"
                     ),
                     scheduled_timestamp=now,
                 )
@@ -1423,17 +1425,17 @@ async def job_runner(gino_db, job_runner_id):
 
 
 async def start_jobs(gino_db):
-    if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
-        await asyncio.sleep(5)
-
     # In case the app crashed in the middle of any previous jobs, change all "active"
     # jobs to "pending" so they'll start over
     await Job.update.values(status="pending").where(
         Job.status == "active"
     ).gino.status()
+    await Job.update.values(status="pending").where(
+        Job.status == "queued"
+    ).gino.status()
 
     await asyncio.gather(
-        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(500)]
+        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(2000)]
     )
 
 
