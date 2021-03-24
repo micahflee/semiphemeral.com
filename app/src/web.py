@@ -1265,6 +1265,13 @@ async def admin_api_get_jobs(request):
         .gino.all()
     )
 
+    queued_jobs = (
+        await Job.query.where(Job.status == "queued")
+        .where(Job.scheduled_timestamp <= datetime.now())
+        .order_by(Job.scheduled_timestamp)
+        .gino.all()
+    )
+
     pending_jobs = (
         await Job.query.where(Job.status == "pending")
         .where(Job.scheduled_timestamp <= datetime.now())
@@ -1326,6 +1333,7 @@ async def admin_api_get_jobs(request):
     return web.json_response(
         {
             "active_jobs": await to_client(active_jobs),
+            "queued_jobs": await to_client(queued_jobs),
             "pending_jobs": await to_client(pending_jobs),
             "future_jobs": await to_client(future_jobs),
         }
