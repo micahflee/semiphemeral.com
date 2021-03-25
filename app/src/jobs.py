@@ -71,7 +71,7 @@ class PoenyErrorHandler(peony.ErrorHandler):
     def __init__(self, request):
         super().__init__(request)
 
-    @ErrorHandler.handle(peony.exceptions.RateLimitExceeded)
+    @peony.ErrorHandler.handle(peony.exceptions.RateLimitExceeded)
     async def handle_rate_limits(self, exception):
         rate_limit_reset_ts = int(exception.response.headers.get("x-rate-limit-reset"))
         now_ts = datetime.now(timezone.utc).replace(tzinfo=timezone.utc).timestamp()
@@ -80,18 +80,18 @@ class PoenyErrorHandler(peony.ErrorHandler):
             await update_progress_rate_limit(
                 self.job, self.progress, self.job_runner_id, seconds=seconds_to_wait
             )
-        return ErrorHandler.RETRY
+        return peony.ErrorHandler.RETRY
 
-    @ErrorHandler.handle(asyncio.TimeoutError, TimeoutError)
+    @peony.ErrorHandler.handle(asyncio.TimeoutError, TimeoutError)
     async def handle_timeout_error(self):
         await log(job, f"Timed out, retrying in 5s")
         await asyncio.sleep(5)
-        return ErrorHandler.RETRY
+        return peony.ErrorHandler.RETRY
 
-    @ErrorHandler.handle(Exception)
+    @peony.ErrorHandler.handle(Exception)
     async def default_handler(self, exception):
         await log(job, f"Hit exception: {exception}")
-        return ErrorHandler.RAISE
+        return peony.ErrorHandler.RAISE
 
     async def __call__(self, job=None, progress=None, job_runner_id=None, **kwargs):
         self.job = job
@@ -1343,8 +1343,22 @@ async def job_runner(gino_db, job_runner_id):
 
 
 async def start_jobs(gino_db):
+    # If staging, start by pausing all users and cancel all pending jobs
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
-        await asyncio.sleep(5)
+        print("Staging environment, so pausing all users and canceling all jobs")
+        await User.update.values(paused=True).gino.status()
+        await Job.update.values(status="canceled").where(
+            Job.status == "pending"
+        ).gino.status()
+        await DirectMessageJob.update.values(status="canceled").where(
+            DirectMessageJob.status == "pending"
+        ).gino.status()
+        await BlockJob.update.values(status="canceled").where(
+            BlockJob.status == "pending"
+        ).gino.status()
+        await UnblockJob.update.values(status="canceled").where(
+            UnblockJob.status == "pending"
+        ).gino.status()
 
     # In case the app crashed in the middle of any previous jobs, change all "active"
     # jobs to "pending" so they'll start over
