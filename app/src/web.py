@@ -149,7 +149,6 @@ def admin_required(func):
 
 async def auth_login(request):
     session = await new_session(request)
-    print(session)
     user = await _logged_in_user(session)
     if user:
         # If we're already logged in, redirect
@@ -1565,23 +1564,6 @@ async def maintenance_refresh_logging(request=None):
 
 
 async def start_web_server():
-    # If staging, start by pausing all users and cancel all pending jobs
-    if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
-        print("Staging environment, so pausing all users and canceling all jobs")
-        await User.update.values(paused=True).gino.status()
-        await Job.update.values(status="canceled").where(
-            Job.status == "pending"
-        ).gino.status()
-        await DirectMessageJob.update.values(status="canceled").where(
-            DirectMessageJob.status == "pending"
-        ).gino.status()
-        await BlockJob.update.values(status="canceled").where(
-            BlockJob.status == "pending"
-        ).gino.status()
-        await UnblockJob.update.values(status="canceled").where(
-            UnblockJob.status == "pending"
-        ).gino.status()
-
     # Send admin DM now, so it doesn't get immediately canceled in staging
     await send_admin_dm(
         f"web server container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
