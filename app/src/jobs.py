@@ -3,19 +3,23 @@ import json
 import os
 import shutil
 import csv
-from datetime import datetime, timedelta
 import time
 import zipfile
 import queue
+import math
+from datetime import datetime, timedelta, timezone
 
 import tweepy
+import peony
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
 from common import (
-    twitter_api,
-    twitter_dms_api,
-    twitter_api_call,
+    tweepy_api,
+    tweepy_dms_api,
+    tweepy_api_call,
+    peony_client,
+    peony_dms_client,
     twitter_semiphemeral_dm_api,
     tweets_to_delete,
     send_admin_dm,
@@ -59,16 +63,53 @@ async def log(job, s):
     print(f"[{datetime.now().strftime('%c')}] job_id={job.id} {s}")
 
 
+class PoenyErrorHandler(peony.ErrorHandler):
+    """
+    https://peony-twitter.readthedocs.io/en/stable/adv_usage/error_handler.html
+    """
+
+    def __init__(self, request):
+        super().__init__(request)
+
+    @ErrorHandler.handle(peony.exceptions.RateLimitExceeded)
+    async def handle_rate_limits(self, exception):
+        rate_limit_reset_ts = int(exception.response.headers.get("x-rate-limit-reset"))
+        now_ts = datetime.now(timezone.utc).replace(tzinfo=timezone.utc).timestamp()
+        seconds_to_wait = math.ceil(rate_limit_reset_ts - now_ts)
+        if seconds_to_wait > 0:
+            await update_progress_rate_limit(
+                self.job, self.progress, self.job_runner_id, seconds=seconds_to_wait
+            )
+        return ErrorHandler.RETRY
+
+    @ErrorHandler.handle(asyncio.TimeoutError, TimeoutError)
+    async def handle_timeout_error(self):
+        await log(job, f"Timed out, retrying in 5s")
+        await asyncio.sleep(5)
+        return ErrorHandler.RETRY
+
+    @ErrorHandler.handle(Exception)
+    async def default_handler(self, exception):
+        await log(job, f"Hit exception: {exception}")
+        return ErrorHandler.RAISE
+
+    async def __call__(self, job=None, progress=None, job_runner_id=None, **kwargs):
+        self.job = job
+        self.progress = progress
+        self.job_runner_id = job_runner_id
+        return await super().__call__(**kwargs)
+
+
 def test_api_creds(func):
     async def wrapper(job, job_runner_id):
         """
         Make sure the API creds work, and if not pause semiphemeral for the user
         """
         user = await User.query.where(User.id == job.user_id).gino.first()
-        api = await twitter_api(user)
+        api = await tweepy_api(user)
         try:
             # Make an API request
-            await twitter_api_call(api, "me")
+            await tweepy_api_call(api, "me")
         except tweepy.error.TweepError as e:
             print(
                 f"user_id={user.id} API creds failed ({e}), canceling job and pausing user"
@@ -90,11 +131,11 @@ def ensure_user_follows_us(func):
         if user.twitter_screen_name == "semiphemeral":
             return await func(job, job_runner_id)
 
-        api = await twitter_api(user)
+        api = await tweepy_api(user)
 
         # Is the user following us?
         friendship = (
-            await twitter_api_call(
+            await tweepy_api_call(
                 api,
                 "show_friendship",
                 source_id=int(user.twitter_id),
@@ -114,7 +155,7 @@ def ensure_user_follows_us(func):
             # Make follow request
             print(f"user_id={user.id} not following, making follow request")
             try:
-                await twitter_api_call(
+                await tweepy_api_call(
                     api, "create_friendship", screen_name="semiphemeral", follow=True
                 )
             except:
@@ -165,9 +206,9 @@ async def update_progress(job, progress):
     await job.update(progress=json.dumps(progress)).apply()
 
 
-async def update_progress_rate_limit(job, progress, job_runner_id=None):
+async def update_progress_rate_limit(job, progress, job_runner_id=None, seconds=960):
     await log(
-        job, f"#{job_runner_id} Hit twitter rate limit, pausing for 16 minutes ..."
+        job, f"#{job_runner_id} Hit twitter rate limit, pausing for {seconds}s ..."
     )
 
     old_status = progress["status"]
@@ -179,7 +220,7 @@ async def update_progress_rate_limit(job, progress, job_runner_id=None):
     await update_progress(job, progress)
 
     # Sleep
-    await asyncio.sleep(60 * 16)
+    await asyncio.sleep(seconds)
 
     # Change status message back
     progress["status"] = old_status
@@ -201,21 +242,21 @@ async def save_tweet(user, status):
     try:
         return await Tweet.create(
             user_id=user.id,
-            created_at=status.created_at,
-            twitter_user_id=str(status.author.id),
-            twitter_user_screen_name=status.author.screen_name,
-            status_id=str(status.id),
-            text=status.full_text.replace(
+            created_at=status["created_at"],  # TODO: convert to datetime
+            twitter_user_id=status["user"]["id_str"],
+            twitter_user_screen_name=status["user"]["screen_name"],
+            status_id=status["id_str"],
+            text=status["full_text"].replace(
                 "\x00", ""
             ),  # For some reason this tweet has null bytes https://twitter.com/mehdirhasan/status/65015127132471296
-            in_reply_to_screen_name=status.in_reply_to_screen_name,
-            in_reply_to_status_id=str(status.in_reply_to_status_id),
-            in_reply_to_user_id=str(status.in_reply_to_user_id),
-            retweet_count=status.retweet_count,
-            favorite_count=status.favorite_count,
-            retweeted=status.retweeted,
-            favorited=status.favorited,
-            is_retweet=hasattr(status, "retweeted_status"),
+            in_reply_to_screen_name=status["in_reply_to_screen_name"],
+            in_reply_to_status_id=status["in_reply_to_status_id_str"],
+            in_reply_to_user_id=status["in_reply_to_user_id_str"],
+            retweet_count=status["retweet_count"],
+            favorite_count=status["favorite_count"],
+            retweeted=status["retweeted"],
+            favorited=status["favorited"],
+            is_retweet="retweeted_status" in status,
             is_deleted=False,
             is_unliked=False,
             exclude_from_delete=False,
@@ -227,7 +268,7 @@ async def save_tweet(user, status):
         pass
 
 
-async def import_tweet_and_thread(user, api, job, progress, status, job_runner_id):
+async def import_tweet_and_thread(user, client, job, progress, status, job_runner_id):
     """
     This imports a tweet, and recursively imports all tweets that it's in reply to,
     and returns the number of tweets fetched
@@ -235,7 +276,7 @@ async def import_tweet_and_thread(user, api, job, progress, status, job_runner_i
     # Is the tweet already saved?
     tweet = await (
         Tweet.query.where(Tweet.user_id == user.id)
-        .where(Tweet.status_id == str(status.id))
+        .where(Tweet.status_id == str(status["id"]))
         .gino.first()
     )
     if not tweet:
@@ -252,40 +293,22 @@ async def import_tweet_and_thread(user, api, job, progress, status, job_runner_i
         )
         if not parent_tweet:
             # If we don't have the parent tweet, import it
-            while True:  # loop in case we get rate-limited
-                try:
-                    try:
-                        in_reply_to_status_id = int(tweet.in_reply_to_status_id)
-                    except:
-                        in_reply_to_status_id = None
-                    parent_status = await twitter_api_call(
-                        api,
-                        "get_status",
-                        id=in_reply_to_status_id,
-                        tweet_mode="extended",
-                    )
-                    await import_tweet_and_thread(
-                        user,
-                        api,
-                        job,
-                        progress,
-                        parent_status,
-                        job_runner_id,
-                    )
-                    break
-                except tweepy.error.TweepError as e:
-                    try:
-                        error_code = e.args[0][0]["code"]
-                    except:
-                        error_code = e.api_code
-
-                    # On rate limit, try again
-                    if error_code == 88:  # 88 = Rate limit exceeded
-                        await update_progress_rate_limit(job, progress, job_runner_id)
-                    else:
-                        # Otherwise (it's been deleted, the user is suspended, unauthorized, blocked), ignore
-                        # await log(job, f"Error importing parent tweet: {e}")
-                        break
+            parent_statuses = await client.api.statuses.lookup.get(
+                id=tweet["in_reply_to_status_id_str"],
+                tweet_mode="extended",
+                _job=job,
+                _progress=progress,
+                _job_runner_id=job_runner_id,
+            )
+            if len(parent_statuses) > 0:
+                await import_tweet_and_thread(
+                    user,
+                    client,
+                    job,
+                    progress,
+                    parent_statuses[0],
+                    job_runner_id,
+                )
 
 
 async def calculate_thread(user, status_id):
@@ -336,7 +359,7 @@ async def calculate_excluded_threads(user):
 @ensure_user_follows_us
 async def fetch(job, job_runner_id):
     user = await User.query.where(User.id == job.user_id).gino.first()
-    api = await twitter_api(user)
+    client = await peony_client(user)
 
     since_id = user.since_id
 
@@ -355,51 +378,20 @@ async def fetch(job, job_runner_id):
     await update_progress(job, progress)
 
     # Fetch tweets from timeline a page at a time
-    pages = await loop.run_in_executor(
-        None,
-        tweepy.Cursor(
-            api.user_timeline,
-            id=user.twitter_screen_name,
-            since_id=since_id,
-            tweet_mode="extended",
-        ).pages,
+    request = client.api.statuses.user_timeline.get(
+        user_id=user.id,
+        tweet_mode="extended",
+        since_id=since_id,
+        _job=job,
+        _progress=progress,
+        _job_runner_id=job_runner_id,
     )
-    while True:
-        try:
-            # Sadly, I can't figure out a good way of making the cursor's next() function
-            # happen in the executor, so it will be a blocking call. If I try running it
-            # with loop.run_in_executor, the StopIteration exception gets lost, and the code
-            # simply freezes when the loop is done, and never continues.
-
-            # page = await loop.run_in_executor(None, pages.next)
-            page = pages.next()
-            await log(
-                job,
-                f"#{job_runner_id} Fetch tweets loop: got page with {len(page)} tweets",
-            )
-        except StopIteration:
-            await log(
-                job, f"#{job_runner_id} Hit the end of fetch tweets loop, breaking"
-            )
-            break
-        except tweepy.TweepError as e:
-            if str(e) == "Twitter error response: status code = 404":
-                # Twitter responded with a 404 error, which could mean the user has deleted their account
-                await log(
-                    job,
-                    f"#{job_runner_id} 404 error from twitter (account does not exist), so pausing user",
-                )
-                await user.update(paused=True).apply()
-                # await reschedule_job(job, timedelta(minutes=15))
-                return
-
-            await update_progress_rate_limit(job, progress, job_runner_id)
-            continue
-
+    responses = request.iterator.with_since_id()
+    async for page in responses:
         # Import these tweets, and all their threads
         for status in page:
             await import_tweet_and_thread(
-                user, api, job, progress, status, job_runner_id
+                user, client, job, progress, status, job_runner_id
             )
             progress["tweets_fetched"] += 1
 
@@ -429,7 +421,9 @@ async def fetch(job, job_runner_id):
             )
             if not thread:
                 thread = await Thread.create(
-                    user_id=user.id, root_status_id=root_status_id, should_exclude=False
+                    user_id=user.id,
+                    root_status_id=root_status_id,
+                    should_exclude=False,
                 )
 
             # Add all of the thread's tweets to the thread
@@ -450,48 +444,23 @@ async def fetch(job, job_runner_id):
     await update_progress(job, progress)
 
     # Fetch tweets that are liked
-    pages = await loop.run_in_executor(
-        None,
-        tweepy.Cursor(
-            api.favorites,
-            id=user.twitter_screen_name,
-            since_id=since_id,
-            tweet_mode="extended",
-        ).pages,
+    request = client.api.favorites.list.get(
+        user_id=user.id,
+        tweet_mode="extended",
+        since_id=since_id,
+        _job=job,
+        _progress=progress,
+        _job_runner_id=job_runner_id,
     )
-    while True:
-        try:
-            page = pages.next()
-            await log(
-                job,
-                f"#{job_runner_id} Fetch likes loop: got page with {len(page)} tweets",
-            )
-        except StopIteration:
-            await log(
-                job, f"#{job_runner_id} Hit the end of fetch likes loop, breaking"
-            )
-            break
-        except tweepy.TweepError as e:
-            if str(e) == "Twitter error response: status code = 404":
-                # Twitter responded with a 404 error, which could mean the user has deleted their account
-                await log(
-                    job,
-                    f"#{job_runner_id} 404 error from twitter (account does not exist), so pausing user",
-                )
-                await user.update(paused=True).apply()
-                # await reschedule_job(job, timedelta(minutes=15))
-                return
-
-            await update_progress_rate_limit(job, progress, job_runner_id)
-            continue
-
+    responses = request.iterator.with_since_id()
+    async for page in responses:
         # Import these tweets
         for status in page:
 
             # Is the tweet already saved?
             tweet = await (
                 Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.status_id == str(status.id))
+                .where(Tweet.status_id == status["id_str"])
                 .gino.first()
             )
             if not tweet:
@@ -509,7 +478,7 @@ async def fetch(job, job_runner_id):
         .gino.first()
     )
     if tweet:
-        await user.update(since_id=tweet.status_id).apply()
+        await user.update(since_id=tweet["status_id_str"]).apply()
 
     # Calculate which threads should be excluded from deletion
     progress["status"] = "Calculating which threads to exclude from deletion"
@@ -565,7 +534,7 @@ async def fetch(job, job_runner_id):
 @ensure_user_follows_us
 async def delete(job, job_runner_id):
     user = await User.query.where(User.id == job.user_id).gino.first()
-    api = await twitter_api(user)
+    client = await peony_client(user)
 
     loop = asyncio.get_running_loop()
 
@@ -603,34 +572,16 @@ async def delete(job, job_runner_id):
             await update_progress(job, progress)
 
             for tweet in tweets:
-                # Try deleting the tweet, in a while loop in case it gets rate limited and
-                # needs to try again
-                while True:
-                    try:
-                        await loop.run_in_executor(
-                            None, api.destroy_status, tweet.status_id
-                        )
-                        await tweet.update(is_deleted=True).apply()
-                        break
-                    except tweepy.error.TweepError as e:
-                        if e.api_code == 144:
-                            # Already deleted
-                            await tweet.update(is_deleted=True).apply()
-                            break
-                        elif e.api_code == 429:  # 429 = Too Many Requests
-                            await update_progress_rate_limit(
-                                job, progress, job_runner_id
-                            )
-                            # Don't break, so it tries again
-                        else:
-                            # Unknown error
-                            print(f"job_id={job.id} Error deleting retweet {e}")
-                            break
+                # Try deleting the retweet
+                await client.api.statuses.unretweet.post(
+                    id=tweet.status_id,
+                    _job=job,
+                    _progress=progress,
+                    _job_runner_id=job_runner_id,
+                )
 
                 progress["retweets_deleted"] += 1
                 await update_progress(job, progress)
-
-            # await log(job, f"Delete retweets progress: {progress}")
 
         # Unlike
         if user.retweets_likes_delete_likes:
@@ -654,29 +605,13 @@ async def delete(job, job_runner_id):
             await update_progress(job, progress)
 
             for tweet in tweets:
-                # Try unliking the tweet, in a while loop in case it gets rate limited and
-                # needs to try again
-                while True:
-                    try:
-                        await loop.run_in_executor(
-                            None, api.destroy_favorite, tweet.status_id
-                        )
-                        await tweet.update(is_unliked=True).apply()
-                        break
-                    except tweepy.error.TweepError as e:
-                        if e.api_code == 144:  # 144 = No status found with that ID
-                            # Already unliked
-                            await tweet.update(is_unliked=True).apply()
-                            break
-                        elif e.api_code == 429:  # 429 = Too Many Requests
-                            await update_progress_rate_limit(
-                                job, progress, job_runner_id
-                            )
-                            # Don't break, so it tries again
-                        else:
-                            # Unknown error
-                            print(f"job_id={job.id} Error unliking tweet {e}")
-                            break
+                # Try unliking the tweet
+                await client.api.favorites.destroy.post(
+                    id=tweet.status_id,
+                    _job=job,
+                    _progress=progress,
+                    _job_runner_id=job_runner_id,
+                )
 
                 progress["likes_deleted"] += 1
                 await update_progress(job, progress)
@@ -693,40 +628,23 @@ async def delete(job, job_runner_id):
         await update_progress(job, progress)
 
         for tweet in tweets:
-            # Try deleting the tweet, in a while loop in case it gets rate limited and
-            # needs to try again
-            while True:
-                try:
-                    await loop.run_in_executor(
-                        None, api.destroy_status, tweet.status_id
-                    )
-                    await tweet.update(is_deleted=True, text=None).apply()
-                    break
-                except tweepy.error.TweepError as e:
-                    if e.api_code == 144:  # No status found with that ID
-                        # Already deleted
-                        await tweet.update(is_deleted=True, text=None).apply()
-                        break
-                    elif e.api_code == 429:  # 429 = Too Many Requests
-                        await update_progress_rate_limit(job, progress, job_runner_id)
-                        # Don't break, so it tries again
-                    else:
-                        # Unknown error
-                        print(f"job_id={job.id} Error deleting tweet {e}")
-                        break
+            # Try deleting the tweet
+            await client.api.statuses.destroy.post(
+                id=tweet.status_id,
+                _job=job,
+                _progress=progress,
+                _job_runner_id=job_runner_id,
+            )
 
             progress["tweets_deleted"] += 1
             await update_progress(job, progress)
-
-        # await log(job, f"Delete tweets progress: {progress}")
 
     # Deleting direct messages
     if user.direct_messages:
         # Make sure the DMs API authenticates successfully
         proceed = False
         try:
-            dms_api = await twitter_dms_api(user)
-            twitter_user = await twitter_api_call(dms_api, "me")
+            dms_client = await peony_dms_client(user)
             proceed = True
         except:
             # It doesn't, so disable deleting direct messages
@@ -939,7 +857,7 @@ async def delete_dm_groups(job, job_runner_id):
 
 async def delete_dms_job(job, dm_type, job_runner_id):
     user = await User.query.where(User.id == job.user_id).gino.first()
-    dms_api = await twitter_dms_api(user)
+    dms_api = await tweepy_dms_api(user)
 
     loop = asyncio.get_running_loop()
 
@@ -1185,7 +1103,7 @@ async def start_block_job(block_job):
     try:
         # Are they already blocked?
         friendship = (
-            await twitter_api_call(
+            await tweepy_api_call(
                 api,
                 "show_friendship",
                 source_screen_name="semiphemeral",
@@ -1225,7 +1143,7 @@ async def start_block_job(block_job):
                 # Send the DM
                 message = f"You have liked at least one tweet from a fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated. See https://{os.environ.get('DOMAIN')}/dashboard for information about appealing.\n\nYou will get automatically unblocked on {unblock_timestamp_formatted}. You can reactivate your account then so long as you stop liking tweets from fascists."
 
-                await twitter_api_call(
+                await tweepy_api_call(
                     api,
                     "send_direct_message",
                     recipient_id=int(user.twitter_id),
@@ -1250,7 +1168,7 @@ async def start_block_job(block_job):
                 await asyncio.sleep(10)
 
         # Block the user
-        await twitter_api_call(
+        await tweepy_api_call(
             api, "create_block", screen_name=block_job.twitter_username
         )
 
@@ -1294,7 +1212,7 @@ async def start_unblock_job(unblock_job):
     try:
         # Are they already unblocked?
         friendship = (
-            await twitter_api_call(
+            await tweepy_api_call(
                 api,
                 "show_friendship",
                 source_screen_name="semiphemeral",
@@ -1313,7 +1231,7 @@ async def start_unblock_job(unblock_job):
             return
 
         # Unblock them
-        await twitter_api_call(
+        await tweepy_api_call(
             api, "destroy_block", screen_name=unblock_job.twitter_username
         )
 
@@ -1425,6 +1343,9 @@ async def job_runner(gino_db, job_runner_id):
 
 
 async def start_jobs(gino_db):
+    if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
+        await asyncio.sleep(5)
+
     # In case the app crashed in the middle of any previous jobs, change all "active"
     # jobs to "pending" so they'll start over
     await Job.update.values(status="pending").where(
