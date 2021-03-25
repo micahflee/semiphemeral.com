@@ -1,9 +1,11 @@
 import os
 import asyncio
 import functools
-import tweepy
 import requests
 from datetime import datetime, timedelta
+
+import tweepy
+from peony import PeonyClient
 
 from db import Tweet, Thread, User, DirectMessageJob
 
@@ -12,7 +14,7 @@ class TwitterRateLimit(Exception):
     pass
 
 
-async def twitter_api_call(api, method, **kwargs):
+async def tweepy_api_call(api, method, **kwargs):
     """
     Wrapper around Twitter API to support asyncio for all API calls. See:
     https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.run_in_executor
@@ -25,7 +27,7 @@ async def twitter_api_call(api, method, **kwargs):
     return result
 
 
-async def twitter_api(user):
+async def tweepy_api(user):
     auth = tweepy.OAuthHandler(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
@@ -35,7 +37,7 @@ async def twitter_api(user):
     return api
 
 
-async def twitter_dms_api(user):
+async def tweepy_dms_api(user):
     auth = tweepy.OAuthHandler(
         os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_DM_CONSUMER_KEY"),
@@ -45,6 +47,26 @@ async def twitter_dms_api(user):
     )
     api = tweepy.API(auth)
     return api
+
+
+async def peony_client(user):
+    client = PeonyClient(
+        consumer_key=os.environ.get("TWITTER_CONSUMER_TOKEN"),
+        consumer_secret=os.environ.get("TWITTER_CONSUMER_KEY"),
+        access_token=user.twitter_access_token,
+        access_token_secret=user.twitter_access_token_secret,
+    )
+    return client
+
+
+async def peony_dms_client(user):
+    client = PeonyClient(
+        consumer_key=os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
+        consumer_secret=os.environ.get("TWITTER_DM_CONSUMER_KEY"),
+        access_token=user.twitter_dms_access_token,
+        access_token_secret=user.twitter_dms_access_token_secret,
+    )
+    return client
 
 
 # The API to send DMs from the @semiphemeral account
