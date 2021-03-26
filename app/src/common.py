@@ -5,13 +5,76 @@ import requests
 from datetime import datetime, timedelta
 
 import tweepy
+import peony
 from peony import PeonyClient
 
 from db import Tweet, Thread, User, DirectMessageJob
 
 
-class TwitterRateLimit(Exception):
-    pass
+async def log(job, s):
+    print(f"[{datetime.now().strftime('%c')}] job_id={job.id} {s}")
+
+
+class PoenyErrorHandler(peony.ErrorHandler):
+    """
+    https://peony-twitter.readthedocs.io/en/stable/adv_usage/error_handler.html
+    """
+
+    def __init__(self, request):
+        super().__init__(request)
+
+    @peony.ErrorHandler.handle(peony.exceptions.RateLimitExceeded)
+    async def handle_rate_limits(self, exception):
+        rate_limit_reset_ts = int(exception.response.headers.get("x-rate-limit-reset"))
+        now_ts = datetime.now(timezone.utc).replace(tzinfo=timezone.utc).timestamp()
+        seconds_to_wait = math.ceil(rate_limit_reset_ts - now_ts)
+        if seconds_to_wait > 0:
+            await update_progress_rate_limit(
+                self.job, self.progress, self.job_runner_id, seconds=seconds_to_wait
+            )
+        return peony.ErrorHandler.RETRY
+
+    @peony.ErrorHandler.handle(asyncio.TimeoutError, TimeoutError)
+    async def handle_timeout_error(self):
+        await log(self.job, f"Timed out, retrying in 5s")
+        await asyncio.sleep(5)
+        return peony.ErrorHandler.RETRY
+
+    @peony.ErrorHandler.handle(Exception)
+    async def default_handler(self, exception):
+        await log(self.job, f"Hit exception: {exception}")
+        return peony.ErrorHandler.RAISE
+
+    async def __call__(self, data=None, **kwargs):
+        if data:
+            self.job, self.progress, self.job_runner_id = data
+        else:
+            self.job = None
+            self.progress = None
+            self.job_runner_id = None
+        return await super().__call__(**kwargs)
+
+
+async def peony_client(user):
+    client = PeonyClient(
+        consumer_key=os.environ.get("TWITTER_CONSUMER_TOKEN"),
+        consumer_secret=os.environ.get("TWITTER_CONSUMER_KEY"),
+        access_token=user.twitter_access_token,
+        access_token_secret=user.twitter_access_token_secret,
+        error_handler=PoenyErrorHandler,
+    )
+    return client
+
+
+async def peony_dms_client(user):
+    client = PeonyClient(
+        consumer_key=os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
+        consumer_secret=os.environ.get("TWITTER_DM_CONSUMER_KEY"),
+        access_token=user.twitter_dms_access_token,
+        access_token_secret=user.twitter_dms_access_token_secret,
+        error_handler=PoenyErrorHandler,
+    )
+    return client
 
 
 async def tweepy_api_call(api, method, **kwargs):
@@ -47,26 +110,6 @@ async def tweepy_dms_api(user):
     )
     api = tweepy.API(auth)
     return api
-
-
-async def peony_client(user):
-    client = PeonyClient(
-        consumer_key=os.environ.get("TWITTER_CONSUMER_TOKEN"),
-        consumer_secret=os.environ.get("TWITTER_CONSUMER_KEY"),
-        access_token=user.twitter_access_token,
-        access_token_secret=user.twitter_access_token_secret,
-    )
-    return client
-
-
-async def peony_dms_client(user):
-    client = PeonyClient(
-        consumer_key=os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
-        consumer_secret=os.environ.get("TWITTER_DM_CONSUMER_KEY"),
-        access_token=user.twitter_dms_access_token,
-        access_token_secret=user.twitter_dms_access_token_secret,
-    )
-    return client
 
 
 # The API to send DMs from the @semiphemeral account

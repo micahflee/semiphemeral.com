@@ -15,6 +15,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
 from common import (
+    log,
     tweepy_api,
     tweepy_dms_api,
     tweepy_api_call,
@@ -57,47 +58,6 @@ class JobCanceled(Exception):
 
 class UserBlocked(Exception):
     pass
-
-
-async def log(job, s):
-    print(f"[{datetime.now().strftime('%c')}] job_id={job.id} {s}")
-
-
-class PoenyErrorHandler(peony.ErrorHandler):
-    """
-    https://peony-twitter.readthedocs.io/en/stable/adv_usage/error_handler.html
-    """
-
-    def __init__(self, request):
-        super().__init__(request)
-
-    @peony.ErrorHandler.handle(peony.exceptions.RateLimitExceeded)
-    async def handle_rate_limits(self, exception):
-        rate_limit_reset_ts = int(exception.response.headers.get("x-rate-limit-reset"))
-        now_ts = datetime.now(timezone.utc).replace(tzinfo=timezone.utc).timestamp()
-        seconds_to_wait = math.ceil(rate_limit_reset_ts - now_ts)
-        if seconds_to_wait > 0:
-            await update_progress_rate_limit(
-                self.job, self.progress, self.job_runner_id, seconds=seconds_to_wait
-            )
-        return peony.ErrorHandler.RETRY
-
-    @peony.ErrorHandler.handle(asyncio.TimeoutError, TimeoutError)
-    async def handle_timeout_error(self):
-        await log(job, f"Timed out, retrying in 5s")
-        await asyncio.sleep(5)
-        return peony.ErrorHandler.RETRY
-
-    @peony.ErrorHandler.handle(Exception)
-    async def default_handler(self, exception):
-        await log(job, f"Hit exception: {exception}")
-        return peony.ErrorHandler.RAISE
-
-    async def __call__(self, job=None, progress=None, job_runner_id=None, **kwargs):
-        self.job = job
-        self.progress = progress
-        self.job_runner_id = job_runner_id
-        return await super().__call__(**kwargs)
 
 
 def test_api_creds(func):
@@ -232,7 +192,7 @@ async def update_progress_rate_limit(job, progress, job_runner_id=None, seconds=
 async def save_tweet(user, status):
     # Mark any new fascist tweets as fascist
     fascist = await Fascist.query.where(
-        Fascist.username == status.author.screen_name
+        Fascist.username == status["user"]["screen_name"]
     ).gino.first()
     if fascist:
         is_fascist = True
@@ -242,7 +202,9 @@ async def save_tweet(user, status):
     try:
         return await Tweet.create(
             user_id=user.id,
-            created_at=status["created_at"],  # TODO: convert to datetime
+            created_at=datetime.strptime(
+                status["created_at"], "%a %b %d %H:%M:%S %z %Y"
+            ).replace(tzinfo=None),
             twitter_user_id=status["user"]["id_str"],
             twitter_user_screen_name=status["user"]["screen_name"],
             status_id=status["id_str"],
@@ -282,6 +244,8 @@ async def import_tweet_and_thread(user, client, job, progress, status, job_runne
     if not tweet:
         # Save the tweet
         tweet = await save_tweet(user, status)
+        if not tweet:
+            return
 
     # Is this tweet a reply?
     if tweet.in_reply_to_status_id:
@@ -292,23 +256,24 @@ async def import_tweet_and_thread(user, client, job, progress, status, job_runne
             .gino.first()
         )
         if not parent_tweet:
-            # If we don't have the parent tweet, import it
-            parent_statuses = await client.api.statuses.lookup.get(
-                id=tweet["in_reply_to_status_id_str"],
-                tweet_mode="extended",
-                _job=job,
-                _progress=progress,
-                _job_runner_id=job_runner_id,
-            )
-            if len(parent_statuses) > 0:
-                await import_tweet_and_thread(
-                    user,
-                    client,
-                    job,
-                    progress,
-                    parent_statuses[0],
-                    job_runner_id,
+            # If we don't have the parent tweet, try importing it
+            try:
+                parent_statuses = await client.api.statuses.lookup.get(
+                    id=tweet["in_reply_to_status_id_str"],
+                    tweet_mode="extended",
+                    _data=(job, progress, job_runner_id),
                 )
+                if len(parent_statuses) > 0:
+                    await import_tweet_and_thread(
+                        user,
+                        client,
+                        job,
+                        progress,
+                        parent_statuses[0],
+                        job_runner_id,
+                    )
+            except:
+                pass
 
 
 async def calculate_thread(user, status_id):
@@ -378,14 +343,19 @@ async def fetch(job, job_runner_id):
     await update_progress(job, progress)
 
     # Fetch tweets from timeline a page at a time
-    request = client.api.statuses.user_timeline.get(
-        user_id=user.id,
-        tweet_mode="extended",
-        since_id=since_id,
-        _job=job,
-        _progress=progress,
-        _job_runner_id=job_runner_id,
-    )
+    if since_id:
+        request = client.api.statuses.user_timeline.get(
+            user_id=user.id,
+            tweet_mode="extended",
+            since_id=since_id,
+            _data=(job, progress, job_runner_id),
+        )
+    else:
+        request = client.api.statuses.user_timeline.get(
+            user_id=user.id,
+            tweet_mode="extended",
+            _data=(job, progress, job_runner_id),
+        )
     responses = request.iterator.with_since_id()
     async for page in responses:
         # Import these tweets, and all their threads
@@ -444,14 +414,19 @@ async def fetch(job, job_runner_id):
     await update_progress(job, progress)
 
     # Fetch tweets that are liked
-    request = client.api.favorites.list.get(
-        user_id=user.id,
-        tweet_mode="extended",
-        since_id=since_id,
-        _job=job,
-        _progress=progress,
-        _job_runner_id=job_runner_id,
-    )
+    if since_id:
+        request = client.api.favorites.list.get(
+            user_id=user.id,
+            tweet_mode="extended",
+            since_id=since_id,
+            _data=(job, progress, job_runner_id),
+        )
+    else:
+        request = client.api.favorites.list.get(
+            user_id=user.id,
+            tweet_mode="extended",
+            _data=(job, progress, job_runner_id),
+        )
     responses = request.iterator.with_since_id()
     async for page in responses:
         # Import these tweets
@@ -575,9 +550,7 @@ async def delete(job, job_runner_id):
                 # Try deleting the retweet
                 await client.api.statuses.unretweet.post(
                     id=tweet.status_id,
-                    _job=job,
-                    _progress=progress,
-                    _job_runner_id=job_runner_id,
+                    _data=(job, progress, job_runner_id),
                 )
 
                 progress["retweets_deleted"] += 1
@@ -608,9 +581,7 @@ async def delete(job, job_runner_id):
                 # Try unliking the tweet
                 await client.api.favorites.destroy.post(
                     id=tweet.status_id,
-                    _job=job,
-                    _progress=progress,
-                    _job_runner_id=job_runner_id,
+                    _data=(job, progress, job_runner_id),
                 )
 
                 progress["likes_deleted"] += 1
@@ -631,9 +602,7 @@ async def delete(job, job_runner_id):
             # Try deleting the tweet
             await client.api.statuses.destroy.post(
                 id=tweet.status_id,
-                _job=job,
-                _progress=progress,
-                _job_runner_id=job_runner_id,
+                _data=(job, progress, job_runner_id),
             )
 
             progress["tweets_deleted"] += 1
@@ -644,7 +613,8 @@ async def delete(job, job_runner_id):
         # Make sure the DMs API authenticates successfully
         proceed = False
         try:
-            dms_client = await peony_dms_client(user)
+            dms_api = await twitter_dms_api(user)
+            twitter_user = await twitter_api_call(dms_api, "me")
             proceed = True
         except:
             # It doesn't, so disable deleting direct messages
@@ -1285,9 +1255,10 @@ async def job_runner(gino_db, job_runner_id):
             await asyncio.sleep(1)
 
         # If there are no jobs in the queue and it hasn't been refreshed in the last hour
-        one_hour_ago = datetime.now() - timedelta(hours=1)
+        ten_minutes_ago = datetime.now() - timedelta(minutes=10)
         if job_q.qsize() == 0 and (
-            not job_q_last_refresh or job_q_last_refresh < one_hour_ago
+            (not job_q_last_refresh or job_q_last_refresh < ten_minutes_ago)
+            or os.environ.get("DEPLOY_ENVIRONMENT") == "staging"
         ):
             job_q_lock = True
 
@@ -1338,11 +1309,19 @@ async def job_runner(gino_db, job_runner_id):
                     )
 
         except queue.Empty:
-            print(f"#{job_runner_id} No jobs, waiting 10 minutes")
             await asyncio.sleep(60 * 10)
 
 
 async def start_jobs(gino_db):
+    # In case the app crashed in the middle of any previous jobs, change all "active"
+    # jobs to "pending" so they'll start over
+    await Job.update.values(status="pending").where(
+        Job.status == "active"
+    ).gino.status()
+    await Job.update.values(status="pending").where(
+        Job.status == "queued"
+    ).gino.status()
+
     # If staging, start by pausing all users and cancel all pending jobs
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         print("Staging environment, so pausing all users and canceling all jobs")
@@ -1359,15 +1338,6 @@ async def start_jobs(gino_db):
         await UnblockJob.update.values(status="canceled").where(
             UnblockJob.status == "pending"
         ).gino.status()
-
-    # In case the app crashed in the middle of any previous jobs, change all "active"
-    # jobs to "pending" so they'll start over
-    await Job.update.values(status="pending").where(
-        Job.status == "active"
-    ).gino.status()
-    await Job.update.values(status="pending").where(
-        Job.status == "queued"
-    ).gino.status()
 
     await asyncio.gather(
         *[job_runner(gino_db, job_runner_id) for job_runner_id in range(50)]
