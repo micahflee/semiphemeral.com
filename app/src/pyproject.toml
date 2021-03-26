@@ -19,7 +19,6 @@ requests = "^2.24.0"
 selenium = "^3.141.0"
 aiohttp_session = "^2.9.0"
 cryptography = "^3.1"
-peony-twitter = {extras = ["all"], version = "^1.1.7"}
 
 [tool.poetry.dev-dependencies]
 
