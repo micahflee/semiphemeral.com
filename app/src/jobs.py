@@ -363,13 +363,22 @@ async def fetch(job, job_runner_id):
         params["max_id"] = statuses[-1].id - 1
 
         # Import the status and its thread
+        caught_up = False
         for status in statuses:
+            if status.id <= int(since_id):
+                caught_up = True
+                break
+
             await import_tweet_and_thread(
                 user, client, job, progress, status, job_runner_id
             )
             progress["tweets_fetched"] += 1
 
         await update_progress(job, progress)
+
+        if caught_up:
+            await log(job, f"#{job_runner_id} Caught up importing tweets")
+            break
 
         # Hunt for threads. This is a dict that maps the root status_id to a list
         # of status_ids in the thread
@@ -437,7 +446,11 @@ async def fetch(job, job_runner_id):
         params["max_id"] = statuses[-1].id - 1
 
         # Import these tweets
+        caught_up = False
         for status in statuses:
+            if status.id <= int(since_id):
+                caught_up = True
+                break
 
             # Is the tweet already saved?
             tweet = await (
@@ -452,6 +465,10 @@ async def fetch(job, job_runner_id):
             progress["likes_fetched"] += 1
 
         await update_progress(job, progress)
+
+        if caught_up:
+            await log(job, f"#{job_runner_id} Caught up importing likes")
+            break
 
     # All done, update the since_id
     tweet = await (
@@ -554,11 +571,18 @@ async def delete(job, job_runner_id):
             await update_progress(job, progress)
 
             for tweet in tweets:
-                # Try deleting the retweet
-                await client.api.statuses.unretweet.post(
-                    id=tweet.status_id,
-                    _data=(job, progress, job_runner_id),
-                )
+                # Delete retweet
+                try:
+                    await client.api.statuses.unretweet[tweet.status_id].post(
+                        _data=(job, progress, job_runner_id),
+                    )
+                    await log(
+                        job, f"#{job_runner_id} Deleted retweet {tweet.status_id}"
+                    )
+                except peony.exceptions.NotFound:
+                    await log(
+                        job, f"#{job_runner_id} Skipped deleting retweet, not found {tweet.status_id}"
+                    )
 
                 progress["retweets_deleted"] += 1
                 await update_progress(job, progress)
@@ -585,16 +609,18 @@ async def delete(job, job_runner_id):
             await update_progress(job, progress)
 
             for tweet in tweets:
-                # Try unliking the tweet
-                await client.api.favorites.destroy.post(
-                    id=tweet.status_id,
-                    _data=(job, progress, job_runner_id),
-                )
+                # Delete like
+                try:
+                    await client.api.favorites.destroy.post(
+                        id=tweet.status_id,
+                        _data=(job, progress, job_runner_id),
+                    )
+                    await log(job, f"#{job_runner_id} Deleted like {tweet.status_id}")
+                except peony.exceptions.NotFound:
+                    await log(job, f"#{job_runner_id} Skipped deleting like, not found {tweet.status_id}")
 
                 progress["likes_deleted"] += 1
                 await update_progress(job, progress)
-
-            # await log(job, f"Delete likes progress: {progress}")
 
     # Deleting tweets
     if user.delete_tweets:
