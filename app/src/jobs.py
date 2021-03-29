@@ -581,7 +581,8 @@ async def delete(job, job_runner_id):
                     )
                 except peony.exceptions.NotFound:
                     await log(
-                        job, f"#{job_runner_id} Skipped deleting retweet, not found {tweet.status_id}"
+                        job,
+                        f"#{job_runner_id} Skipped deleting retweet, not found {tweet.status_id}",
                     )
 
                 progress["retweets_deleted"] += 1
@@ -617,7 +618,10 @@ async def delete(job, job_runner_id):
                     )
                     await log(job, f"#{job_runner_id} Deleted like {tweet.status_id}")
                 except peony.exceptions.NotFound:
-                    await log(job, f"#{job_runner_id} Skipped deleting like, not found {tweet.status_id}")
+                    await log(
+                        job,
+                        f"#{job_runner_id} Skipped deleting like, not found {tweet.status_id}",
+                    )
 
                 progress["likes_deleted"] += 1
                 await update_progress(job, progress)
@@ -1342,7 +1346,10 @@ async def job_runner(gino_db, job_runner_id):
                     )
 
         except queue.Empty:
-            await asyncio.sleep(60 * 10)
+            if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
+                await asyncio.sleep(60)
+            else:
+                await asyncio.sleep(60 * 10)
 
 
 async def start_jobs(gino_db):
