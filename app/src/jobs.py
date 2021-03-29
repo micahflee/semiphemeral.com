@@ -192,7 +192,7 @@ async def update_progress_rate_limit(job, progress, job_runner_id=None, seconds=
 async def save_tweet(user, status):
     # Mark any new fascist tweets as fascist
     fascist = await Fascist.query.where(
-        Fascist.username == status["user"]["screen_name"]
+        Fascist.username == status.user.screen_name
     ).gino.first()
     if fascist:
         is_fascist = True
@@ -203,21 +203,21 @@ async def save_tweet(user, status):
         return await Tweet.create(
             user_id=user.id,
             created_at=datetime.strptime(
-                status["created_at"], "%a %b %d %H:%M:%S %z %Y"
+                status.created_at, "%a %b %d %H:%M:%S %z %Y"
             ).replace(tzinfo=None),
-            twitter_user_id=status["user"]["id_str"],
-            twitter_user_screen_name=status["user"]["screen_name"],
-            status_id=status["id_str"],
-            text=status["full_text"].replace(
+            twitter_user_id=status.user.id_str,
+            twitter_user_screen_name=status.user.screen_name,
+            status_id=status.id_str,
+            text=status.full_text.replace(
                 "\x00", ""
             ),  # For some reason this tweet has null bytes https://twitter.com/mehdirhasan/status/65015127132471296
-            in_reply_to_screen_name=status["in_reply_to_screen_name"],
-            in_reply_to_status_id=status["in_reply_to_status_id_str"],
-            in_reply_to_user_id=status["in_reply_to_user_id_str"],
-            retweet_count=status["retweet_count"],
-            favorite_count=status["favorite_count"],
-            retweeted=status["retweeted"],
-            favorited=status["favorited"],
+            in_reply_to_screen_name=status.in_reply_to_screen_name,
+            in_reply_to_status_id=status.in_reply_to_status_id_str,
+            in_reply_to_user_id=status.in_reply_to_user_id_str,
+            retweet_count=status.retweet_count,
+            favorite_count=status.favorite_count,
+            retweeted=status.retweeted,
+            favorited=status.favorited,
             is_retweet="retweeted_status" in status,
             is_deleted=False,
             is_unliked=False,
@@ -238,7 +238,7 @@ async def import_tweet_and_thread(user, client, job, progress, status, job_runne
     # Is the tweet already saved?
     tweet = await (
         Tweet.query.where(Tweet.user_id == user.id)
-        .where(Tweet.status_id == str(status["id"]))
+        .where(Tweet.status_id == status.id_str)
         .gino.first()
     )
     if not tweet:
@@ -342,24 +342,28 @@ async def fetch(job, job_runner_id):
         ] = "Downloading all tweets, this first run may take a long time"
     await update_progress(job, progress)
 
-    # Fetch tweets from timeline a page at a time
+    # Fetch tweets
+    params = {
+        "screen_name": user.twitter_screen_name,
+        "tweet_mode": "extended",
+        "count": 200,
+        "_data": (job, progress, job_runner_id),
+    }
     if since_id:
-        request = client.api.statuses.user_timeline.get(
-            user_id=user.id,
-            tweet_mode="extended",
-            since_id=since_id,
-            _data=(job, progress, job_runner_id),
-        )
-    else:
-        request = client.api.statuses.user_timeline.get(
-            user_id=user.id,
-            tweet_mode="extended",
-            _data=(job, progress, job_runner_id),
-        )
-    responses = request.iterator.with_since_id()
-    async for page in responses:
-        # Import these tweets, and all their threads
-        for status in page:
+        params["since_id"] = since_id
+
+    # Fetch 200 at a time until we run out
+    while True:
+        statuses = await client.api.statuses.user_timeline.get(**params)
+        if len(statuses) == 0:
+            break
+        await log(job, f"#{job_runner_id} Importing {len(statuses)} tweets")
+
+        # Next loop, set max_id to one less than the oldest status batch
+        params["max_id"] = statuses[-1].id - 1
+
+        # Import the status and its thread
+        for status in statuses:
             await import_tweet_and_thread(
                 user, client, job, progress, status, job_runner_id
             )
@@ -367,12 +371,12 @@ async def fetch(job, job_runner_id):
 
         await update_progress(job, progress)
 
-        # Now hunt for threads. This is a dict that maps the root status_id
-        # to a list of status_ids in the thread
+        # Hunt for threads. This is a dict that maps the root status_id to a list
+        # of status_ids in the thread
         threads = {}
-        for status in page:
+        for status in statuses:
             if status.in_reply_to_status_id:
-                status_ids = await calculate_thread(user, str(status.id))
+                status_ids = await calculate_thread(user, status.id_str)
                 root_status_id = status_ids[0]
                 if root_status_id in threads:
                     for status_id in status_ids:
@@ -406,36 +410,39 @@ async def fetch(job, job_runner_id):
                 if tweet:
                     await tweet.update(thread_id=thread.id).apply()
 
-        # await log(job, f"Fetch tweets loop progress: {progress}")
         await update_progress(job, progress)
 
     # Update progress
     progress["status"] = "Downloading tweets that you liked"
     await update_progress(job, progress)
 
-    # Fetch tweets that are liked
+    # Fetch likes
+    params = {
+        "screen_name": user.twitter_screen_name,
+        "tweet_mode": "extended",
+        "count": 200,
+        "_data": (job, progress, job_runner_id),
+    }
     if since_id:
-        request = client.api.favorites.list.get(
-            user_id=user.id,
-            tweet_mode="extended",
-            since_id=since_id,
-            _data=(job, progress, job_runner_id),
-        )
-    else:
-        request = client.api.favorites.list.get(
-            user_id=user.id,
-            tweet_mode="extended",
-            _data=(job, progress, job_runner_id),
-        )
-    responses = request.iterator.with_since_id()
-    async for page in responses:
+        params["since_id"] = since_id
+
+    # Fetch 200 at a time until we run out
+    while True:
+        statuses = await client.api.favorites.list.get(**params)
+        if len(statuses) == 0:
+            break
+        await log(job, f"#{job_runner_id} Importing {len(statuses)} likes")
+
+        # Next loop, set max_id to one less than the oldest status batch
+        params["max_id"] = statuses[-1].id - 1
+
         # Import these tweets
-        for status in page:
+        for status in statuses:
 
             # Is the tweet already saved?
             tweet = await (
                 Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.status_id == status["id_str"])
+                .where(Tweet.status_id == status.id_str)
                 .gino.first()
             )
             if not tweet:
@@ -453,7 +460,7 @@ async def fetch(job, job_runner_id):
         .gino.first()
     )
     if tweet:
-        await user.update(since_id=tweet["status_id_str"]).apply()
+        await user.update(since_id=tweet.status_id).apply()
 
     # Calculate which threads should be excluded from deletion
     progress["status"] = "Calculating which threads to exclude from deletion"
