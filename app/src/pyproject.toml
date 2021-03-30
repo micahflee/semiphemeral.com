@@ -1,28 +1,27 @@
 [tool.poetry]
+authors = ["Micah Lee <micah@micahflee.com>"]
+description = ""
 name = "semiphemeral.com"
 version = "0.1.0"
-description = ""
-authors = ["Micah Lee <micah@micahflee.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
-aiohttp = "^3.6.2"
-aiohttp-jinja2 = "^1.2.0"
-tweepy = "^3.9.0"
-gino = "^1.0.1"
-aiopg = "^1.0.0"
-sqlalchemy = "^1.3.19"
-alembic = "^1.4.2"
-jinja2 = "^2.11.2"
-stripe = "^2.50.0"
-requests = "^2.24.0"
-selenium = "^3.141.0"
+aiohttp = "3.6.3"
+aiohttp-jinja2 = "^1.4.2"
 aiohttp_session = "^2.9.0"
-cryptography = "^3.1"
-peony-twitter = {extras = ["all"], version = "^1.1.7"}
+aiopg = "^1.2.1"
+alembic = "^1.5.8"
+cryptography = "^3.4.7"
+gino = "^1.0.1"
+jinja2 = "^2.11.3"
+peony-twitter = {git = "https://github.com/odrling/peony-twitter.git", rev = "3c0f8c96d68345e1feb53a8c73defbca14d40028", extras = ["all"]}
+python = "^3.8"
+requests = "^2.25.1"
+sqlalchemy = "^1.3.23"
+stripe = "^2.56.0"
+tweepy = "^3.10.0"
 
 [tool.poetry.dev-dependencies]
 
 [build-system]
-requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
+requires = ["poetry>=0.12"]
