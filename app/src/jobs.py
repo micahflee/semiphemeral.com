@@ -365,7 +365,7 @@ async def fetch(job, job_runner_id):
         # Import the status and its thread
         caught_up = False
         for status in statuses:
-            if status.id <= int(since_id):
+            if since_id and status.id <= int(since_id):
                 caught_up = True
                 break
 
@@ -448,7 +448,7 @@ async def fetch(job, job_runner_id):
         # Import these tweets
         caught_up = False
         for status in statuses:
-            if status.id <= int(since_id):
+            if since_id and status.id <= int(since_id):
                 caught_up = True
                 break
 

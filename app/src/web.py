@@ -753,6 +753,13 @@ async def api_get_dashboard(request):
         .gino.all()
     )
 
+    queued_jobs = (
+        await Job.query.where(Job.user_id == user.id)
+        .where(Job.status == "queued")
+        .order_by(Job.scheduled_timestamp)
+        .gino.all()
+    )
+
     active_jobs = (
         await Job.query.where(Job.user_id == user.id)
         .where(Job.status == "active")
@@ -820,6 +827,7 @@ async def api_get_dashboard(request):
     return web.json_response(
         {
             "pending_jobs": to_client(pending_jobs),
+            "queued_jobs": to_client(queued_jobs),
             "active_jobs": to_client(active_jobs),
             "finished_jobs": to_client(finished_jobs),
             "setting_paused": user.paused,

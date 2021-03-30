@@ -69,12 +69,18 @@ ul.jobs {
       <div v-if="settingBlocked">
         <h2>Semiphemeral is an antifascist service</h2>
         <p>
-          Everyone deserves privacy on social media, but not everyone is entitled to get that privacy by using the resources of this free service. You have been blocked by
-          <a
-            href="https://twitter.com/semiphemeral"
-          >@semiphemeral</a>, so your account has been disabled.
+          Everyone deserves privacy on social media, but not everyone is
+          entitled to get that privacy by using the resources of this free
+          service. You have been blocked by
+          <a href="https://twitter.com/semiphemeral">@semiphemeral</a>, so your
+          account has been disabled.
         </p>
-        <p>Semiphemeral keeps track of the Twitter accounts of prominent authoritarian anti-democratic demagogues and dictators, racists, misogynists, Islamophobes, anti-Semites, homophobes, transphobes, neo-Nazis, hate groups, and fascists and fascist sympathizers.</p>
+        <p>
+          Semiphemeral keeps track of the Twitter accounts of prominent
+          authoritarian anti-democratic demagogues and dictators, racists,
+          misogynists, Islamophobes, anti-Semites, homophobes, transphobes,
+          neo-Nazis, hate groups, and fascists and fascist sympathizers.
+        </p>
         <template v-if="fascistTweets.length > 0">
           <p>You were blocked because you liked these tweets:</p>
           <FascistTweet
@@ -82,57 +88,72 @@ ul.jobs {
             v-bind:statusId="tweet.status_id"
             v-bind:permalink="tweet.permalink"
           ></FascistTweet>
-          <p>If you oppose fascism and think you've been blocked unfairly or by mistake, you can unlike these tweets (so you don't get automatically blocked again) and then click the button below to unblock yourself:</p>
-
           <p>
-            <button
-              class="reactivate"
-              v-on:click="unblockAccount"
-            >I've unliked these tweets so unblock me</button>
+            If you oppose fascism and think you've been blocked unfairly or by
+            mistake, you can unlike these tweets (so you don't get automatically
+            blocked again) and then click the button below to unblock yourself:
           </p>
 
           <p>
-            <button
-              class="reactivate"
-              v-on:click="reactivateAccount"
-            >I'm no longer blocked, reactivate my account</button>
+            <button class="reactivate" v-on:click="unblockAccount">
+              I've unliked these tweets so unblock me
+            </button>
+          </p>
+
+          <p>
+            <button class="reactivate" v-on:click="reactivateAccount">
+              I'm no longer blocked, reactivate my account
+            </button>
           </p>
         </template>
         <template v-else>
-          <p>You were blocked because you liked multiple tweets from at least one of these accounts within the last 6 months. If you oppose fascism and think that you've been blocked unfairly or by mistake, you can appeal by writing an email to hi@semiphemeral.com.</p>
+          <p>
+            You were blocked because you liked multiple tweets from at least one
+            of these accounts within the last 6 months. If you oppose fascism
+            and think that you've been blocked unfairly or by mistake, you can
+            appeal by writing an email to hi@semiphemeral.com.
+          </p>
 
           <p>
-            <button class="reactivate" v-on:click="reactivateAccount">I'm no longer blocked</button>
+            <button class="reactivate" v-on:click="reactivateAccount">
+              I'm no longer blocked
+            </button>
           </p>
         </template>
       </div>
       <div v-else>
         <div v-if="state == 'A'">
           <p>
-            Before you delete your old tweets, Semiphemeral needs to download a copy of your Twitter history. While you're waiting, make sure your
-            <router-link to="/settings">settings</router-link>&nbsp;are exactly as you want them.
+            Before you delete your old tweets, Semiphemeral needs to download a
+            copy of your Twitter history. While you're waiting, make sure your
+            <router-link to="/settings">settings</router-link>&nbsp;are exactly
+            as you want them.
           </p>
         </div>
 
         <div v-if="state == 'B'">
           <p>
             You finished downloading a copy of your Twitter history on
-            <em>{{ mostRecentFetchFinished }}</em>, and Semiphemeral is currently
-            <strong>paused</strong>. Before you proceed:
+            <em>{{ mostRecentFetchFinished }}</em
+            >, and Semiphemeral is currently <strong>paused</strong>. Before you
+            proceed:
           </p>
           <ul>
             <li>
               If you want,
-              <router-link to="/export">export</router-link>&nbsp;a spreadsheet of your tweets before you delete them
+              <router-link to="/export">export</router-link>&nbsp;a spreadsheet
+              of your tweets before you delete them
             </li>
             <li v-if="state == 'B'">
               If you haven't already, make sure your
-              <router-link to="/settings">settings</router-link>&nbsp;are exactly as you want them
+              <router-link to="/settings">settings</router-link>&nbsp;are
+              exactly as you want them
             </li>
             <li>
               <strong>
                 Make sure you have manually chosen which of your old
-                <router-link to="/tweets">tweets</router-link>&nbsp;you want to prevent from getting deleted
+                <router-link to="/tweets">tweets</router-link>&nbsp;you want to
+                prevent from getting deleted
               </strong>
             </li>
           </ul>
@@ -140,14 +161,15 @@ ul.jobs {
           <p>When you're ready:</p>
           <ul class="buttons">
             <li>
-              <button class="start" v-on:click="startSemiphemeral">Start Semiphemeral</button>
+              <button class="start" v-on:click="startSemiphemeral">
+                Start Semiphemeral
+              </button>
               or
             </li>
             <li>
-              <button
-                class="download"
-                v-on:click="downloadHistory"
-              >Download my Twitter history again</button>
+              <button class="download" v-on:click="downloadHistory">
+                Download my Twitter history again
+              </button>
             </li>
           </ul>
         </div>
@@ -156,18 +178,28 @@ ul.jobs {
           <p>
             Semiphemeral is
             <strong>active</strong>.
-            <button class="pause" v-on:click="pauseSemiphemeral">Pause Semiphemeral</button>
+            <button class="pause" v-on:click="pauseSemiphemeral">
+              Pause Semiphemeral
+            </button>
           </p>
           <p
-            v-if="!settingDeleteTweets && !settingRetweetsLikes && !settingDirectMessages"
+            v-if="
+              !settingDeleteTweets &&
+              !settingRetweetsLikes &&
+              !settingDirectMessages
+            "
             class="warning"
           >
-            Warning: Your settings are configured to not delete any tweets, retweets, likes, or direct messages. Go
-            <router-link to="/settings">change your settings</router-link>&nbsp;if you want Semiphemeral to delete your old tweets.
+            Warning: Your settings are configured to not delete any tweets,
+            retweets, likes, or direct messages. Go
+            <router-link to="/settings">change your settings</router-link
+            >&nbsp;if you want Semiphemeral to delete your old tweets.
           </p>
         </div>
 
-        <h2 v-if="activeJobs.length > 0 || pendingJobs.length > 0">Current status</h2>
+        <h2 v-if="activeJobs.length > 0 || pendingJobs.length > 0">
+          Current status
+        </h2>
         <ul v-if="activeJobs.length > 0" class="jobs">
           <li v-for="job in activeJobs">
             <Job v-bind:job="job"></Job>
@@ -200,6 +232,7 @@ export default {
     return {
       loading: false,
       activeJobs: [],
+      queuedJobs: [],
       pendingJobs: [],
       finishedJobs: [],
       settingPaused: null,
@@ -213,12 +246,16 @@ export default {
   computed: {
     state: function () {
       // There are 3 states:
-      // A: paused, with pending or active jobs (fetching)
+      // A: paused, with pending, queued or active jobs (fetching)
       // B: paused, with only finished or cancelled jobs
       // C: not paused
       // More info: https://github.com/micahflee/semiphemeral.com/issues/8
       if (this.settingPaused) {
-        if (this.activeJobs.length > 0 || this.pendingJobs.length > 0) {
+        if (
+          this.activeJobs.length > 0 ||
+          this.pendingJobs.length > 0 ||
+          this.queuedJobs.length > 0
+        ) {
           return "A";
         } else {
           return "B";
@@ -347,6 +384,9 @@ export default {
             that.loading = false;
             if (data["active_jobs"]) that.activeJobs = data["active_jobs"];
             else that.activeJobs = [];
+
+            if (data["queued_jobs"]) that.queuedJobs = data["queued_jobs"];
+            else that.queuedJobs = [];
 
             if (data["pending_jobs"]) that.pendingJobs = data["pending_jobs"];
             else that.pendingJobs = [];
