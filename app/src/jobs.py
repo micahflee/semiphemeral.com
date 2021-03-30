@@ -1014,19 +1014,19 @@ async def start_job(gino_db, job, job_runner_id):
 
         elif job.job_type == "delete":
             await fetch(gino_db, job, job_runner_id)
-            await delete(job, job_runner_id)
+            await delete(gino_db, job, job_runner_id)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
 
         elif job.job_type == "delete_dms":
-            await delete_dms(job, job_runner_id)
+            await delete_dms(gino_db, job, job_runner_id)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
 
         elif job.job_type == "delete_dm_groups":
-            await delete_dm_groups(job, job_runner_id)
+            await delete_dm_groups(gino_db, job, job_runner_id)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
