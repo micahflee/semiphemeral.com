@@ -61,7 +61,7 @@ class UserBlocked(Exception):
 
 
 def test_api_creds(func):
-    async def wrapper(job, job_runner_id):
+    async def wrapper(gino_db, job, job_runner_id):
         """
         Make sure the API creds work, and if not pause semiphemeral for the user
         """
@@ -78,13 +78,13 @@ def test_api_creds(func):
             await job.update(status="canceled").apply()
             return False
 
-        return await func(job, job_runner_id)
+        return await func(gino_db, job, job_runner_id)
 
     return wrapper
 
 
 def ensure_user_follows_us(func):
-    async def wrapper(job, job_runner_id):
+    async def wrapper(gino_db, job, job_runner_id):
         user = await User.query.where(User.id == job.user_id).gino.first()
 
         # Make an exception for semiphemeral user, because semiphemeral can't follow semiphemeral
@@ -125,7 +125,7 @@ def ensure_user_follows_us(func):
                 await user.update(paused=True).apply()
                 return
 
-        return await func(job, job_runner_id)
+        return await func(gino_db, job, job_runner_id)
 
     return wrapper
 
@@ -322,7 +322,7 @@ async def calculate_excluded_threads(user):
 
 @test_api_creds
 @ensure_user_follows_us
-async def fetch(job, job_runner_id):
+async def fetch(gino_db, job, job_runner_id):
     user = await User.query.where(User.id == job.user_id).gino.first()
     client = await peony_client(user)
 
@@ -363,22 +363,13 @@ async def fetch(job, job_runner_id):
         params["max_id"] = statuses[-1].id - 1
 
         # Import the status and its thread
-        caught_up = False
         for status in statuses:
-            if since_id and status.id <= int(since_id):
-                caught_up = True
-                break
-
             await import_tweet_and_thread(
                 user, client, job, progress, status, job_runner_id
             )
             progress["tweets_fetched"] += 1
 
         await update_progress(job, progress)
-
-        if caught_up:
-            await log(job, f"#{job_runner_id} Caught up importing tweets")
-            break
 
         # Hunt for threads. This is a dict that maps the root status_id to a list
         # of status_ids in the thread
@@ -446,12 +437,7 @@ async def fetch(job, job_runner_id):
         params["max_id"] = statuses[-1].id - 1
 
         # Import these tweets
-        caught_up = False
         for status in statuses:
-            if since_id and status.id <= int(since_id):
-                caught_up = True
-                break
-
             # Is the tweet already saved?
             tweet = await (
                 Tweet.query.where(Tweet.user_id == user.id)
@@ -466,18 +452,21 @@ async def fetch(job, job_runner_id):
 
         await update_progress(job, progress)
 
-        if caught_up:
-            await log(job, f"#{job_runner_id} Caught up importing likes")
-            break
-
     # All done, update the since_id
-    tweet = await (
-        Tweet.query.where(Tweet.user_id == user.id)
-        .order_by(Tweet.status_id.desc())
-        .gino.first()
-    )
-    if tweet:
-        await user.update(since_id=tweet.status_id).apply()
+    async with gino_db.acquire() as conn:
+        await conn.all("BEGIN")
+        r = await conn.all(
+            text(
+                "SELECT status_id FROM tweets WHERE user_id=:user_id AND twitter_user_id=:twitter_user_id ORDER BY CAST(status_id AS bigint) DESC LIMIT 1"
+            ),
+            user_id=user.id,
+            twitter_user_id=user.twitter_id,
+        )
+        await conn.all("COMMIT")
+
+    if len(r) > 0:
+        new_since_id = r[0][0]
+        await user.update(since_id=new_since_id).apply()
 
     # Calculate which threads should be excluded from deletion
     progress["status"] = "Calculating which threads to exclude from deletion"
@@ -531,7 +520,7 @@ async def fetch(job, job_runner_id):
 
 @test_api_creds
 @ensure_user_follows_us
-async def delete(job, job_runner_id):
+async def delete(gino_db, job, job_runner_id):
     user = await User.query.where(User.id == job.user_id).gino.first()
     client = await peony_client(user)
 
@@ -852,13 +841,13 @@ async def delete(job, job_runner_id):
 
 @test_api_creds
 @ensure_user_follows_us
-async def delete_dms(job, job_runner_id):
+async def delete_dms(gino_db, job, job_runner_id):
     await delete_dms_job(job, "dms", job_runner_id)
 
 
 @test_api_creds
 @ensure_user_follows_us
-async def delete_dm_groups(job, job_runner_id):
+async def delete_dm_groups(gino_db, job, job_runner_id):
     await delete_dms_job(job, "groups", job_runner_id)
 
 
@@ -1005,7 +994,7 @@ async def delete_dms_job(job, dm_type, job_runner_id):
     )
 
 
-async def start_job(job, job_runner_id):
+async def start_job(gino_db, job, job_runner_id):
     # Stagger job starting times a bit, to stagger database locking
     await asyncio.sleep(0.2 * job_runner_id)
 
@@ -1018,13 +1007,13 @@ async def start_job(job, job_runner_id):
 
     try:
         if job.job_type == "fetch":
-            await fetch(job, job_runner_id)
+            await fetch(gino_db, job, job_runner_id)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
 
         elif job.job_type == "delete":
-            await fetch(job, job_runner_id)
+            await fetch(gino_db, job, job_runner_id)
             await delete(job, job_runner_id)
             await job.update(
                 status="finished", finished_timestamp=datetime.now()
@@ -1299,9 +1288,10 @@ async def job_runner(gino_db, job_runner_id):
         ):
             job_q_lock = True
 
-            print(
-                f"#{job_runner_id} Job queue is empty, replenishing from the database"
-            )
+            if os.environ.get("DEPLOY_ENVIRONMENT") != "staging":
+                print(
+                    f"#{job_runner_id} Job queue is empty, replenishing from the database"
+                )
 
             # Add all pending job_ids to the queue
             async with gino_db.acquire() as conn:
@@ -1327,9 +1317,10 @@ async def job_runner(gino_db, job_runner_id):
                 )
                 await conn.all("COMMIT")
 
-            print(
-                f"#{job_runner_id} There are {job_q.qsize()} pending jobs in the queue"
-            )
+            if os.environ.get("DEPLOY_ENVIRONMENT") != "staging":
+                print(
+                    f"#{job_runner_id} There are {job_q.qsize()} pending jobs in the queue"
+                )
 
             job_q_lock = False
             job_q_last_refresh = datetime.now()
@@ -1339,7 +1330,7 @@ async def job_runner(gino_db, job_runner_id):
             job = await Job.query.where(Job.id == job_id).gino.first()
             if job:
                 try:
-                    await start_job(job, job_runner_id)
+                    await start_job(gino_db, job, job_runner_id)
                 except NoSuchRowError:
                     print(
                         f"#{job_runner_id} gino.exceptions.NoSuchRowError, moving on to the next job"
@@ -1379,8 +1370,16 @@ async def start_jobs(gino_db):
             UnblockJob.status == "pending"
         ).gino.status()
 
+    if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
+        job_runner_count = 2
+    else:
+        job_runner_count = 50
+
     await asyncio.gather(
-        *[job_runner(gino_db, job_runner_id) for job_runner_id in range(50)]
+        *[
+            job_runner(gino_db, job_runner_id)
+            for job_runner_id in range(job_runner_count)
+        ]
     )
 
 
