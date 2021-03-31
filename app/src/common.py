@@ -71,10 +71,10 @@ class PoenyErrorHandler(peony.ErrorHandler):
     @peony.ErrorHandler.handle(Exception)
     async def default_handler(self, exception):
         exception_str = str(exception).replace("\n", ", ")
-        await log(
-            self.job,
-            f"Hit exception: {exception_str}\n  Request info: {exception.response.request_info}\n  Response: status={exception.response.status} body={await exception.response.text()}",
-        )
+        # await log(
+        #     self.job,
+        #     f"#{self.job_runner_id} Hit exception: {exception_str}\n  Request info: {exception.response.request_info}\n  Response: status={exception.response.status} body={await exception.response.text()}",
+        # )
         return peony.ErrorHandler.RAISE
 
     async def __call__(self, data=None, **kwargs):
