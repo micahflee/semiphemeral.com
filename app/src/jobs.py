@@ -293,6 +293,73 @@ async def calculate_excluded_threads(user):
             await thread.update(should_exclude=True).apply()
 
 
+async def fetch_import_tweets(user, client, progress, job, job_runner_id, statuses):
+    # Import the status and its thread
+    for status in statuses:
+        await import_tweet_and_thread(
+            user, client, job, progress, status, job_runner_id
+        )
+        progress["tweets_fetched"] += 1
+
+    await update_progress(job, progress)
+
+    # Hunt for threads. This is a dict that maps the root status_id to a list
+    # of status_ids in the thread
+    threads = {}
+    for status in statuses:
+        if status.in_reply_to_status_id:
+            status_ids = await calculate_thread(user, status.id_str)
+            root_status_id = status_ids[0]
+            if root_status_id in threads:
+                for status_id in status_ids:
+                    if status_id not in threads[root_status_id]:
+                        threads[root_status_id].append(status_id)
+            else:
+                threads[root_status_id] = status_ids
+
+    # For each thread, does this thread already exist, or do we create a new one?
+    for root_status_id in threads:
+        status_ids = threads[root_status_id]
+        thread = (
+            await Thread.query.where(Thread.user_id == user.id)
+            .where(Thread.root_status_id == root_status_id)
+            .gino.first()
+        )
+        if not thread:
+            thread = await Thread.create(
+                user_id=user.id,
+                root_status_id=root_status_id,
+                should_exclude=False,
+            )
+
+        # Add all of the thread's tweets to the thread
+        for status_id in status_ids:
+            tweet = (
+                await Tweet.query.where(Tweet.user_id == user.id)
+                .where(Tweet.status_id == status_id)
+                .gino.first()
+            )
+            if tweet:
+                await tweet.update(thread_id=thread.id).apply()
+
+    await update_progress(job, progress)
+    return progress
+
+
+async def fetch_import_likes(user, progress, job, statuses):
+    for status in statuses:
+        # Is the tweet already saved?
+        tweet = await (
+            Tweet.query.where(Tweet.user_id == user.id)
+            .where(Tweet.status_id == status.id_str)
+            .gino.first()
+        )
+        if not tweet:
+            # Save the tweet
+            await save_tweet(user, status)
+            progress["likes_fetched"] += 1
+
+
 @test_api_creds
 @ensure_user_follows_us
 async def fetch(gino_db, job, job_runner_id):
@@ -326,8 +393,26 @@ async def fetch(gino_db, job, job_runner_id):
         params["since_id"] = since_id
 
     # Fetch 200 at a time until we run out
+    try_tweepy = False
     while True:
-        statuses = await client.api.statuses.user_timeline.get(**params)
+        try:
+            statuses = await client.api.statuses.user_timeline.get(**params)
+        except peony.exceptions.DoesNotExist:
+            await log(
+                job,
+                f"#{job_runner_id} DoesNotExist, account seems deleted, canceling job and pausing user",
+            )
+            await user.update(paused=True).apply()
+            await job.update(status="canceled").apply()
+            raise JobCanceled()
+        except peony.exceptions.HTTPUnauthorized:
+            await log(
+                job,
+                f"#{job_runner_id} HTTPUnauthorized, trying tweepy instead",
+            )
+            try_tweepy = True
+            break
+
         if len(statuses) == 0:
             break
         await log(job, f"#{job_runner_id} Importing {len(statuses)} tweets")
@@ -335,55 +420,54 @@ async def fetch(gino_db, job, job_runner_id):
         # Next loop, set max_id to one less than the oldest status batch
         params["max_id"] = statuses[-1].id - 1
 
-        # Import the status and its thread
-        for status in statuses:
-            await import_tweet_and_thread(
-                user, client, job, progress, status, job_runner_id
-            )
-            progress["tweets_fetched"] += 1
+        # Import these tweets
+        progress = await fetch_import_tweets(
+            user, client, progress, job, job_runner_id, statuses
+        )
 
-        await update_progress(job, progress)
-
-        # Hunt for threads. This is a dict that maps the root status_id to a list
-        # of status_ids in the thread
-        threads = {}
-        for status in statuses:
-            if status.in_reply_to_status_id:
-                status_ids = await calculate_thread(user, status.id_str)
-                root_status_id = status_ids[0]
-                if root_status_id in threads:
-                    for status_id in status_ids:
-                        if status_id not in threads[root_status_id]:
-                            threads[root_status_id].append(status_id)
-                else:
-                    threads[root_status_id] = status_ids
-
-        # For each thread, does this thread already exist, or do we create a new one?
-        for root_status_id in threads:
-            status_ids = threads[root_status_id]
-            thread = (
-                await Thread.query.where(Thread.user_id == user.id)
-                .where(Thread.root_status_id == root_status_id)
-                .gino.first()
-            )
-            if not thread:
-                thread = await Thread.create(
-                    user_id=user.id,
-                    root_status_id=root_status_id,
-                    should_exclude=False,
+    # If peony failed, fallback to tweepy
+    if try_tweepy:
+        # Fetch tweets from timeline a page at a time
+        pages = await loop.run_in_executor(
+            None,
+            tweepy.Cursor(
+                api.user_timeline,
+                id=user.twitter_screen_name,
+                since_id=since_id,
+                tweet_mode="extended",
+            ).pages,
+        )
+        while True:
+            try:
+                # Sadly, I can't figure out a good way of making the cursor's next() function
+                # happen in the executor, so it will be a blocking call
+                statuses = pages.next()
+                await log(
+                    job,
+                    f"#{job_runner_id} Fetch tweets loop: got page with {len(page)} tweets",
                 )
-
-            # Add all of the thread's tweets to the thread
-            for status_id in status_ids:
-                tweet = (
-                    await Tweet.query.where(Tweet.user_id == user.id)
-                    .where(Tweet.status_id == status_id)
-                    .gino.first()
+            except StopIteration:
+                await log(
+                    job, f"#{job_runner_id} Hit the end of fetch tweets loop, breaking"
                 )
-                if tweet:
-                    await tweet.update(thread_id=thread.id).apply()
+                break
+            except tweepy.TweepError as e:
+                if str(e) == "Twitter error response: status code = 404":
+                    # Twitter responded with a 404 error, which could mean the user has deleted their account
+                    await log(
+                        job,
+                        f"#{job_runner_id} 404 error from twitter (account does not exist), so pausing user",
+                    )
+                    await user.update(paused=True).apply()
+                    return
 
-        await update_progress(job, progress)
+                await update_progress_rate_limit(job, progress, job_runner_id)
+                continue
+
+            # Import these tweets, and all their threads
+            progress = await fetch_import_tweets(
+                user, client, progress, job, job_runner_id, statuses
+            )
 
     # Update progress
     progress["status"] = "Downloading tweets that you liked"
@@ -400,8 +484,18 @@ async def fetch(gino_db, job, job_runner_id):
         params["since_id"] = since_id
 
     # Fetch 200 at a time until we run out
+    try_tweepy = False
     while True:
-        statuses = await client.api.favorites.list.get(**params)
+        try:
+            statuses = await client.api.favorites.list.get(**params)
+        except peony.exceptions.HTTPUnauthorized:
+            await log(
+                job,
+                f"#{job_runner_id} HTTPUnauthorized, trying tweepy instead",
+            )
+            try_tweepy = True
+            break
+
         if len(statuses) == 0:
             break
         await log(job, f"#{job_runner_id} Importing {len(statuses)} likes")
@@ -409,20 +503,51 @@ async def fetch(gino_db, job, job_runner_id):
         # Next loop, set max_id to one less than the oldest status batch
         params["max_id"] = statuses[-1].id - 1
 
-        # Import these tweets
-        for status in statuses:
-            # Is the tweet already saved?
-            tweet = await (
-                Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.status_id == status.id_str)
-                .gino.first()
-            )
-            if not tweet:
-                # Save the tweet
-                await save_tweet(user, status)
-                progress["likes_fetched"] += 1
+        # Import these likes
+        progress = await fetch_import_likes(user, progress, job, statuses)
 
         await update_progress(job, progress)
+
+    # If peony failed, fallback to tweepy
+    if try_tweepy:
+        pages = await loop.run_in_executor(
+            None,
+            tweepy.Cursor(
+                api.favorites,
+                id=user.twitter_screen_name,
+                since_id=since_id,
+                tweet_mode="extended",
+            ).pages,
+        )
+        while True:
+            try:
+                statuses = pages.next()
+                await log(
+                    job,
+                    f"#{job_runner_id} Fetch likes loop: got page with {len(page)} tweets",
+                )
+            except StopIteration:
+                await log(
+                    job, f"#{job_runner_id} Hit the end of fetch likes loop, breaking"
+                )
+                break
+            except tweepy.TweepError as e:
+                if str(e) == "Twitter error response: status code = 404":
+                    # Twitter responded with a 404 error, which could mean the user has deleted their account
+                    await log(
+                        job,
+                        f"#{job_runner_id} 404 error from twitter (account does not exist), so pausing user",
+                    )
+                    await user.update(paused=True).apply()
+                    # await reschedule_job(job, timedelta(minutes=15))
+                    return
+
+                await update_progress_rate_limit(job, progress, job_runner_id)
+                continue
+
+            # Import these likes
+            progress = await fetch_import_likes(user, progress, job, statuses)
+            await update_progress(job, progress)
 
     # All done, update the since_id
     async with gino_db.acquire() as conn:
@@ -493,6 +618,9 @@ async def fetch(gino_db, job, job_runner_id):
 @test_api_creds
 @ensure_user_follows_us
 async def delete(gino_db, job, job_runner_id):
+    if job.status == "canceled":
+        return
+
     user = await User.query.where(User.id == job.user_id).gino.first()
     client = await peony_client(user)
     api = await tweepy_api(user)
@@ -552,6 +680,12 @@ async def delete(gino_db, job, job_runner_id):
                     await log(
                         job,
                         f"#{job_runner_id} Skipped deleting retweet, UserSuspended {tweet.status_id}",
+                    )
+                    await tweet.update(is_deleted=True).apply()
+                except peony.exceptions.DoesNotExist:
+                    await log(
+                        job,
+                        f"#{job_runner_id} Skipped deleting retweet, DoesNotExist {tweet.status_id}",
                     )
                     await tweet.update(is_deleted=True).apply()
 
