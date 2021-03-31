@@ -547,6 +547,13 @@ async def delete(gino_db, job, job_runner_id):
                         job,
                         f"#{job_runner_id} Skipped deleting retweet, StatusNotFound {tweet.status_id}",
                     )
+                    await tweet.update(is_deleted=True).apply()
+                except peony.exceptions.UserSuspended:
+                    await log(
+                        job,
+                        f"#{job_runner_id} Skipped deleting retweet, UserSuspended {tweet.status_id}",
+                    )
+                    await tweet.update(is_deleted=True).apply()
 
                 progress["retweets_deleted"] += 1
                 await update_progress(job, progress)
@@ -634,11 +641,48 @@ async def delete(gino_db, job, job_runner_id):
         await update_progress(job, progress)
 
         for tweet in tweets:
-            # Try deleting the tweet
-            await client.api.statuses.destroy.post(
-                id=tweet.status_id,
-                _data=(job, progress, job_runner_id),
-            )
+            # Delete tweet
+
+            # For some reason, I'm getting this error when I use peony:
+            # {"errors":[{"code":32,"message":"Could not authenticate you."}]}
+
+            # try:
+            #     await client.api.statuses.destroy.post(
+            #         id=tweet.status_id,
+            #         _data=(job, progress, job_runner_id),
+            #     )
+            #     await tweet.update(is_deleted=True).apply()
+            # except peony.exceptions.StatusNotFound:
+            #     await log(
+            #         job,
+            #         f"#{job_runner_id} Skipped deleting retweet, StatusNotFound {tweet.status_id}",
+            #     )
+            #     await tweet.update(is_deleted=True).apply()
+
+            # Use tweepy instead
+
+            # Try deleting the tweet, in a while loop in case it gets rate limited and
+            # needs to try again
+            while True:
+                try:
+                    await loop.run_in_executor(
+                        None, api.destroy_status, tweet.status_id
+                    )
+                    await tweet.update(is_deleted=True, text=None).apply()
+                    await log(job, f"#{job_runner_id} Deleted tweet {tweet.status_id}")
+                    break
+                except tweepy.error.TweepError as e:
+                    if e.api_code == 144:  # No status found with that ID
+                        # Already deleted
+                        await tweet.update(is_deleted=True, text=None).apply()
+                        break
+                    elif e.api_code == 429:  # 429 = Too Many Requests
+                        await update_progress_rate_limit(job, progress, job_runner_id)
+                        # Don't break, so it tries again
+                    else:
+                        # Unknown error
+                        print(f"job_id={job.id} Error deleting tweet {e}")
+                        break
 
             progress["tweets_deleted"] += 1
             await update_progress(job, progress)
