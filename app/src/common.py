@@ -68,6 +68,12 @@ class PoenyErrorHandler(peony.ErrorHandler):
         await asyncio.sleep(5)
         return peony.ErrorHandler.RETRY
 
+    @peony.ErrorHandler.handle(peony.exceptions.InternalError)
+    async def handle_internal_error(self):
+        await log(self.job, f"#{self.job_runner_id} Internal, retrying in 30s")
+        await asyncio.sleep(30)
+        return peony.ErrorHandler.RETRY
+
     @peony.ErrorHandler.handle(Exception)
     async def default_handler(self, exception):
         exception_str = str(exception).replace("\n", ", ")
