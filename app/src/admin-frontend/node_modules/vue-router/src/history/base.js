@@ -4,14 +4,22 @@ import { _Vue } from '../install'
 import type Router from '../index'
 import { inBrowser } from '../util/dom'
 import { runQueue } from '../util/async'
-import { warn, isError, isExtendedError } from '../util/warn'
-import { START, isSameRoute } from '../util/route'
+import { warn } from '../util/warn'
+import { START, isSameRoute, handleRouteEntered } from '../util/route'
 import {
   flatten,
   flatMapComponents,
   resolveAsyncComponents
 } from '../util/resolve-components'
-import { NavigationDuplicated } from './errors'
+import {
+  createNavigationDuplicatedError,
+  createNavigationCancelledError,
+  createNavigationRedirectedError,
+  createNavigationAbortedError,
+  isError,
+  isNavigationFailure,
+  NavigationFailureType
+} from '../util/errors'
 
 export class History {
   router: Router
@@ -23,13 +31,20 @@ export class History {
   readyCbs: Array<Function>
   readyErrorCbs: Array<Function>
   errorCbs: Array<Function>
+  listeners: Array<Function>
+  cleanupListeners: Function
 
   // implemented by sub-classes
   +go: (n: number) => void
-  +push: (loc: RawLocation) => void
-  +replace: (loc: RawLocation) => void
+  +push: (loc: RawLocation, onComplete?: Function, onAbort?: Function) => void
+  +replace: (
+    loc: RawLocation,
+    onComplete?: Function,
+    onAbort?: Function
+  ) => void
   +ensureURL: (push?: boolean) => void
   +getCurrentLocation: () => string
+  +setupListeners: Function
 
   constructor (router: Router, base: ?string) {
     this.router = router
@@ -41,6 +56,7 @@ export class History {
     this.readyCbs = []
     this.readyErrorCbs = []
     this.errorCbs = []
+    this.listeners = []
   }
 
   listen (cb: Function) {
@@ -67,13 +83,27 @@ export class History {
     onComplete?: Function,
     onAbort?: Function
   ) {
-    const route = this.router.match(location, this.current)
+    let route
+    // catch redirect option https://github.com/vuejs/vue-router/issues/3201
+    try {
+      route = this.router.match(location, this.current)
+    } catch (e) {
+      this.errorCbs.forEach(cb => {
+        cb(e)
+      })
+      // Exception should still be thrown
+      throw e
+    }
+    const prev = this.current
     this.confirmTransition(
       route,
       () => {
         this.updateRoute(route)
         onComplete && onComplete(route)
         this.ensureURL()
+        this.router.afterHooks.forEach(hook => {
+          hook && hook(route, prev)
+        })
 
         // fire ready cbs once
         if (!this.ready) {
@@ -88,10 +118,16 @@ export class History {
           onAbort(err)
         }
         if (err && !this.ready) {
-          this.ready = true
-          this.readyErrorCbs.forEach(cb => {
-            cb(err)
-          })
+          // Initial redirection should not mark the history as ready yet
+          // because it's triggered by the redirection instead
+          // https://github.com/vuejs/vue-router/issues/3225
+          // https://github.com/vuejs/vue-router/issues/3331
+          if (!isNavigationFailure(err, NavigationFailureType.redirected) || prev !== START) {
+            this.ready = true
+            this.readyErrorCbs.forEach(cb => {
+              cb(err)
+            })
+          }
         }
       }
     )
@@ -99,12 +135,12 @@ export class History {
 
   confirmTransition (route: Route, onComplete: Function, onAbort?: Function) {
     const current = this.current
+    this.pending = route
     const abort = err => {
-      // after merging https://github.com/vuejs/vue-router/pull/2771 we
-      // When the user navigates through history through back/forward buttons
-      // we do not want to throw the error. We only throw it if directly calling
-      // push/replace. That's why it's not included in isError
-      if (!isExtendedError(NavigationDuplicated, err) && isError(err)) {
+      // changed after adding errors with
+      // https://github.com/vuejs/vue-router/pull/3047 before that change,
+      // redirect and aborted navigation would produce an err == null
+      if (!isNavigationFailure(err) && isError(err)) {
         if (this.errorCbs.length) {
           this.errorCbs.forEach(cb => {
             cb(err)
@@ -116,13 +152,16 @@ export class History {
       }
       onAbort && onAbort(err)
     }
+    const lastRouteIndex = route.matched.length - 1
+    const lastCurrentIndex = current.matched.length - 1
     if (
       isSameRoute(route, current) &&
       // in the case the route map has been dynamically appended to
-      route.matched.length === current.matched.length
+      lastRouteIndex === lastCurrentIndex &&
+      route.matched[lastRouteIndex] === current.matched[lastCurrentIndex]
     ) {
       this.ensureURL()
-      return abort(new NavigationDuplicated(route))
+      return abort(createNavigationDuplicatedError(current, route))
     }
 
     const { updated, deactivated, activated } = resolveQueue(
@@ -143,15 +182,17 @@ export class History {
       resolveAsyncComponents(activated)
     )
 
-    this.pending = route
     const iterator = (hook: NavigationGuard, next) => {
       if (this.pending !== route) {
-        return abort()
+        return abort(createNavigationCancelledError(current, route))
       }
       try {
         hook(route, current, (to: any) => {
-          if (to === false || isError(to)) {
+          if (to === false) {
             // next(false) -> abort navigation, ensure current URL
+            this.ensureURL(true)
+            abort(createNavigationAbortedError(current, route))
+          } else if (isError(to)) {
             this.ensureURL(true)
             abort(to)
           } else if (
@@ -160,7 +201,7 @@ export class History {
               (typeof to.path === 'string' || typeof to.name === 'string'))
           ) {
             // next('/') or next({ path: '/' }) -> redirect
-            abort()
+            abort(createNavigationRedirectedError(current, route))
             if (typeof to === 'object' && to.replace) {
               this.replace(to)
             } else {
@@ -177,23 +218,19 @@ export class History {
     }
 
     runQueue(queue, iterator, () => {
-      const postEnterCbs = []
-      const isValid = () => this.current === route
       // wait until async components are resolved before
       // extracting in-component enter guards
-      const enterGuards = extractEnterGuards(activated, postEnterCbs, isValid)
+      const enterGuards = extractEnterGuards(activated)
       const queue = enterGuards.concat(this.router.resolveHooks)
       runQueue(queue, iterator, () => {
         if (this.pending !== route) {
-          return abort()
+          return abort(createNavigationCancelledError(current, route))
         }
         this.pending = null
         onComplete(route)
         if (this.router.app) {
           this.router.app.$nextTick(() => {
-            postEnterCbs.forEach(cb => {
-              cb()
-            })
+            handleRouteEntered(route)
           })
         }
       })
@@ -201,12 +238,26 @@ export class History {
   }
 
   updateRoute (route: Route) {
-    const prev = this.current
     this.current = route
     this.cb && this.cb(route)
-    this.router.afterHooks.forEach(hook => {
-      hook && hook(route, prev)
+  }
+
+  setupListeners () {
+    // Default implementation is empty
+  }
+
+  teardown () {
+    // clean up event listeners
+    // https://github.com/vuejs/vue-router/issues/2341
+    this.listeners.forEach(cleanupListener => {
+      cleanupListener()
     })
+    this.listeners = []
+
+    // reset current history route
+    // https://github.com/vuejs/vue-router/issues/3294
+    this.current = START
+    this.pending = null
   }
 }
 
@@ -297,15 +348,13 @@ function bindGuard (guard: NavigationGuard, instance: ?_Vue): ?NavigationGuard {
 }
 
 function extractEnterGuards (
-  activated: Array<RouteRecord>,
-  cbs: Array<Function>,
-  isValid: () => boolean
+  activated: Array<RouteRecord>
 ): Array<?Function> {
   return extractGuards(
     activated,
     'beforeRouteEnter',
     (guard, _, match, key) => {
-      return bindEnterGuard(guard, match, key, cbs, isValid)
+      return bindEnterGuard(guard, match, key)
     }
   )
 }
@@ -313,41 +362,17 @@ function extractEnterGuards (
 function bindEnterGuard (
   guard: NavigationGuard,
   match: RouteRecord,
-  key: string,
-  cbs: Array<Function>,
-  isValid: () => boolean
+  key: string
 ): NavigationGuard {
   return function routeEnterGuard (to, from, next) {
     return guard(to, from, cb => {
       if (typeof cb === 'function') {
-        cbs.push(() => {
-          // #750
-          // if a router-view is wrapped with an out-in transition,
-          // the instance may not have been registered at this time.
-          // we will need to poll for registration until current route
-          // is no longer valid.
-          poll(cb, match.instances, key, isValid)
-        })
+        if (!match.enteredCbs[key]) {
+          match.enteredCbs[key] = []
+        }
+        match.enteredCbs[key].push(cb)
       }
       next(cb)
     })
-  }
-}
-
-function poll (
-  cb: any, // somehow flow cannot infer this is a function
-  instances: Object,
-  key: string,
-  isValid: () => boolean
-) {
-  if (
-    instances[key] &&
-    !instances[key]._isBeingDestroyed // do not reuse being destroyed instance
-  ) {
-    cb(instances[key])
-  } else if (isValid()) {
-    setTimeout(() => {
-      poll(cb, instances, key, isValid)
-    }, 16)
   }
 }
