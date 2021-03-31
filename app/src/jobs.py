@@ -1136,7 +1136,7 @@ async def start_job(gino_db, job, job_runner_id):
     except JobCanceled:
         pass
 
-    await log(job, "Finished job")
+    await log(job, f"#{job_runner_id} Finished job")
 
 
 async def start_dm_job(dm_job):
