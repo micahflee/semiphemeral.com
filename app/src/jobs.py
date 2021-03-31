@@ -597,6 +597,12 @@ async def delete(gino_db, job, job_runner_id):
                         f"#{job_runner_id} Skipped deleting retweet, ProtectedTweet {tweet.status_id}",
                     )
                     await tweet.update(is_deleted=True).apply()
+                except peony.exceptions.HTTPForbidden:
+                    await log(
+                        job,
+                        f"#{job_runner_id} Skipped deleting retweet, HTTPForbidden {tweet.status_id}",
+                    )
+                    await tweet.update(is_deleted=True).apply()
 
                 progress["retweets_deleted"] += 1
                 await update_progress(job, progress)
