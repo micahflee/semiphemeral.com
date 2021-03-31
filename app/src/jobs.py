@@ -11,11 +11,11 @@ from datetime import datetime, timedelta, timezone
 
 import tweepy
 import peony
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 
 from common import (
     log,
+    update_progress,
+    update_progress_rate_limit,
     tweepy_api,
     tweepy_dms_api,
     tweepy_api_call,
@@ -89,7 +89,7 @@ def ensure_user_follows_us(func):
 
         # Make an exception for semiphemeral user, because semiphemeral can't follow semiphemeral
         if user.twitter_screen_name == "semiphemeral":
-            return await func(job, job_runner_id)
+            return await func(gino_db, job, job_runner_id)
 
         api = await tweepy_api(user)
 
@@ -160,33 +160,6 @@ async def reschedule_job(job, timedelta_in_the_future):
         status="pending", scheduled_timestamp=datetime.now() + timedelta_in_the_future
     ).apply()
     raise JobRescheduled
-
-
-async def update_progress(job, progress):
-    await job.update(progress=json.dumps(progress)).apply()
-
-
-async def update_progress_rate_limit(job, progress, job_runner_id=None, seconds=960):
-    await log(
-        job, f"#{job_runner_id} Hit twitter rate limit, pausing for {seconds}s ..."
-    )
-
-    old_status = progress["status"]
-
-    # Change status message
-    progress[
-        "status"
-    ] = f"I hit Twitter's rate limit, so I have to wait a bit before continuing ..."
-    await update_progress(job, progress)
-
-    # Sleep
-    await asyncio.sleep(seconds)
-
-    # Change status message back
-    progress["status"] = old_status
-    await update_progress(job, progress)
-
-    await log(job, f"#{job_runner_id} Finished waiting, resuming")
 
 
 async def save_tweet(user, status):
@@ -523,6 +496,7 @@ async def fetch(gino_db, job, job_runner_id):
 async def delete(gino_db, job, job_runner_id):
     user = await User.query.where(User.id == job.user_id).gino.first()
     client = await peony_client(user)
+    api = await tweepy_api(user)
 
     loop = asyncio.get_running_loop()
 
@@ -568,10 +542,11 @@ async def delete(gino_db, job, job_runner_id):
                     await log(
                         job, f"#{job_runner_id} Deleted retweet {tweet.status_id}"
                     )
-                except peony.exceptions.NotFound:
+                    await tweet.update(is_deleted=True).apply()
+                except peony.exceptions.StatusNotFound:
                     await log(
                         job,
-                        f"#{job_runner_id} Skipped deleting retweet, not found {tweet.status_id}",
+                        f"#{job_runner_id} Skipped deleting retweet, StatusNotFound {tweet.status_id}",
                     )
 
                 progress["retweets_deleted"] += 1
@@ -600,17 +575,52 @@ async def delete(gino_db, job, job_runner_id):
 
             for tweet in tweets:
                 # Delete like
-                try:
-                    await client.api.favorites.destroy.post(
-                        id=tweet.status_id,
-                        _data=(job, progress, job_runner_id),
-                    )
-                    await log(job, f"#{job_runner_id} Deleted like {tweet.status_id}")
-                except peony.exceptions.NotFound:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting like, not found {tweet.status_id}",
-                    )
+
+                # For some reason, I'm getting this error when I use peony:
+                # {"errors":[{"code":32,"message":"Could not authenticate you."}]}
+
+                # try:
+                #     await client.api.favorites.destroy.post(
+                #         id=tweet.status_id,
+                #         _data=(job, progress, job_runner_id),
+                #     )
+                #     await tweet.update(is_unliked=True).apply()
+                #     await log(job, f"#{job_runner_id} Deleted like {tweet.status_id}")
+                # except peony.exceptions.StatusNotFound:
+                #     await log(
+                #         job,
+                #         f"#{job_runner_id} Skipped deleting like, StatusNotFound {tweet.status_id}",
+                #     )
+                #     await tweet.update(is_unliked=True).apply()
+
+                # Use tweepy instead
+
+                # Try unliking the tweet, in a while loop in case it gets rate limited and
+                # needs to try again
+                while True:
+                    try:
+                        await loop.run_in_executor(
+                            None, api.destroy_favorite, tweet.status_id
+                        )
+                        await tweet.update(is_unliked=True).apply()
+                        await log(
+                            job, f"#{job_runner_id} Deleted like {tweet.status_id}"
+                        )
+                        break
+                    except tweepy.error.TweepError as e:
+                        if e.api_code == 144:  # 144 = No status found with that ID
+                            # Already unliked
+                            await tweet.update(is_unliked=True).apply()
+                            break
+                        elif e.api_code == 429:  # 429 = Too Many Requests
+                            await update_progress_rate_limit(
+                                job, progress, job_runner_id
+                            )
+                            # Don't break, so it tries again
+                        else:
+                            # Unknown error
+                            print(f"job_id={job.id} Error deleting like {e}")
+                            break
 
                 progress["likes_deleted"] += 1
                 await update_progress(job, progress)

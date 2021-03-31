@@ -2,6 +2,7 @@ import os
 import asyncio
 import functools
 import requests
+import json
 from datetime import datetime, timedelta, timezone
 
 import tweepy
@@ -13,6 +14,33 @@ from db import Tweet, Thread, User, DirectMessageJob
 
 async def log(job, s):
     print(f"[{datetime.now().strftime('%c')}] job_id={job.id} {s}")
+
+
+async def update_progress(job, progress):
+    await job.update(progress=json.dumps(progress)).apply()
+
+
+async def update_progress_rate_limit(job, progress, job_runner_id=None, seconds=960):
+    await log(
+        job, f"#{job_runner_id} Hit twitter rate limit, pausing for {seconds}s ..."
+    )
+
+    old_status = progress["status"]
+
+    # Change status message
+    progress[
+        "status"
+    ] = f"I hit Twitter's rate limit, so I have to wait a bit before continuing ..."
+    await update_progress(job, progress)
+
+    # Sleep
+    await asyncio.sleep(seconds)
+
+    # Change status message back
+    progress["status"] = old_status
+    await update_progress(job, progress)
+
+    await log(job, f"#{job_runner_id} Finished waiting, resuming")
 
 
 class PoenyErrorHandler(peony.ErrorHandler):
@@ -36,13 +64,17 @@ class PoenyErrorHandler(peony.ErrorHandler):
 
     @peony.ErrorHandler.handle(asyncio.TimeoutError, TimeoutError)
     async def handle_timeout_error(self):
-        await log(self.job, f"Timed out, retrying in 5s")
+        await log(self.job, f"#{self.job_runner_id} Timed out, retrying in 5s")
         await asyncio.sleep(5)
         return peony.ErrorHandler.RETRY
 
     @peony.ErrorHandler.handle(Exception)
     async def default_handler(self, exception):
-        await log(self.job, f"Hit exception: {exception}")
+        exception_str = str(exception).replace("\n", ", ")
+        await log(
+            self.job,
+            f"Hit exception: {exception_str}\n  Request info: {exception.response.request_info}\n  Response: status={exception.response.status} body={await exception.response.text()}",
+        )
         return peony.ErrorHandler.RAISE
 
     async def __call__(self, data=None, **kwargs):
