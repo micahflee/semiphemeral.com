@@ -420,8 +420,7 @@ async def fetch(gino_db, job, job_runner_id):
             if not tweet:
                 # Save the tweet
                 await save_tweet(user, status)
-
-            progress["likes_fetched"] += 1
+                progress["likes_fetched"] += 1
 
         await update_progress(job, progress)
 
