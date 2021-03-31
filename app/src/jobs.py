@@ -569,9 +569,9 @@ async def delete(gino_db, job, job_runner_id):
                     await client.api.statuses.unretweet[tweet.status_id].post(
                         _data=(job, progress, job_runner_id),
                     )
-                    await log(
-                        job, f"#{job_runner_id} Deleted retweet {tweet.status_id}"
-                    )
+                    # await log(
+                    #     job, f"#{job_runner_id} Deleted retweet {tweet.status_id}"
+                    # )
                     await tweet.update(is_deleted=True).apply()
                 except peony.exceptions.StatusNotFound:
                     await log(
@@ -652,9 +652,9 @@ async def delete(gino_db, job, job_runner_id):
                             None, api.destroy_favorite, tweet.status_id
                         )
                         await tweet.update(is_unliked=True).apply()
-                        await log(
-                            job, f"#{job_runner_id} Deleted like {tweet.status_id}"
-                        )
+                        # await log(
+                        #     job, f"#{job_runner_id} Deleted like {tweet.status_id}"
+                        # )
                         break
                     except tweepy.error.TweepError as e:
                         if e.api_code == 144:  # 144 = No status found with that ID
@@ -712,7 +712,7 @@ async def delete(gino_db, job, job_runner_id):
                         None, api.destroy_status, tweet.status_id
                     )
                     await tweet.update(is_deleted=True, text=None).apply()
-                    await log(job, f"#{job_runner_id} Deleted tweet {tweet.status_id}")
+                    # await log(job, f"#{job_runner_id} Deleted tweet {tweet.status_id}")
                     break
                 except tweepy.error.TweepError as e:
                     if e.api_code == 144:  # No status found with that ID
@@ -1469,7 +1469,7 @@ async def start_jobs(gino_db):
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         job_runner_count = 2
     else:
-        job_runner_count = 100
+        job_runner_count = 50
 
     await asyncio.gather(
         *[
