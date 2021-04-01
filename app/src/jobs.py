@@ -69,7 +69,7 @@ def test_api_creds(func):
         api = await tweepy_api(user)
         try:
             # Make an API request
-            await tweepy_api_call(api, "me")
+            await tweepy_api_call(job, api, "me")
         except tweepy.error.TweepError as e:
             print(
                 f"user_id={user.id} API creds failed ({e}), canceling job and pausing user"
@@ -96,6 +96,7 @@ def ensure_user_follows_us(func):
         # Is the user following us?
         friendship = (
             await tweepy_api_call(
+                job,
                 api,
                 "show_friendship",
                 source_id=int(user.twitter_id),
@@ -116,7 +117,11 @@ def ensure_user_follows_us(func):
             print(f"user_id={user.id} not following, making follow request")
             try:
                 await tweepy_api_call(
-                    api, "create_friendship", screen_name="semiphemeral", follow=True
+                    job,
+                    api,
+                    "create_friendship",
+                    screen_name="semiphemeral",
+                    follow=True,
                 )
             except:
                 print(
@@ -1202,6 +1207,7 @@ async def start_block_job(block_job):
         # Are they already blocked?
         friendship = (
             await tweepy_api_call(
+                job,
                 api,
                 "show_friendship",
                 source_screen_name="semiphemeral",
@@ -1242,6 +1248,7 @@ async def start_block_job(block_job):
                 message = f"You have liked at least one tweet from a fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated. See https://{os.environ.get('DOMAIN')}/dashboard for information about appealing.\n\nYou will get automatically unblocked on {unblock_timestamp_formatted}. You can reactivate your account then so long as you stop liking tweets from fascists."
 
                 await tweepy_api_call(
+                    job,
                     api,
                     "send_direct_message",
                     recipient_id=int(user.twitter_id),
@@ -1267,7 +1274,7 @@ async def start_block_job(block_job):
 
         # Block the user
         await tweepy_api_call(
-            api, "create_block", screen_name=block_job.twitter_username
+            job, api, "create_block", screen_name=block_job.twitter_username
         )
 
         # Success, update block_job
@@ -1311,6 +1318,7 @@ async def start_unblock_job(unblock_job):
         # Are they already unblocked?
         friendship = (
             await tweepy_api_call(
+                job,
                 api,
                 "show_friendship",
                 source_screen_name="semiphemeral",
@@ -1330,7 +1338,7 @@ async def start_unblock_job(unblock_job):
 
         # Unblock them
         await tweepy_api_call(
-            api, "destroy_block", screen_name=unblock_job.twitter_username
+            job, api, "destroy_block", screen_name=unblock_job.twitter_username
         )
 
         # If we're unblocking a semiphemeral user
