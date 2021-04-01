@@ -13,7 +13,10 @@ from db import Tweet, Thread, User, DirectMessageJob
 
 
 async def log(job, s):
-    print(f"[{datetime.now().strftime('%c')}] job_id={job.id} {s}")
+    if job:
+        print(f"[{datetime.now().strftime('%c')}] job_id={job.id} {s}")
+    else:
+        print(f"[{datetime.now().strftime('%c')}] {s}")
 
 
 async def update_progress(job, progress):
@@ -120,7 +123,7 @@ async def peony_dms_client(user):
     return client
 
 
-async def tweepy_api_call(api, method, **kwargs):
+async def tweepy_api_call(job, api, method, **kwargs):
     """
     Wrapper around Twitter API to support asyncio for all API calls. See:
     https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.run_in_executor
@@ -134,8 +137,15 @@ async def tweepy_api_call(api, method, **kwargs):
             )
             return result
         except tweepy.error.TweepError as e:
-            print(f"tweepy_api_call, hit exception, retrying in 60s: {e}")
-            await asyncio.sleep(60)
+            if e.api_code == 130:  # 130 = Over Capacity
+                await log(job, f"tweepy_api_call, hit exception, retrying in 60s: {e}")
+                await asyncio.sleep(60)
+            # elif (
+            #     e.api_code == 220
+            # ):  # Your credentials do not allow access to this resource
+            #     pass
+            else:
+                raise e
 
 
 async def tweepy_api(user):

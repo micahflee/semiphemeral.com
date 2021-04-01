@@ -96,7 +96,7 @@ async def _api_validate_dms_authenticated(user):
         # Check if user is authenticated with DMs twitter app
         try:
             dms_api = await tweepy_dms_api(user)
-            twitter_user = await tweepy_api_call(dms_api, "me")
+            twitter_user = await tweepy_api_call(None, dms_api, "me")
             return True
         except:
             pass
@@ -162,7 +162,7 @@ async def auth_login(request):
         api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
         # Validate user
-        twitter_user = await tweepy_api_call(api, "me")
+        twitter_user = await tweepy_api_call(None, api, "me")
         if session["twitter_id"] == str(twitter_user.id):
             raise web.HTTPFound("/dashboard")
 
@@ -219,7 +219,7 @@ async def auth_twitter_callback(request):
 
     try:
         api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-        twitter_user = await tweepy_api_call(api, "me")
+        twitter_user = await tweepy_api_call(None, api, "me")
     except tweepy.TweepError as e:
         raise web.HTTPUnauthorized(text=f"Error, error using Twitter API: {e}")
 
@@ -289,7 +289,7 @@ async def auth_twitter_dms_callback(request):
 
     try:
         api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-        twitter_user = await tweepy_api_call(api, "me")
+        twitter_user = await tweepy_api_call(None, api, "me")
     except tweepy.TweepError as e:
         raise web.HTTPUnauthorized(text=f"Error, error using Twitter API: {e}")
 
@@ -342,12 +342,12 @@ async def api_get_user(request):
         # Load the impersonated user
         user = await _logged_in_user(session)
         twitter_user = await tweepy_api_call(
-            api, "get_user", screen_name=user.twitter_screen_name
+            None, api, "get_user", screen_name=user.twitter_screen_name
         )
     else:
         # Just a normal user
         api = await tweepy_api(user)
-        twitter_user = await tweepy_api_call(api, "me")
+        twitter_user = await tweepy_api_call(None, api, "me")
 
     return web.json_response(
         {
@@ -881,6 +881,7 @@ async def api_post_dashboard(request):
         api = await tweepy_api(user)
         friendship = (
             await tweepy_api_call(
+                None,
                 api,
                 "show_friendship",
                 source_id=user.twitter_id,
@@ -932,6 +933,7 @@ async def api_post_dashboard(request):
         api = await tweepy_api(user)
         friendship = (
             await tweepy_api_call(
+                None,
                 api,
                 "show_friendship",
                 source_id=user.twitter_id,
