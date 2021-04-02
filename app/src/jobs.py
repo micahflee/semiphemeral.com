@@ -571,44 +571,71 @@ async def delete(gino_db, job, job_runner_id):
 
             for tweet in tweets:
                 # Delete retweet
-                try:
-                    await client.api.statuses.unretweet[tweet.status_id].post(
-                        _data=(job, progress, job_runner_id),
-                    )
-                    # await log(
-                    #     job, f"#{job_runner_id} Deleted retweet {tweet.status_id}"
-                    # )
-                    await tweet.update(is_deleted=True).apply()
-                except peony.exceptions.StatusNotFound:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting retweet, StatusNotFound {tweet.status_id}",
-                    )
-                    await tweet.update(is_deleted=True).apply()
-                except peony.exceptions.UserSuspended:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting retweet, UserSuspended {tweet.status_id}",
-                    )
-                    await tweet.update(is_deleted=True).apply()
-                except peony.exceptions.DoesNotExist:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting retweet, DoesNotExist {tweet.status_id}",
-                    )
-                    await tweet.update(is_deleted=True).apply()
-                except peony.exceptions.ProtectedTweet:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting retweet, ProtectedTweet {tweet.status_id}",
-                    )
-                    await tweet.update(is_deleted=True).apply()
-                except peony.exceptions.HTTPForbidden:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting retweet, HTTPForbidden {tweet.status_id}",
-                    )
-                    await tweet.update(is_deleted=True).apply()
+
+                # I heard delete RTs wasn't working, so switching back from peony to tweepy
+
+                # try:
+                #     await client.api.statuses.unretweet[tweet.status_id].post(
+                #         _data=(job, progress, job_runner_id),
+                #     )
+                #     # await log(
+                #     #     job, f"#{job_runner_id} Deleted retweet {tweet.status_id}"
+                #     # )
+                #     await tweet.update(is_deleted=True).apply()
+                # except peony.exceptions.StatusNotFound:
+                #     await log(
+                #         job,
+                #         f"#{job_runner_id} Skipped deleting retweet, StatusNotFound {tweet.status_id}",
+                #     )
+                #     await tweet.update(is_deleted=True).apply()
+                # except peony.exceptions.UserSuspended:
+                #     await log(
+                #         job,
+                #         f"#{job_runner_id} Skipped deleting retweet, UserSuspended {tweet.status_id}",
+                #     )
+                #     await tweet.update(is_deleted=True).apply()
+                # except peony.exceptions.DoesNotExist:
+                #     await log(
+                #         job,
+                #         f"#{job_runner_id} Skipped deleting retweet, DoesNotExist {tweet.status_id}",
+                #     )
+                #     await tweet.update(is_deleted=True).apply()
+                # except peony.exceptions.ProtectedTweet:
+                #     await log(
+                #         job,
+                #         f"#{job_runner_id} Skipped deleting retweet, ProtectedTweet {tweet.status_id}",
+                #     )
+                #     await tweet.update(is_deleted=True).apply()
+                # except peony.exceptions.HTTPForbidden:
+                #     await log(
+                #         job,
+                #         f"#{job_runner_id} Skipped deleting retweet, HTTPForbidden {tweet.status_id}",
+                #     )
+                #     await tweet.update(is_deleted=True).apply()
+
+                # Try deleting the tweet, in a while loop in case it gets rate limited and
+                # needs to try again
+                while True:
+                    try:
+                        await loop.run_in_executor(
+                            None, api.destroy_status, tweet.status_id
+                        )
+                        await tweet.update(is_deleted=True).apply()
+                        break
+                    except tweepy.error.TweepError as e:
+                        if e.api_code == 144:
+                            # Already deleted
+                            await tweet.update(is_deleted=True).apply()
+                            break
+                        elif e.api_code == 429:  # 429 = Too Many Requests
+                            await update_progress_rate_limit(
+                                job, progress, job_runner_id
+                            )
+                            # Don't break, so it tries again
+                        else:
+                            # Unknown error
+                            print(f"job_id={job.id} Error deleting retweet {e}")
+                            break
 
                 progress["retweets_deleted"] += 1
                 await update_progress(job, progress)
