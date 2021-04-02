@@ -244,7 +244,7 @@ def _get_ip(deploy_environment):
         )
         return False
 
-    return terraform_output["app_ip"]
+    return terraform_output["app_ip"].lstrip('"').rstrip('"')
 
 
 def _write_ansible_inventory(deploy_environment):
