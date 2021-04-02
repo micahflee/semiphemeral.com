@@ -230,7 +230,7 @@ def _get_terraform_output(deploy_environment):
         if "=" in line:
             key = line.split("=")[0].strip()
             val = "=".join(line.split("=")[1:]).strip()
-            terraform_output[key] = val
+            terraform_output[key] = val.lstrip('"').rstrip('"')
 
     return terraform_output
 
@@ -244,7 +244,7 @@ def _get_ip(deploy_environment):
         )
         return False
 
-    return terraform_output["app_ip"].lstrip('"').rstrip('"')
+    return terraform_output["app_ip"]
 
 
 def _write_ansible_inventory(deploy_environment):
