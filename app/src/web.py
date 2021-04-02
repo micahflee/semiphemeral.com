@@ -1081,7 +1081,7 @@ async def api_post_tweets(request):
     tweet = (
         await Tweet.query.where(Tweet.user_id == user.id)
         .where(Tweet.twitter_user_id == user.twitter_id)
-        .where(Tweet.status_id == int(data["status_id"]))
+        .where(Tweet.status_id == data["status_id"])
         .gino.first()
     )
     if not tweet:
