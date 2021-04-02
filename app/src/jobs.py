@@ -1203,7 +1203,7 @@ async def start_dm_job(dm_job):
             print(
                 f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sending DMs too fast, rescheduling and cooling off on DM sending for 10 minutes"
             )
-            asyncio.sleep(10 * 60)
+            await asyncio.sleep(10 * 60)
         else:
             # If sending the DM failed, try again in 5 minutes
             await dm_job.update(
