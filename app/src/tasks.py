@@ -1,3 +1,4 @@
+import os
 import asyncio
 import click
 from datetime import datetime, timedelta
@@ -79,3 +80,7 @@ def main():
 )
 def send_reminders():
     asyncio.run(_send_reminders())
+
+
+if __name__ == "__main__":
+    main()
