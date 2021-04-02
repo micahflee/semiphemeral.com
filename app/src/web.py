@@ -30,7 +30,6 @@ from db import (
     Tip,
     Nag,
     Job,
-    DirectMessageJob,
     BlockJob,
     UnblockJob,
     Tweet,

@@ -59,6 +59,7 @@ async def _send_reminders():
                         message=message,
                         status="pending",
                         scheduled_timestamp=datetime.now(),
+                        priority=9,
                     )
 
     if len(reminded_users) > 0:
