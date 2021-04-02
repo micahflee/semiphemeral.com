@@ -1220,9 +1220,10 @@ async def start_dm_job(dm_job):
                 f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}) error code {error_code}, marking as failure"
             )
             await dm_job.update(status="failed").apply()
-        elif error_code == 226:
+        elif error_code == 226 or error_code == 420:
             # 226: This request looks like it might be automated. To protect our users from spam and
             # other malicious activity, we can't complete this action right now. Please try again later.
+            # 420: Enhance Your Calm
             await dm_job.update(
                 status="pending",
                 scheduled_timestamp=datetime.now() + timedelta(minutes=10),
