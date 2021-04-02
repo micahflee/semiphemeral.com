@@ -1193,13 +1193,23 @@ async def start_dm_job(dm_job):
                 f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}) error code {error_code}, marking as failure"
             )
             await dm_job.update(status="failed").apply()
+        elif error_code == 226:
+            # 226: This request looks like it might be automated. To protect our users from spam and
+            # other malicious activity, we can't complete this action right now. Please try again later.
+            await dm_job.update(
+                status="pending",
+                scheduled_timestamp=datetime.now() + timedelta(minutes=10),
+            ).apply()
+            print(
+                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sending DMs too fast, rescheduling and cooling off on DM sending for 10 minutes"
+            )
+            asyncio.sleep(10 * 60)
         else:
             # If sending the DM failed, try again in 5 minutes
             await dm_job.update(
                 status="pending",
                 scheduled_timestamp=datetime.now() + timedelta(minutes=5),
             ).apply()
-
             print(
                 f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), delaying 5 minutes"
             )
@@ -1539,5 +1549,5 @@ async def start_dm_jobs():
             print(f"Running {len(tasks)} DM/block/unblock jobs")
             await asyncio.gather(*tasks)
 
-        print(f"Waiting 35s")
-        await asyncio.sleep(35)
+        print(f"Waiting 30s")
+        await asyncio.sleep(30)
