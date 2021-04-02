@@ -518,6 +518,7 @@ async def fetch(gino_db, job, job_runner_id):
             message=message,
             status="pending",
             scheduled_timestamp=datetime.now(),
+            priority=0,
         )
 
     await log(job, f"#{job_runner_id} Fetch complete")
@@ -873,6 +874,7 @@ async def delete(gino_db, job, job_runner_id):
             message=message,
             status="pending",
             scheduled_timestamp=datetime.now(),
+            priority=0,
         )
 
         message = f"Semiphemeral is free, but running this service costs money. Care to chip in?\n\nIf you tip any amount, even just $1, I will stop nagging you for a year. Otherwise, I'll gently remind you once a month.\n\n(It's fine if you want to ignore these DMs. I won't care. I'm a bot, so I don't have feelings).\n\nVisit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
@@ -882,6 +884,7 @@ async def delete(gino_db, job, job_runner_id):
             message=message,
             status="pending",
             scheduled_timestamp=datetime.now(),
+            priority=0,
         )
 
     else:
@@ -943,6 +946,7 @@ async def delete(gino_db, job, job_runner_id):
                 message=message,
                 status="pending",
                 scheduled_timestamp=datetime.now(),
+                priority=0,
             )
 
 
@@ -1098,6 +1102,7 @@ async def delete_dms_job(job, dm_type, job_runner_id):
         message=message,
         status="pending",
         scheduled_timestamp=datetime.now(),
+        priority=0,
     )
 
 
@@ -1507,6 +1512,7 @@ async def start_dm_jobs():
         dm_job = (
             await DirectMessageJob.query.where(DirectMessageJob.status == "pending")
             .where(DirectMessageJob.scheduled_timestamp <= datetime.now())
+            .order_by(DirectMessageJob.priority)
             .order_by(DirectMessageJob.scheduled_timestamp)
             .gino.first()
         )

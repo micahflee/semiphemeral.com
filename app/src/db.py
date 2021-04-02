@@ -87,6 +87,7 @@ class DirectMessageJob(db.Model):
     status = db.Column(db.String)  # "pending", "sent", "failed"
     scheduled_timestamp = db.Column(db.DateTime)
     sent_timestamp = db.Column(db.DateTime)
+    priority = db.Column(db.Integer)
 
 
 class BlockJob(db.Model):
