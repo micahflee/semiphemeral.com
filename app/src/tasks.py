@@ -3,8 +3,10 @@ import asyncio
 import click
 from datetime import datetime, timedelta
 
+import tweepy
+
 from db import connect_db, User, Job, DirectMessageJob
-from common import send_admin_dm
+from common import send_admin_dm, tweepy_api, tweepy_api_call
 
 
 async def _send_reminders():
@@ -70,6 +72,25 @@ async def _send_reminders():
         await send_admin_dm(admin_message)
 
 
+async def _cleanup_users():
+    gino_db = await connect_db()
+
+    users = await User.query.gino.all()
+    i = 0
+    count = len(users)
+    for user in users:
+        # See if the user has valid creds
+        print(f"\r[{i}/{count}] checking @{user.twitter_screen_name} ...", end="")
+        api = await tweepy_api(user)
+        try:
+            await tweepy_api_call(None, api, "me")
+            print(f"\r[{i}/{count}] checking @{user.twitter_screen_name} valid")
+        except tweepy.error.TweepError as e:
+            print(f"\r[{i}/{count}] @{user.twitter_screen_name} {e}")
+
+        i += 1
+
+
 @click.group()
 def main():
     """semiphemeral.com tasks"""
@@ -81,6 +102,14 @@ def main():
 )
 def send_reminders():
     asyncio.run(_send_reminders())
+
+
+@main.command(
+    "cleanup-users",
+    short_help="Detect old users with deleted accounts, or who have revoked creds",
+)
+def cleanup_users():
+    asyncio.run(_cleanup_users())
 
 
 if __name__ == "__main__":
