@@ -9,7 +9,7 @@ import tweepy
 import peony
 from peony import PeonyClient
 
-from db import Tweet, Thread, User, DirectMessageJob, Nag, Job
+from db import Tweet, Thread, User, DirectMessageJob, Nag, Job, Tip
 
 
 async def log(job, s):
@@ -251,7 +251,7 @@ async def send_admin_dm(message):
 
 
 async def delete_user(user):
-    # await Tip.delete.where(Tip.user_id == user.id).gino.status()
+    await Tip.delete.where(Tip.user_id == user.id).gino.status()
     await Nag.delete.where(Nag.user_id == user.id).gino.status()
     await Job.delete.where(Job.user_id == user.id).gino.status()
     await Tweet.delete.where(Tweet.user_id == user.id).gino.status()
