@@ -1433,10 +1433,10 @@ async def job_runner(gino_db, job_runner_id):
         while job_q_lock:
             await asyncio.sleep(1)
 
-        # If there are no jobs in the queue and it hasn't been refreshed in the last hour
-        ten_minutes_ago = datetime.now() - timedelta(minutes=10)
+        # If there are no jobs in the queue and it hasn't been refreshed recently
+        recently = datetime.now() - timedelta(minutes=2)
         if job_q.qsize() == 0 and (
-            (not job_q_last_refresh or job_q_last_refresh < ten_minutes_ago)
+            (not job_q_last_refresh or job_q_last_refresh < recently)
             or os.environ.get("DEPLOY_ENVIRONMENT") == "staging"
         ):
             job_q_lock = True
@@ -1493,7 +1493,7 @@ async def job_runner(gino_db, job_runner_id):
             if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
                 await asyncio.sleep(60)
             else:
-                await asyncio.sleep(60 * 10)
+                await asyncio.sleep(60 * 5)
 
 
 async def start_jobs(gino_db):
@@ -1526,7 +1526,7 @@ async def start_jobs(gino_db):
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         job_runner_count = 2
     else:
-        job_runner_count = 50
+        job_runner_count = 10
 
     await asyncio.gather(
         *[

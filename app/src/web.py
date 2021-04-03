@@ -24,6 +24,7 @@ from common import (
     tweepy_api_call,
     tweets_to_delete,
     send_admin_dm,
+    delete_user,
 )
 from db import (
     User,
@@ -481,13 +482,8 @@ async def api_post_settings_delete_account(request):
     session = await get_session(request)
     del session["twitter_id"]
 
-    # Delete everything
-    # await Tip.delete.where(Tip.user_id == user.id).gino.status()
-    await Nag.delete.where(Nag.user_id == user.id).gino.status()
-    await Job.delete.where(Job.user_id == user.id).gino.status()
-    await Thread.delete.where(Thread.user_id == user.id).gino.status()
-    await Tweet.delete.where(Tweet.user_id == user.id).gino.status()
-    await user.delete()
+    # Delete user and all associated data
+    await delete_user(user)
 
     return web.json_response(True)
 

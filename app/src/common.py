@@ -9,7 +9,7 @@ import tweepy
 import peony
 from peony import PeonyClient
 
-from db import Tweet, Thread, User, DirectMessageJob
+from db import Tweet, Thread, User, DirectMessageJob, Nag, Job
 
 
 async def log(job, s):
@@ -249,15 +249,11 @@ async def send_admin_dm(message):
     except:
         pass
 
-    # Twitter DM
-    # We don't need twitter DMs, the webhook is good enough
-    # admin_user = await User.query.where(
-    #     User.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
-    # ).gino.first()
-    # if admin_user:
-    #     await DirectMessageJob.create(
-    #         dest_twitter_id=admin_user.twitter_id,
-    #         message=message,
-    #         status="pending",
-    #         scheduled_timestamp=datetime.now(),
-    #     )
+
+async def delete_user(user):
+    # await Tip.delete.where(Tip.user_id == user.id).gino.status()
+    await Nag.delete.where(Nag.user_id == user.id).gino.status()
+    await Job.delete.where(Job.user_id == user.id).gino.status()
+    await Tweet.delete.where(Tweet.user_id == user.id).gino.status()
+    await Thread.delete.where(Thread.user_id == user.id).gino.status()
+    await user.delete()
