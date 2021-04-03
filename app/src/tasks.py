@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import tweepy
 
 from db import connect_db, User, Job, DirectMessageJob
-from common import send_admin_dm, tweepy_api, tweepy_api_call
+from common import send_admin_dm, tweepy_api, tweepy_api_call, delete_user
 
 
 async def _send_reminders():
@@ -78,17 +78,24 @@ async def _cleanup_users():
     users = await User.query.gino.all()
     i = 0
     count = len(users)
+    users_deleted = 0
     for user in users:
         # See if the user has valid creds
         print(f"\r[{i}/{count}] checking @{user.twitter_screen_name} ...", end="")
         api = await tweepy_api(user)
         try:
             await tweepy_api_call(None, api, "me")
-            print(f"\r[{i}/{count}] checking @{user.twitter_screen_name} valid")
+            # print(f"\r[{i}/{count}] checking @{user.twitter_screen_name} valid")
         except tweepy.error.TweepError as e:
-            print(f"\r[{i}/{count}] @{user.twitter_screen_name} {e}")
+            print(
+                f"\r[{i}/{count}, deleted {users_deleted}] deleting @{user.twitter_screen_name}: {e}"
+            )
+            await delete_user(user)
+            users_deleted += 1
 
         i += 1
+
+    print(f"deleted {users_deleted} users and all their data")
 
 
 @click.group()
