@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import tweepy
 
-from db import connect_db, User, Job, DirectMessageJob, Tip
+from db import connect_db, User, Job, DirectMessageJob
 from common import send_admin_dm, tweepy_api, tweepy_api_call, delete_user
 
 
@@ -101,6 +101,26 @@ async def _cleanup_users():
     print(f"deleted {users_deleted} users and all their data")
 
 
+def _cleanup_dm_jobs():
+    gino_db = await connect_db()
+
+    dm_jobs = await DirectMessageJob.query.where(
+        DirectMessageJob.status == "pending"
+    ).gino.all()
+    print(f"there are {len(dm_jobs))} pending DM jobs")
+    
+    for dm_job in dm_jobs:
+        user = await User.query.where(User.twitter_id == dm_job.dest_twitter_id)
+        if not user:
+            print(f"deleting DM job id={dm_job.id}")
+            await dm_job.delete()
+    
+    dm_jobs = await DirectMessageJob.query.where(
+        DirectMessageJob.status == "pending"
+    ).gino.all()
+    print(f"now there are {len(dm_jobs))} pending DM jobs")
+
+
 @click.group()
 def main():
     """semiphemeral.com tasks"""
@@ -120,6 +140,14 @@ def send_reminders():
 )
 def cleanup_users():
     asyncio.run(_cleanup_users())
+
+
+@main.command(
+    "cleanup-dm-jobs",
+    short_help="Delete DM jobs with users that have been deleted",
+)
+def cleanup_dm_jobs():
+    asyncio.run(_cleanup_dm_jobs())
 
 
 if __name__ == "__main__":
