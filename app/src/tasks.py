@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import tweepy
 
-from db import connect_db, User, Job, DirectMessageJob
+from db import connect_db, User, Job, DirectMessageJob, Tip
 from common import send_admin_dm, tweepy_api, tweepy_api_call, delete_user
 
 
@@ -81,7 +81,10 @@ async def _cleanup_users():
     users_deleted = 0
     for user in users:
         # See if the user has valid creds
-        print(f"\r[{i}/{count}] checking @{user.twitter_screen_name} ...", end="")
+        print(
+            f"\r[{i}/{count}] checking @{user.twitter_screen_name} ..." + " " * 20,
+            end="",
+        )
         api = await tweepy_api(user)
         try:
             await tweepy_api_call(None, api, "me")
