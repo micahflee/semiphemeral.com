@@ -1202,7 +1202,13 @@ async def start_dm_job(dm_job):
         try:
             error_code = e.args[0][0]["code"]
         except:
-            error_code = e.api_code
+            if (
+                hasattr(e, "reason")
+                and e.reason == "Twitter error response: status code = 420"
+            ):
+                error_code = 420
+            else:
+                error_code = e.api_code
 
         # 150: You cannot send messages to users who are not following you.
         # 349: You cannot send messages to this user.
@@ -1238,6 +1244,8 @@ async def start_dm_job(dm_job):
                 status="pending",
                 scheduled_timestamp=datetime.now() + timedelta(minutes=5),
             ).apply()
+            print(f"{type(e)}, {dir(e)}")
+            print(f"api_code={e.api_code}, reason={e.reason}")
             print(
                 f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), delaying 5 minutes"
             )
@@ -1577,5 +1585,5 @@ async def start_dm_jobs():
             print(f"Running {len(tasks)} DM/block/unblock jobs")
             await asyncio.gather(*tasks)
 
-        print(f"Waiting 30s")
-        await asyncio.sleep(30)
+        print(f"Waiting 60s")
+        await asyncio.sleep(60)

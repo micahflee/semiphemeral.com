@@ -101,24 +101,24 @@ async def _cleanup_users():
     print(f"deleted {users_deleted} users and all their data")
 
 
-def _cleanup_dm_jobs():
+async def _cleanup_dm_jobs():
     gino_db = await connect_db()
 
     dm_jobs = await DirectMessageJob.query.where(
         DirectMessageJob.status == "pending"
     ).gino.all()
-    print(f"there are {len(dm_jobs))} pending DM jobs")
-    
+    print(f"there are {len(dm_jobs)} pending DM jobs")
+
     for dm_job in dm_jobs:
-        user = await User.query.where(User.twitter_id == dm_job.dest_twitter_id)
+        user = await User.query.where(User.twitter_id == dm_job.dest_twitter_id).gino.first()
         if not user:
             print(f"deleting DM job id={dm_job.id}")
             await dm_job.delete()
-    
+
     dm_jobs = await DirectMessageJob.query.where(
         DirectMessageJob.status == "pending"
     ).gino.all()
-    print(f"now there are {len(dm_jobs))} pending DM jobs")
+    print(f"now there are {len(dm_jobs)} pending DM jobs")
 
 
 @click.group()
