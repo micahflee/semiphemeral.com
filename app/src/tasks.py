@@ -98,7 +98,9 @@ async def _cleanup_users():
 
         i += 1
 
-    print(f"deleted {users_deleted} users and all their data")
+    admin_message = f"Deleted {users_deleted} users and all their data"
+    print(admin_message)
+    await send_admin_dm(admin_message)
 
 
 def _cleanup_dm_jobs():
@@ -109,16 +111,22 @@ def _cleanup_dm_jobs():
     ).gino.all()
     print(f"there are {len(dm_jobs))} pending DM jobs")
     
+    num_deleted = 0
     for dm_job in dm_jobs:
         user = await User.query.where(User.twitter_id == dm_job.dest_twitter_id)
         if not user:
             print(f"deleting DM job id={dm_job.id}")
             await dm_job.delete()
+            num_deleted += 1
     
     dm_jobs = await DirectMessageJob.query.where(
         DirectMessageJob.status == "pending"
     ).gino.all()
     print(f"now there are {len(dm_jobs))} pending DM jobs")
+
+    admin_message = f"Deleted {num_deleted} pending DM jobs from deleted users"
+    print(admin_message)
+    await send_admin_dm(admin_message)
 
 
 @click.group()
