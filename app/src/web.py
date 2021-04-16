@@ -174,9 +174,9 @@ async def auth_login(request):
         )
         redirect_url = auth.get_authorization_url()
         raise web.HTTPFound(location=redirect_url)
-    except tweepy.TweepError:
+    except tweepy.TweepError as e:
         raise web.HTTPUnauthorized(
-            text="Error, failed to get request token from Twitter"
+            text=f"Error, failed to get request token from Twitter: {e}"
         )
 
 
@@ -801,10 +801,12 @@ async def api_get_dashboard(request):
     fascist_tweets = []
     if user.blocked:
         # Get fascist tweets that this user has liked
+        six_months_ago = datetime.now() - timedelta(days=180)
         fascist_tweets = (
             await Tweet.query.where(Tweet.user_id == user.id)
             .where(Tweet.favorited == True)
             .where(Tweet.is_fascist == True)
+            .where(Tweet.created_at > six_months_ago)
             .order_by(Tweet.created_at.desc())
             .gino.all()
         )
@@ -815,9 +817,6 @@ async def api_get_dashboard(request):
             }
             for tweet in fascist_tweets
         ]
-        # Don't return the list if there's more than 5
-        if len(fascist_tweets) > 5:
-            fascist_tweets = []
 
     return web.json_response(
         {
@@ -895,7 +894,7 @@ async def api_post_dashboard(request):
                 .order_by(Tweet.created_at.desc())
                 .gino.all()
             )
-            if len(fascist_tweets) >= 5:
+            if len(fascist_tweets) > 10:
                 return web.json_response(
                     {
                         "message": "You've liked too many fascist tweets to be allowed to automatically unblock yourself"
