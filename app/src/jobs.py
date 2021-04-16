@@ -1280,6 +1280,9 @@ async def start_block_job(block_job):
         if block_job.user_id:
             user = await User.query.where(User.id == block_job.user_id).gino.first()
             if user and not user.blocked:
+                # Update the user
+                await user.update(paused=True, blocked=True).apply()
+
                 # Get all the recent fascist tweets
                 six_months_ago = datetime.now() - timedelta(days=180)
                 fascist_tweets = (
@@ -1318,9 +1321,6 @@ async def start_block_job(block_job):
                 print(
                     f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} sent DM to {block_job.twitter_username}"
                 )
-
-                # Update the user
-                await user.update(paused=True, blocked=True).apply()
 
                 # Create the unblock job
                 await UnblockJob.create(
