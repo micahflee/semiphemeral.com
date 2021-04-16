@@ -1280,6 +1280,16 @@ async def start_block_job(block_job):
         if block_job.user_id:
             user = await User.query.where(User.id == block_job.user_id).gino.first()
             if user and not user.blocked:
+                # Get all the recent fascist tweets
+                six_months_ago = datetime.now() - timedelta(days=180)
+                fascist_tweets = (
+                    await Tweet.query.where(Tweet.user_id == user.id)
+                    .where(Tweet.favorited == True)
+                    .where(Tweet.is_fascist == True)
+                    .where(Tweet.created_at > six_months_ago)
+                    .gino.all()
+                )
+
                 # When do we unblock them?
                 last_fascist_tweet = (
                     await Tweet.query.where(Tweet.user_id == user.id)
@@ -1296,7 +1306,7 @@ async def start_block_job(block_job):
                 unblock_timestamp_formatted = unblock_timestamp.strftime("%B %-d, %Y")
 
                 # Send the DM
-                message = f"You have liked at least one tweet from a fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated. See https://{os.environ.get('DOMAIN')}/dashboard for information about appealing.\n\nYou will get automatically unblocked on {unblock_timestamp_formatted}. You can reactivate your account then so long as you stop liking tweets from fascists."
+                message = f"You have liked {len(fascist_tweets)} tweets from a prominent fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated.\n\nTo see which tweets you liked and learn how to get yourself unblocked, see https://{os.environ.get('DOMAIN')}/dashboard.\n\nOr you can wait until {unblock_timestamp_formatted} when you will get automatically unblocked, at which point you can login to reactivate your account so long as you've stop liking tweets from fascists."
 
                 await tweepy_api_call(
                     block_job,

@@ -45,6 +45,9 @@ ul.jobs {
   font-weight: bold;
   font-style: italic;
 }
+.center {
+  text-align: center;
+}
 </style>
 
 <template>
@@ -67,27 +70,54 @@ ul.jobs {
     </template>
     <template v-else>
       <div v-if="settingBlocked">
-        <h2>Semiphemeral is an antifascist service</h2>
+        <p class="center">
+          <img
+            src="/static/img/refuse.png"
+            alt="We reserve the right to refuse service to anyone"
+          />
+        </p>
         <p>
-          Everyone deserves privacy on social media, but not everyone is
-          entitled to get that privacy by using the resources of this free
-          service. You have been blocked by
+          Semiphemeral is an antifascist service. In order to prevent fascists
+          from using this free privacy service which I develop in my spare time,
+          Semiphemeral keeps track of Twitter accounts used by prominent
+          racists, misogynists, antisemites, homophobes, neo-Nazis, and other
+          fascists.
+        </p>
+        <p>
+          <strong
+            >In the last six months, you have liked
+            {{ fascistTweets.length }} tweets from fascist influencers.</strong
+          >
+          You have been blocked by
           <a href="https://twitter.com/semiphemeral">@semiphemeral</a>, so your
-          account has been disabled.
+          account has been temporarily disabled.
         </p>
-        <p>
-          Semiphemeral keeps track of the Twitter accounts of prominent
-          authoritarian anti-democratic demagogues and dictators, racists,
-          misogynists, Islamophobes, anti-Semites, homophobes, transphobes,
-          neo-Nazis, hate groups, and fascists and fascist sympathizers.
-        </p>
-        <template v-if="fascistTweets.length > 0">
-          <p>You were blocked because you liked these tweets:</p>
-          <FascistTweet
-            v-for="tweet in fascistTweets"
-            v-bind:statusId="tweet.status_id"
-            v-bind:permalink="tweet.permalink"
-          ></FascistTweet>
+        <p></p>
+
+        <p>You were blocked because you liked these tweets:</p>
+        <FascistTweet
+          v-for="tweet in fascistTweets"
+          v-bind:statusId="tweet.status_id"
+          v-bind:permalink="tweet.permalink"
+        ></FascistTweet>
+
+        <template v-if="fascistTweets.length > 10">
+          <p>
+            Because you've recently liked more than 10 tweets from prominent
+            fascists, you don't have the option to automatically unblock
+            yourself. If you oppose fascism and think that you've been blocked
+            unfairly or by mistake, you can appeal by writing an email to
+            hi@semiphemeral.com (make sure to mention your Twitter username in
+            the email).
+          </p>
+
+          <p>
+            <button class="reactivate" v-on:click="reactivateAccount">
+              I'm no longer blocked
+            </button>
+          </p>
+        </template>
+        <template v-else>
           <p>
             If you oppose fascism and think you've been blocked unfairly or by
             mistake, you can unlike these tweets (so you don't get automatically
@@ -103,20 +133,6 @@ ul.jobs {
           <p>
             <button class="reactivate" v-on:click="reactivateAccount">
               I'm no longer blocked, reactivate my account
-            </button>
-          </p>
-        </template>
-        <template v-else>
-          <p>
-            You were blocked because you liked multiple tweets from at least one
-            of these accounts within the last 6 months. If you oppose fascism
-            and think that you've been blocked unfairly or by mistake, you can
-            appeal by writing an email to hi@semiphemeral.com.
-          </p>
-
-          <p>
-            <button class="reactivate" v-on:click="reactivateAccount">
-              I'm no longer blocked
             </button>
           </p>
         </template>
