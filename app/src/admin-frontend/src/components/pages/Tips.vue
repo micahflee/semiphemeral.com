@@ -53,7 +53,7 @@ li .tip-receipt {
     <div v-if="tips.length > 0">
       <h2>{{ tips.length }} tips</h2>
       <ul>
-        <li v-for="tip in tips">
+        <li v-for="(tip, index) in tips" v-bind:key="index">
           <span class="tip-user">
             <a v-bind:href="tip.twitter_link" target="_blank">{{
               tip.twitter_username

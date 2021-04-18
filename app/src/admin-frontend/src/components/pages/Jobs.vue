@@ -63,7 +63,7 @@ li .job-progress {
     <div v-if="active_jobs.length > 0">
       <h2>{{ active_jobs.length }} active jobs</h2>
       <ul>
-        <li v-for="job in active_jobs">
+        <li v-for="(job, index) in active_jobs" v-bind:key="index">
           <span class="job-id">{{ job.id }}</span>
           <span class="job-container-name">{{ job.container_name }}</span>
           <span class="job-user" v-if="job.twitter_username != null">
@@ -89,7 +89,7 @@ li .job-progress {
     <div v-if="queued_jobs.length > 0">
       <h2>{{ queued_jobs.length }} queued jobs</h2>
       <ul>
-        <li v-for="job in queued_jobs">
+        <li v-for="(job, index) in queued_jobs" v-bind:key="index">
           <span class="job-id">{{ job.id }}</span>
           <span class="job-user" v-if="job.twitter_username != null">
             <a v-bind:href="job.twitter_link" target="_blank">{{
@@ -110,7 +110,7 @@ li .job-progress {
     <div v-if="pending_jobs.length > 0">
       <h2>{{ pending_jobs.length }} pending jobs</h2>
       <ul>
-        <li v-for="job in pending_jobs">
+        <li v-for="(job, index) in pending_jobs" v-bind:key="index">
           <span class="job-id">{{ job.id }}</span>
           <span class="job-user" v-if="job.twitter_username != null">
             <a v-bind:href="job.twitter_link" target="_blank">{{
@@ -131,7 +131,7 @@ li .job-progress {
     <div v-if="future_jobs.length > 0">
       <h2>{{ future_jobs.length }} future jobs</h2>
       <ul>
-        <li v-for="job in future_jobs">
+        <li v-for="(job, index) in future_jobs" v-bind:key="index">
           <span class="job-id">{{ job.id }}</span>
           <span class="job-user" v-if="job.twitter_username != null">
             <a v-bind:href="job.twitter_link" target="_blank">{{
