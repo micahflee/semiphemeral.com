@@ -146,7 +146,7 @@ form #card-errors {
         <strong>Your history of tips</strong>
       </p>
       <ul>
-        <li v-for="tip in tips">
+        <li v-for="(tip, index) in tips" v-bind:key="index">
           <span class="tip-date">{{ formatTipDate(tip.timestamp) }}</span>
           <span class="tip-amount">
             <template v-if="tip.refunded">

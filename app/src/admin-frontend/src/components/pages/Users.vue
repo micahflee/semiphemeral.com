@@ -22,7 +22,7 @@
     <div v-if="activeUsers.length > 0" class="column">
       <h2>{{ activeUsers.length }} active users</h2>
       <ul>
-        <li v-for="user in activeUsers">
+        <li v-for="(user, index) in activeUsers" v-bind:key="index">
           <User v-bind:user="user"></User>
         </li>
       </ul>
@@ -31,7 +31,7 @@
     <div v-if="pausedUsers.length > 0" class="column">
       <h2>{{ pausedUsers.length }} paused users</h2>
       <ul>
-        <li v-for="user in pausedUsers">
+        <li v-for="(user, index) in pausedUsers" v-bind:key="index">
           <User v-bind:user="user"></User>
         </li>
       </ul>
@@ -40,7 +40,7 @@
     <div v-if="blockedUsers.length > 0" class="column">
       <h2>{{ blockedUsers.length }} blocked users</h2>
       <ul>
-        <li v-for="user in blockedUsers">
+        <li v-for="(user, index) in blockedUsers" v-bind:key="index">
           <User v-bind:user="user"></User>
         </li>
       </ul>

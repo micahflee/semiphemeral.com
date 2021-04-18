@@ -51,7 +51,10 @@ li {
   <div class="page">
     <h1>Choose which tweets should never get automatically deleted</h1>
 
-    <p>You may need to disable your adblocker for semiphemeral.com for the embedded tweets to show up properly (this website doesn't have ads).</p>
+    <p>
+      You may need to disable your adblocker for semiphemeral.com for the
+      embedded tweets to show up properly (this website doesn't have ads).
+    </p>
 
     <template v-if="loading">
       <p>
@@ -70,11 +73,11 @@ li {
         </div>
         <div class="info">{{ info }}</div>
         <div class="pagination" v-if="this.numPages > 1">
-          <span v-for="pageNumber in pageNumbers">
+          <span v-for="(pageNumber, index) in pageNumbers" v-bind:key="index">
             <PageButton
               v-bind="{
                 pageNumber: pageNumber,
-                currentPage: page
+                currentPage: page,
               }"
               v-on:select-page="filterTweets(pageNumber)"
             ></PageButton>
@@ -83,11 +86,11 @@ li {
       </div>
 
       <ul>
-        <li v-for="id in pageIndices">
+        <li v-for="(id, index) in pageIndices" v-bind:key="index">
           <Tweet
             v-bind="{
               tweet: tweets[id],
-              userScreenName: userScreenName
+              userScreenName: userScreenName,
             }"
             v-on:exclude-true="changeExclude(id, true)"
             v-on:exclude-false="changeExclude(id, false)"

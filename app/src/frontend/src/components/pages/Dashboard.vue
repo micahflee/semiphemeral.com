@@ -96,9 +96,10 @@ ul.jobs {
 
         <p>You were blocked because you liked these tweets:</p>
         <FascistTweet
-          v-for="tweet in fascistTweets"
+          v-for="(tweet, index) in fascistTweets"
           v-bind:statusId="tweet.status_id"
           v-bind:permalink="tweet.permalink"
+          v-bind:key="index"
         ></FascistTweet>
 
         <template v-if="fascistTweets.length > 10">
@@ -217,19 +218,19 @@ ul.jobs {
           Current status
         </h2>
         <ul v-if="activeJobs.length > 0" class="jobs">
-          <li v-for="job in activeJobs">
+          <li v-for="(job, index) in activeJobs" v-bind:key="index">
             <Job v-bind:job="job"></Job>
           </li>
         </ul>
         <ul v-if="pendingJobs.length > 0" class="jobs">
-          <li v-for="job in pendingJobs">
+          <li v-for="(job, index) in pendingJobs" v-bind:key="index">
             <Job v-bind:job="job"></Job>
           </li>
         </ul>
 
         <h2 v-if="finishedJobs.length > 0">Log</h2>
         <ul v-if="finishedJobs.length > 0" class="jobs">
-          <li v-for="job in finishedJobs">
+          <li v-for="(job, index) in finishedJobs" v-bind:key="index">
             <Job v-bind:job="job"></Job>
           </li>
         </ul>

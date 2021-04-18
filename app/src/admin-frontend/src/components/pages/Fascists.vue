@@ -30,7 +30,12 @@ ul {
           <legend>Add fascist</legend>
           <p>
             <label for="username">Username</label>
-            <input type="text" placeholder="TuckerCarlson" name="username" ref="username" />
+            <input
+              type="text"
+              placeholder="TuckerCarlson"
+              name="username"
+              ref="username"
+            />
           </p>
           <p>
             <label for="comment">Comment</label>
@@ -48,8 +53,11 @@ ul {
       </form>
 
       <ul>
-        <li v-for="fascist in fascists">
-          <Fascist v-bind:fascist="fascist" v-on:reload="fetchFascists()"></Fascist>
+        <li v-for="(fascist, index) in fascists" v-bind:key="index">
+          <Fascist
+            v-bind:fascist="fascist"
+            v-on:reload="fetchFascists()"
+          ></Fascist>
         </li>
       </ul>
     </template>
@@ -61,17 +69,17 @@ import Fascist from "./Fascists/Fascist.vue";
 
 export default {
   props: ["userScreenName"],
-  data: function() {
+  data: function () {
     return {
       loading: false,
-      fascists: []
+      fascists: [],
     };
   },
-  created: function() {
+  created: function () {
     this.fetchFascists();
   },
   methods: {
-    onCreateSubmit: function() {
+    onCreateSubmit: function () {
       var that = this;
       this.loading = true;
       fetch("/admin_api/fascists", {
@@ -80,24 +88,24 @@ export default {
         body: JSON.stringify({
           action: "create",
           username: this.$refs.username.value,
-          comment: this.$refs.comment.value
-        })
+          comment: this.$refs.comment.value,
+        }),
       })
-        .then(function(response) {
+        .then(function (response) {
           that.fetchFascists();
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error", err);
           that.loading = false;
         });
     },
-    fetchFascists: function() {
+    fetchFascists: function () {
       var that = this;
       this.loading = true;
 
       // Get lists of users
       fetch("/admin_api/fascists")
-        .then(function(response) {
+        .then(function (response) {
           if (response.status !== 200) {
             console.log(
               "Error fetching fascists, status code: " + response.status
@@ -105,20 +113,20 @@ export default {
             that.loading = false;
             return;
           }
-          response.json().then(function(data) {
+          response.json().then(function (data) {
             that.loading = false;
             if (data["fascists"]) that.fascists = data["fascists"];
             else that.fascists = [];
           });
         })
-        .catch(function(err) {
+        .catch(function (err) {
           console.log("Error fetching users", err);
           that.loading = false;
         });
-    }
+    },
   },
   components: {
-    Fascist: Fascist
-  }
+    Fascist: Fascist,
+  },
 };
 </script>
