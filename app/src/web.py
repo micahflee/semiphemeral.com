@@ -628,6 +628,7 @@ async def api_post_tip(request):
         and data["amount"] != "500"
         and data["amount"] != "1337"
         and data["amount"] != "2000"
+        and data["amount"] != "10000"
         and data["amount"] != "other"
     ):
         return web.json_response({"error": True, "error_message": "Invalid amount"})
