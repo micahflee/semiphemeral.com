@@ -1,30 +1,44 @@
 <style scoped>
-form fieldset {
+fieldset {
   margin-bottom: 10px;
   max-width: 450px;
 }
 
-form ul {
+fieldset ul {
   list-style: none;
   padding: 0;
 }
 
-form li {
+fieldset li {
   display: inline-block;
 }
 
-form .other-amount {
+fieldset .other-amount {
   width: 2.5em;
 }
 
-form #card-element {
+fieldset #card-element {
   max-width: 440px;
   border: 1px solid #f0f0f0;
   padding: 5px;
 }
 
-form #card-errors {
+fieldset #card-errors {
   color: #cc0000;
+}
+
+button {
+  background-color: #4caf50;
+  border: none;
+  color: white;
+  padding: 5px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 5px;
+  margin: 0 0 5px 0;
 }
 
 .tips-history {
@@ -80,67 +94,57 @@ form #card-errors {
     </p>
     <p>Hosting this service costs money though, so tips are appreciated.</p>
 
-    <form action="/api/tip" method="post" v-on:submit.prevent="onSubmit">
-      <fieldset>
-        <legend>How much would you like to tip?</legend>
-        <ul>
-          <li>
-            <label>
-              <input type="radio" name="amount" value="100" v-model="amount" />
-              $1
-            </label>
-          </li>
-          <li>
-            <label>
-              <input type="radio" name="amount" value="500" v-model="amount" />
-              $5
-            </label>
-          </li>
-          <li>
-            <label>
-              <input type="radio" name="amount" value="1337" v-model="amount" />
-              $13.37
-            </label>
-          </li>
-          <li>
-            <label>
-              <input type="radio" name="amount" value="2000" v-model="amount" />
-              $20
-            </label>
-          </li>
-          <li>
-            <label>
-              <input
-                type="radio"
-                name="amount"
-                value="other"
-                v-model="amount"
-              />
-              Other
-            </label>
-            <span v-if="amount == 'other'">
-              $
-              <input
-                type="text"
-                v-model.number="otherAmount"
-                class="other-amount"
-              />
-            </span>
-          </li>
-        </ul>
-      </fieldset>
-      <fieldset>
-        <legend>Credit or debit card</legend>
-        <div id="card-element"></div>
-      </fieldset>
+    <fieldset>
+      <legend>How much would you like to tip?</legend>
+      <ul>
+        <li>
+          <label>
+            <input type="radio" name="amount" value="100" v-model="amount" />
+            $1
+          </label>
+        </li>
+        <li>
+          <label>
+            <input type="radio" name="amount" value="500" v-model="amount" />
+            $5
+          </label>
+        </li>
+        <li>
+          <label>
+            <input type="radio" name="amount" value="1337" v-model="amount" />
+            $13.37
+          </label>
+        </li>
+        <li>
+          <label>
+            <input type="radio" name="amount" value="2000" v-model="amount" />
+            $20
+          </label>
+        </li>
+        <li>
+          <label>
+            <input type="radio" name="amount" value="other" v-model="amount" />
+            Other
+          </label>
+          <span v-if="amount == 'other'">
+            $
+            <input
+              type="text"
+              v-model.number="otherAmount"
+              class="other-amount"
+            />
+          </span>
+        </li>
+      </ul>
+    </fieldset>
 
-      <div v-if="errorMessage" id="card-errors">{{ errorMessage }}</div>
+    <p>
+      <button v-bind:disabled="loading" type="button" id="tip-button">
+        Tip with Credit Card
+      </button>
+      <img v-if="loading" src="/static/img/loading.gif" alt="Loading" />
+    </p>
 
-      <p>
-        <input v-bind:disabled="loading" type="submit" value="Tip" />
-        <img v-if="loading" src="/static/img/loading.gif" alt="Loading" />
-      </p>
-    </form>
     <div v-if="tips.length > 0" class="tips-history">
       <p>
         <strong>Your history of tips</strong>
@@ -232,55 +236,32 @@ export default {
     initStripe: function () {
       // Initialize Stripe
       this.stripe = Stripe(this.stripePublishableKey);
-      var elements = this.stripe.elements();
+      var tipButton = document.getElementById("tip-button");
 
-      // Create a card element, attach it to the div
-      this.stripeCard = elements.create("card");
-      this.stripeCard.mount("#card-element");
-    },
-    onSubmit: function () {
       var that = this;
-      this.errorMessage = null;
-      this.loading = true;
-
-      this.stripe.createToken(this.stripeCard).then(function (result) {
-        if (result.error) {
-          that.errorMessage = result.error.message;
-          that.loading = false;
-        } else {
-          // Send the token to the server
-          var token = result.token;
-
-          fetch("/api/tip", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              token: token.id,
-              amount: that.amount,
-              other_amount: that.otherAmount,
-            }),
+      tipButton.addEventListener("click", function () {
+        fetch("/api/tip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: that.amount,
+            other_amount: that.otherAmount,
+          }),
+        })
+          .then(function (response) {
+            return response.json();
           })
-            .then(function (response) {
-              that.loading = false;
-              response.json().then(function (data) {
-                if (data["error"]) {
-                  that.errorMessage = data["error_message"];
-                } else {
-                  that.fetchHistory();
-
-                  // Navigate to thank you page
-                  that.$router.push("/thanks");
-                }
-
-                that.loading = false;
-              });
-            })
-            .catch(function (err) {
-              console.log("Error submitting card", err);
-              that.errorMessage = "Error submitting card: " + err;
-              that.loading = false;
-            });
-        }
+          .then(function (session) {
+            return that.stripe.redirectToCheckout({ sessionId: session.id });
+          })
+          .then(function (result) {
+            if (result.error) {
+              alert(result.error.message);
+            }
+          })
+          .catch(function (error) {
+            console.error("Error:", error);
+          });
       });
     },
     formatTipDate: function (timestamp) {

@@ -312,12 +312,52 @@ async def auth_twitter_dms_callback(request):
 async def stripe_callback(request):
     data = await request.json()
 
+    # Charge succeeded
+    if data["type"] == "charge.succeeded":
+        print("stripe_callback: charge.succeeded")
+        amount_dollars = data["data"]["object"]["amount"] / 100
+        message = None
+
+        tip = await Tip.query.where(
+            Tip.stripe_payment_intent == data["data"]["object"]["payment_intent"]
+        ).gino.first()
+        if tip:
+            # Update tip in database
+            print("stripe_callback: updating tip in database")
+            timestamp = datetime.utcfromtimestamp(data["data"]["object"]["created"])
+            await tip.update(
+                stripe_charge_id=data["data"]["object"]["id"],
+                receipt_url=data["data"]["object"]["receipt_url"],
+                paid=data["data"]["object"]["paid"],
+                refunded=data["data"]["object"]["refunded"],
+                amount=data["data"]["object"]["amount"],
+                timestamp=timestamp,
+            ).apply()
+
+            user = await User.query.where(User.id == tip.user_id).gino.first()
+            if user:
+                message = f"https://twitter.com/{user.twitter_screen_name} tipped ${amount_dollars} with stripe"
+            else:
+                message = f"invalid user (id={tip.user_id}) tipped ${amount_dollars} with stripe"
+        else:
+            message = f"unknown user tipped ${amount_dollars} with stripe"
+
+        # Send a DM to the admin
+        if message:
+            print(f"stripe_callback: {message}")
+            await send_admin_dm(message)
+
     # Refund a charge
-    if data["type"] == "charge.refunded":
+    elif data["type"] == "charge.refunded":
+        print("stripe_callback: charge.refunded")
         charge_id = data["data"]["object"]["id"]
-        tip = await Tip.query.where(Tip.charge_id == charge_id).gino.first()
+        tip = await Tip.query.where(Tip.stripe_charge_id == charge_id).gino.first()
         if tip:
             await tip.update(refunded=True).apply()
+
+    # All other callbacks
+    else:
+        print(f"stripe_callback: {data['type']} (not implemented)")
 
     return web.HTTPOk()
 
@@ -577,7 +617,6 @@ async def api_post_tip(request):
     # Validate
     await _api_validate(
         {
-            "token": str,
             "amount": str,
             "other_amount": [str, float],
         },
@@ -611,73 +650,50 @@ async def api_post_tip(request):
     else:
         amount = int(data["amount"])
 
-    # Charge the card
     try:
+        # Create a checkout session
+        domain = os.environ.get("DOMAIN")
         loop = asyncio.get_running_loop()
-        charge = await loop.run_in_executor(
+        checkout_session = await loop.run_in_executor(
             None,
             functools.partial(
-                stripe.Charge.create,
-                amount=amount,
-                currency="usd",
-                description="Tip",
-                source=data["token"],
+                stripe.checkout.Session.create,
+                submit_type="donate",
+                payment_method_types=["card"],
+                line_items=[
+                    {
+                        "price_data": {
+                            "currency": "usd",
+                            "unit_amount": amount,
+                            "product_data": {
+                                "name": "Semiphemeral tip",
+                                "images": [
+                                    f"https://semiphemeral.com/static/img/logo.png"
+                                ],
+                            },
+                        },
+                        "quantity": 1,
+                    },
+                ],
+                mode="payment",
+                success_url=f"https://{domain}/thanks",
+                cancel_url=f"https://{domain}/cancel-tip",
             ),
         )
 
-        # Add tip to the database
-        timestamp = datetime.utcfromtimestamp(charge.created)
         await Tip.create(
             user_id=user.id,
-            charge_id=charge.id,
-            receipt_url=charge.receipt_url,
-            paid=charge.paid,
-            refunded=charge.refunded,
-            amount=amount,
-            timestamp=timestamp,
+            payment_processor="stripe",
+            stripe_payment_intent=checkout_session.payment_intent,
+            paid=False,
+            timestamp=datetime.now(),
         )
 
-        # Send a DM to the admin
-        amount_dollars = amount / 100
-        await send_admin_dm(
-            f"@{user.twitter_screen_name} send you a ${amount_dollars} tip!"
-        )
+        return web.json_response({"error": False, "id": checkout_session.id})
 
-        return web.json_response({"error": False})
-
-    except stripe.error.CardError as e:
-        return web.json_response(
-            {"error": True, "error_message": f"Card error: {e.error.message}"}
-        )
-    except stripe.error.RateLimitError as e:
-        return web.json_response(
-            {"error": True, "error_message": f"Rate limit error: {e.error.message}"}
-        )
-    except stripe.error.InvalidRequestError as e:
-        return web.json_response(
-            {
-                "error": True,
-                "error_message": f"Invalid request error: {e.error.message}",
-            }
-        )
-    except stripe.error.AuthenticationError as e:
-        return web.json_response(
-            {"error": True, "error_message": f"Authentication error: {e.error.message}"}
-        )
-    except stripe.error.APIConnectionError as e:
-        return web.json_response(
-            {
-                "error": True,
-                "error_message": f"Network communication with Stripe error: {e.error.message}",
-            }
-        )
-    except stripe.error.StripeError as e:
-        return web.json_response(
-            {"error": True, "error_message": f"Unknown Stripe error: {e.error.message}"}
-        )
     except Exception as e:
         return web.json_response(
-            {"error": True, "error_message": f"Something went wrong, sorry: {e}"}
+            {"error": True, "error_message": f"Something went wrong: {e}"}
         )
 
 
@@ -715,6 +731,7 @@ async def api_get_tip_history(request):
 
     tips = (
         await Tip.query.where(Tip.user_id == user.id)
+        .where(Tip.paid == True)
         .order_by(Tip.timestamp.desc())
         .gino.all()
     )
@@ -1624,6 +1641,7 @@ async def start_web_server():
             web.get("/settings", app_main),
             web.get("/tip", app_main),
             web.get("/thanks", app_main),
+            web.get("/cancel-tip", app_main),
             web.get("/faq", app_main),
             # Admin
             web.get("/admin", app_admin_redirect),
