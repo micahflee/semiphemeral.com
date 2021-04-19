@@ -17,6 +17,7 @@ services:
       - MAINTENANCE_SECRET={{ maintenance_secret }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
+      - DOMAIN={{ domain }}
     expose:
       - "8080"
     volumes:

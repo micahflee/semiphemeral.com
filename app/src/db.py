@@ -44,7 +44,9 @@ class Tip(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    charge_id = db.Column(db.String)
+    payment_processor = db.Column(db.String)
+    stripe_charge_id = db.Column(db.String)
+    stripe_payment_intent = db.Column(db.String)
     receipt_url = db.Column(db.String)
     paid = db.Column(db.Boolean)
     refunded = db.Column(db.Boolean)
