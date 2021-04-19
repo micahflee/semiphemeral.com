@@ -123,6 +123,12 @@ button {
         </li>
         <li>
           <label>
+            <input type="radio" name="amount" value="10000" v-model="amount" />
+            $50
+          </label>
+        </li>
+        <li>
+          <label>
             <input type="radio" name="amount" value="other" v-model="amount" />
             Other
           </label>
@@ -183,7 +189,6 @@ export default {
       errorMessage: null,
       stripePublishableKey: false,
       stripe: false,
-      stripeCard: false,
       amount: "500",
       otherAmount: "",
       tips: [],
