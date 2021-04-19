@@ -1,7 +1,7 @@
 <style scoped>
 fieldset {
   margin-bottom: 10px;
-  max-width: 450px;
+  max-width: 550px;
 }
 
 fieldset ul {
@@ -124,7 +124,7 @@ button {
         <li>
           <label>
             <input type="radio" name="amount" value="10000" v-model="amount" />
-            $50
+            $100
           </label>
         </li>
         <li>
