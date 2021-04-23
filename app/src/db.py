@@ -52,6 +52,20 @@ class Tip(db.Model):
     refunded = db.Column(db.Boolean)
     amount = db.Column(db.Float)
     timestamp = db.Column(db.DateTime)
+    recurring_tip_id = db.Column(db.Integer)
+
+
+class RecurringTip(db.Model):
+    __tablename__ = "recurring_tips"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    payment_processor = db.Column(db.String)
+    stripe_checkout_session_id = db.Column(db.String)
+    stripe_customer_id = db.Column(db.String)
+    status = db.Column(db.String)
+    amount = db.Column(db.Float)
+    timestamp = db.Column(db.DateTime)
 
 
 class Nag(db.Model):

@@ -29,6 +29,7 @@ from common import (
 from db import (
     User,
     Tip,
+    RecurringTip,
     Nag,
     Job,
     BlockJob,
@@ -310,13 +311,16 @@ async def auth_twitter_dms_callback(request):
 
 
 async def stripe_callback(request):
+    message = None
     data = await request.json()
+
+    # TODO: verify webhook signatures
+    # webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET_KEY")
 
     # Charge succeeded
     if data["type"] == "charge.succeeded":
         print("stripe_callback: charge.succeeded")
         amount_dollars = data["data"]["object"]["amount"] / 100
-        message = None
 
         tip = await Tip.query.where(
             Tip.stripe_payment_intent == data["data"]["object"]["payment_intent"]
@@ -340,12 +344,66 @@ async def stripe_callback(request):
             else:
                 message = f"invalid user (id={tip.user_id}) tipped ${amount_dollars} with stripe"
         else:
-            message = f"unknown user tipped ${amount_dollars} with stripe"
+            # This was probably a recurring tip
+            pass
 
-        # Send a DM to the admin
-        if message:
-            print(f"stripe_callback: {message}")
-            await send_admin_dm(message)
+    # Recurring session has completed
+    elif data["type"] == "checkout.session.completed":
+        print("stripe_callback: checkout.session.completed")
+        amount_dollars = data["data"]["object"]["amount_total"] / 100
+        recurring_tip = await RecurringTip.query.where(
+            RecurringTip.stripe_checkout_session_id == data["data"]["object"]["id"]
+        ).gino.first()
+        if recurring_tip:
+            print("stripe_callback: updating recurring tip in database")
+            await recurring_tip.update(
+                stripe_customer_id=data["data"]["object"]["customer"],
+                amount=data["data"]["object"]["amount_total"],
+                status="active",
+            ).apply()
+
+            user = await User.query.where(User.id == recurring_tip.user_id).gino.first()
+            if user:
+                message = f"https://twitter.com/{user.twitter_screen_name} starting ${amount_dollars}/month tips with stripe"
+            else:
+                message = f"invalid user (id={tip.user_id}) starting ${amount_dollars}/month tips with stripe"
+        else:
+            print("stripe_callback: cannot find RecurringTip")
+
+    # Recurring tip paid
+    elif data["type"] == "invoice.paid":
+        print("stripe_callback: invoice.paid")
+        amount_dollars = data["data"]["object"]["amount_paid"] / 100
+        recurring_tip = await RecurringTip.query.where(
+            RecurringTip.stripe_customer_id == data["data"]["object"]["customer"]
+        ).gino.first()
+        if recurring_tip:
+            user = await User.query.where(User.id == recurring_tip.user_id).gino.first()
+            if user:
+                timestamp = datetime.utcfromtimestamp(data["data"]["object"]["created"])
+                await Tip.create(
+                    user_id=user.id,
+                    payment_processor="stripe",
+                    stripe_charge_id=data["data"]["object"]["charge"],
+                    receipt_url=data["data"]["object"]["hosted_invoice_url"],
+                    paid=data["data"]["object"]["paid"],
+                    refunded=False,
+                    amount=data["data"]["object"]["amount_paid"],
+                    timestamp=timestamp,
+                    recurring_tip_id=recurring_tip.id,
+                )
+                message = f"https://twitter.com/{user.twitter_screen_name} tipped ${amount_dollars} (monthly) with stripe"
+            else:
+                message = f"invalid user (id={tip.user_id}) tipped ${amount_dollars} (monthy) with stripe"
+        else:
+            # If there's no recurring tip, this was a one-time tip session
+            pass
+
+    # Recurring tip payment failed
+    elif data["type"] == "invoice.payment_failed":
+        print("stripe_callback: invoice.payment_failed")
+        print(json.dumps(data, indent=2))
+        message = "A recurring tip payment failed, look at docker logs and implement invoice.payment_failed"
 
     # Refund a charge
     elif data["type"] == "charge.refunded":
@@ -358,6 +416,11 @@ async def stripe_callback(request):
     # All other callbacks
     else:
         print(f"stripe_callback: {data['type']} (not implemented)")
+
+    # Send a DM to the admin
+    if message:
+        print(f"stripe_callback: {message}")
+        await send_admin_dm(message)
 
     return web.HTTPOk()
 
@@ -619,6 +682,7 @@ async def api_post_tip(request):
         {
             "amount": str,
             "other_amount": [str, float],
+            "type": str,
         },
         data,
     )
@@ -632,6 +696,8 @@ async def api_post_tip(request):
         and data["amount"] != "other"
     ):
         return web.json_response({"error": True, "error_message": "Invalid amount"})
+    if data["type"] != "one-time" and data["type"] != "monthly":
+        return web.json_response({"error": True, "error_message": "Invalid type"})
     if data["amount"] == "other":
         if float(data["other_amount"]) < 0:
             return web.json_response(
@@ -651,44 +717,100 @@ async def api_post_tip(request):
     else:
         amount = int(data["amount"])
 
+    # Is it recurring?
+    recurring = data["type"] == "monthly"
+
     try:
         # Create a checkout session
-        domain = os.environ.get("DOMAIN")
         loop = asyncio.get_running_loop()
-        checkout_session = await loop.run_in_executor(
-            None,
-            functools.partial(
-                stripe.checkout.Session.create,
-                submit_type="donate",
-                payment_method_types=["card"],
-                line_items=[
-                    {
-                        "price_data": {
-                            "currency": "usd",
-                            "unit_amount": amount,
-                            "product_data": {
-                                "name": "Semiphemeral tip",
-                                "images": [
-                                    f"https://semiphemeral.com/static/img/logo.png"
-                                ],
-                            },
-                        },
-                        "quantity": 1,
-                    },
-                ],
-                mode="payment",
-                success_url=f"https://{domain}/thanks",
-                cancel_url=f"https://{domain}/cancel-tip",
-            ),
-        )
+        domain = os.environ.get("DOMAIN")
+        if recurring:
+            # Make sure this Price object exists
+            price_id = None
 
-        await Tip.create(
-            user_id=user.id,
-            payment_processor="stripe",
-            stripe_payment_intent=checkout_session.payment_intent,
-            paid=False,
-            timestamp=datetime.now(),
-        )
+            prices = await loop.run_in_executor(
+                None,
+                functools.partial(
+                    stripe.Price.list, limit=100, recurring={"interval": "month"}
+                ),
+            )
+            for price in prices["data"]:
+                if price["unit_amount"] == amount:
+                    price_id = price["id"]
+                    break
+
+            if not price_id:
+                price = await loop.run_in_executor(
+                    None,
+                    functools.partial(
+                        stripe.Price.create,
+                        unit_amount=amount,
+                        currency="usd",
+                        recurring={"interval": "month"},
+                        product_data={
+                            "name": "Monthly Tip",
+                            "statement_descriptor": "SEMIPHEMERAL TIP",
+                        },
+                    ),
+                )
+                price_id = price["id"]
+
+            checkout_session = await loop.run_in_executor(
+                None,
+                functools.partial(
+                    stripe.checkout.Session.create,
+                    payment_method_types=["card"],
+                    success_url=f"https://{domain}/thanks",
+                    cancel_url=f"https://{domain}/cancel-tip",
+                    mode="subscription",
+                    line_items=[
+                        {"price": price_id, "quantity": 1},
+                    ],
+                ),
+            )
+
+            await RecurringTip.create(
+                user_id=user.id,
+                payment_processor="stripe",
+                stripe_checkout_session_id=checkout_session.id,
+                status="pending",
+                timestamp=datetime.now(),
+            )
+        else:
+            checkout_session = await loop.run_in_executor(
+                None,
+                functools.partial(
+                    stripe.checkout.Session.create,
+                    submit_type="donate",
+                    payment_method_types=["card"],
+                    success_url=f"https://{domain}/thanks",
+                    cancel_url=f"https://{domain}/cancel-tip",
+                    mode="payment",
+                    line_items=[
+                        {
+                            "price_data": {
+                                "currency": "usd",
+                                "unit_amount": amount,
+                                "product_data": {
+                                    "name": "Semiphemeral tip",
+                                    "images": [
+                                        f"https://semiphemeral.com/static/img/logo.png"
+                                    ],
+                                },
+                            },
+                            "quantity": 1,
+                        },
+                    ],
+                ),
+            )
+
+            await Tip.create(
+                user_id=user.id,
+                payment_processor="stripe",
+                stripe_payment_intent=checkout_session.payment_intent,
+                paid=False,
+                timestamp=datetime.now(),
+            )
 
         return web.json_response({"error": False, "id": checkout_session.id})
 
