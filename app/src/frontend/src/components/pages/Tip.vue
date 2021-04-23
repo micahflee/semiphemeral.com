@@ -17,14 +17,24 @@ fieldset .other-amount {
   width: 2.5em;
 }
 
-fieldset #card-element {
-  max-width: 440px;
-  border: 1px solid #f0f0f0;
-  padding: 5px;
+fieldset label {
+  background-color: #ffffff;
+  color: #28404f;
+  border: 1px solid #adc6d6;
+  padding: 5px 10px;
+  border-radius: 10px;
 }
 
-fieldset #card-errors {
-  color: #cc0000;
+fieldset label.selected {
+  background-color: #5d8fad;
+  color: #ffffff;
+  border: 1px solid #adc6d6;
+  padding: 5px 10px;
+  border-radius: 10px;
+}
+
+fieldset label input[type="radio"] {
+  display: none;
 }
 
 button {
@@ -98,37 +108,37 @@ button {
       <legend>How much would you like to tip?</legend>
       <ul>
         <li>
-          <label>
+          <label v-bind:class="amount == '100' ? 'selected' : ''">
             <input type="radio" name="amount" value="100" v-model="amount" />
             $1
           </label>
         </li>
         <li>
-          <label>
+          <label v-bind:class="amount == '500' ? 'selected' : ''">
             <input type="radio" name="amount" value="500" v-model="amount" />
             $5
           </label>
         </li>
         <li>
-          <label>
+          <label v-bind:class="amount == '1337' ? 'selected' : ''">
             <input type="radio" name="amount" value="1337" v-model="amount" />
             $13.37
           </label>
         </li>
         <li>
-          <label>
+          <label v-bind:class="amount == '2000' ? 'selected' : ''">
             <input type="radio" name="amount" value="2000" v-model="amount" />
             $20
           </label>
         </li>
         <li>
-          <label>
+          <label v-bind:class="amount == '10000' ? 'selected' : ''">
             <input type="radio" name="amount" value="10000" v-model="amount" />
             $100
           </label>
         </li>
         <li>
-          <label>
+          <label v-bind:class="amount == 'other' ? 'selected' : ''">
             <input type="radio" name="amount" value="other" v-model="amount" />
             Other
           </label>
@@ -142,10 +152,24 @@ button {
           </span>
         </li>
       </ul>
+      <ul>
+        <li>
+          <label v-bind:class="type == 'one-time' ? 'selected' : ''">
+            <input type="radio" name="type" value="one-time" v-model="type" />
+            One-time
+          </label>
+        </li>
+        <li>
+          <label v-bind:class="type == 'monthly' ? 'selected' : ''">
+            <input type="radio" name="type" value="monthly" v-model="type" />
+            Monthly
+          </label>
+        </li>
+      </ul>
     </fieldset>
 
     <p>
-      <button v-bind:disabled="loading" type="button" id="tip-button">
+      <button v-bind:disabled="loading" type="button" id="tip-stripe-button">
         Tip with Credit Card
       </button>
       <img v-if="loading" src="/static/img/loading.gif" alt="Loading" />
@@ -191,6 +215,7 @@ export default {
       stripe: false,
       amount: "500",
       otherAmount: "",
+      type: "one-time",
       tips: [],
     };
   },
@@ -241,7 +266,7 @@ export default {
     initStripe: function () {
       // Initialize Stripe
       this.stripe = Stripe(this.stripePublishableKey);
-      var tipButton = document.getElementById("tip-button");
+      var tipButton = document.getElementById("tip-stripe-button");
 
       var that = this;
       tipButton.addEventListener("click", function () {
@@ -251,6 +276,7 @@ export default {
           body: JSON.stringify({
             amount: that.amount,
             other_amount: that.otherAmount,
+            type: that.type,
           }),
         })
           .then(function (response) {
