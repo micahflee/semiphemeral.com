@@ -63,6 +63,7 @@ class RecurringTip(db.Model):
     payment_processor = db.Column(db.String)
     stripe_checkout_session_id = db.Column(db.String)
     stripe_customer_id = db.Column(db.String)
+    stripe_subscription_id = db.Column(db.String)
     status = db.Column(db.String)
     amount = db.Column(db.Float)
     timestamp = db.Column(db.DateTime)
