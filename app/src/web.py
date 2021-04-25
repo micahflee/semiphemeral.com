@@ -314,6 +314,10 @@ async def stripe_callback(request):
     message = None
     data = await request.json()
 
+    # Debug
+    print(f"stripe_callback: {data['type']}")
+    print(json.dumps(data, indent=2))
+
     # TODO: verify webhook signatures
     # webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET_KEY")
 
@@ -358,6 +362,7 @@ async def stripe_callback(request):
             print("stripe_callback: updating recurring tip in database")
             await recurring_tip.update(
                 stripe_customer_id=data["data"]["object"]["customer"],
+                stripe_subscription_id=data["data"]["object"]["subscription"],
                 amount=data["data"]["object"]["amount_total"],
                 status="active",
             ).apply()
@@ -663,15 +668,55 @@ async def api_get_tip(request):
     """
     Respond with all information necessary for Stripe tips
     """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+
+    tips = (
+        await Tip.query.where(Tip.user_id == user.id)
+        .where(Tip.paid == True)
+        .order_by(Tip.timestamp.desc())
+        .gino.all()
+    )
+
+    recurring_tips = (
+        await RecurringTip.query.where(RecurringTip.user_id == user.id)
+        .where(RecurringTip.status == "active")
+        .order_by(RecurringTip.timestamp.desc())
+        .gino.all()
+    )
+
+    def tip_to_client(tip):
+        return {
+            "timestamp": tip.timestamp.timestamp(),
+            "amount": tip.amount,
+            "paid": tip.paid,
+            "refunded": tip.refunded,
+            "receipt_url": tip.receipt_url,
+        }
+
+    def recurring_tip_to_client(recurring_tip):
+        return {
+            "id": recurring_tip.id,
+            "payment_processor": recurring_tip.payment_processor,
+            "amount": recurring_tip.amount,
+        }
+
     return web.json_response(
-        {"stripe_publishable_key": os.environ.get("STRIPE_PUBLISHABLE_KEY")}
+        {
+            "stripe_publishable_key": os.environ.get("STRIPE_PUBLISHABLE_KEY"),
+            "tips": [tip_to_client(tip) for tip in tips],
+            "recurring_tips": [
+                recurring_tip_to_client(recurring_tip)
+                for recurring_tip in recurring_tips
+            ],
+        }
     )
 
 
 @authentication_required_302
 async def api_post_tip(request):
     """
-    Charge the credit card
+    Submit a tip, to redirect to payment processor
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
@@ -820,6 +865,48 @@ async def api_post_tip(request):
         )
 
 
+@authentication_required_302
+async def api_post_tip_cancel_recurring(request):
+    """
+    Cancel a recurring tip
+    """
+    session = await get_session(request)
+    user = await _logged_in_user(session)
+    data = await request.json()
+
+    # Validate
+    await _api_validate(
+        {
+            "recurring_tip_id": int,
+        },
+        data,
+    )
+
+    # Get the recurring tip, and validate
+    recurring_tip = await RecurringTip.query.where(
+        RecurringTip.id == data["recurring_tip_id"]
+    ).gino.first()
+    if not recurring_tip:
+        return web.json_response(
+            {"error": True, "error_message": f"Cannot find recurring tip"}
+        )
+    if recurring_tip.user_id != user.id:
+        return web.json_response(
+            {"error": True, "error_message": f"What do you think you're trying to do?"}
+        )
+
+    # Cancel the recurring tip
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        None,
+        functools.partial(
+            stripe.Subscription.delete, sid=recurring_tip.stripe_subscription_id
+        ),
+    )
+    await recurring_tip.update(status="canceled").apply()
+    return web.json_response({"error": False})
+
+
 @authentication_required_401
 async def api_get_tip_recent(request):
     """
@@ -842,35 +929,6 @@ async def api_get_tip_recent(request):
         receipt_url = None
 
     return web.json_response({"receipt_url": receipt_url})
-
-
-@authentication_required_401
-async def api_get_tip_history(request):
-    """
-    Respond with a list of all tips the user has given
-    """
-    session = await get_session(request)
-    user = await _logged_in_user(session)
-
-    tips = (
-        await Tip.query.where(Tip.user_id == user.id)
-        .where(Tip.paid == True)
-        .order_by(Tip.timestamp.desc())
-        .gino.all()
-    )
-
-    return web.json_response(
-        [
-            {
-                "timestamp": tip.timestamp.timestamp(),
-                "amount": tip.amount,
-                "paid": tip.paid,
-                "refunded": tip.refunded,
-                "receipt_url": tip.receipt_url,
-            }
-            for tip in tips
-        ]
-    )
 
 
 @authentication_required_401
@@ -1745,8 +1803,8 @@ async def start_web_server():
             web.post("/api/settings/delete_account", api_post_settings_delete_account),
             web.get("/api/tip", api_get_tip),
             web.post("/api/tip", api_post_tip),
+            web.post("/api/tip/cancel_recurring", api_post_tip_cancel_recurring),
             web.get("/api/tip/recent", api_get_tip_recent),
-            web.get("/api/tip/history", api_get_tip_history),
             web.get("/api/dashboard", api_get_dashboard),
             web.post("/api/dashboard", api_post_dashboard),
             web.get("/api/tweets", api_get_tweets),

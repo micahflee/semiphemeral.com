@@ -101,8 +101,17 @@ button {
       Semiphemeral is free. Every day a bot will automatically delete your old
       tweets and likes (except for the ones you want to keep), keeping your
       social media presence a bit more private.
+      <strong
+        >Hosting this service costs money though, so tips are
+        appreciated.</strong
+      >
     </p>
-    <p>Hosting this service costs money though, so tips are appreciated.</p>
+
+    <template v-if="recurringTips.length > 0" class="recurring-tips">
+      <li v-for="(recurringTip, index) in recurringTips" v-bind:key="index">
+        <RecurringTip v-bind:recurringTip="recurringTip"></RecurringTip>
+      </li>
+    </template>
 
     <fieldset>
       <legend>How much would you like to tip?</legend>
@@ -205,6 +214,8 @@ button {
 </template>
 
 <script>
+import RecurringTip from "./Tip/RecurringTip.vue";
+
 export default {
   props: ["userScreenName"],
   data: function () {
@@ -217,52 +228,32 @@ export default {
       otherAmount: "",
       type: "one-time",
       tips: [],
+      recurringTips: [],
     };
   },
   created: function () {
     var that = this;
-
-    // Get the publishable Stripe API key
     fetch("/api/tip")
       .then(function (response) {
         if (response.status !== 200) {
           console.log(
-            "Error fetching tip variables, status code: " + response.status
+            "Error fetching tip info, status code: " + response.status
           );
           return;
         }
         response.json().then(function (data) {
           that.stripePublishableKey = data["stripe_publishable_key"];
+          that.tips = data["tips"];
+          that.recurringTips = data["recurring_tips"];
+
           that.initStripe();
         });
       })
       .catch(function (err) {
-        console.log("Error fetching tip variables", err);
+        console.log("Error fetching tip info", err);
       });
-
-    this.fetchHistory();
   },
   methods: {
-    fetchHistory: function () {
-      var that = this;
-
-      // Get the history of tips
-      fetch("/api/tip/history")
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log(
-              "Error fetching tip history, status code: " + response.status
-            );
-            return;
-          }
-          response.json().then(function (data) {
-            that.tips = data;
-          });
-        })
-        .catch(function (err) {
-          console.log("Error fetching tip history", err);
-        });
-    },
     initStripe: function () {
       // Initialize Stripe
       this.stripe = Stripe(this.stripePublishableKey);
@@ -329,6 +320,9 @@ export default {
     formatTipAmount: function (amount) {
       return "$" + (amount / 100).toFixed(2);
     },
+  },
+  components: {
+    RecurringTip: RecurringTip,
   },
 };
 </script>

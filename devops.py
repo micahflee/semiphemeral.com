@@ -106,16 +106,17 @@ def _terraform_apply(deploy_environment, ssh_ips, inbound_ips):
         return
 
     # terraform apply
+    cmd = [
+        "terraform",
+        "apply",
+        "-var",
+        f"ssh_ips={json.dumps(ssh_ips)}",
+        "-var",
+        f"inbound_ips={json.dumps(inbound_ips)}",
+    ] + _terraform_variables(deploy_environment)
+    print(cmd)
     p = subprocess.run(
-        [
-            "terraform",
-            "apply",
-            "-var",
-            f"ssh_ips={json.dumps(ssh_ips)}",
-            "-var",
-            f"inbound_ips={json.dumps(inbound_ips)}",
-        ]
-        + _terraform_variables(deploy_environment),
+        cmd,
         cwd=cwd,
     )
     if p.returncode != 0:
