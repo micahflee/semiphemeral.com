@@ -315,8 +315,8 @@ async def stripe_callback(request):
     data = await request.json()
 
     # Debug
-    print(f"stripe_callback: {data['type']}")
-    print(json.dumps(data, indent=2))
+    # print(f"stripe_callback: {data['type']}")
+    # print(json.dumps(data, indent=2))
 
     # TODO: verify webhook signatures
     # webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET_KEY")
