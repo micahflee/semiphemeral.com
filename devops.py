@@ -75,9 +75,7 @@ def _ansible_variables(deploy_environment):
     # Add variables from terraform
     terraform_output = _get_terraform_output(deploy_environment)
     ansible_vars.append("-e")
-    ansible_vars.append(f"database_uri={terraform_output['database_uri']}")
-    ansible_vars.append("-e")
-    ansible_vars.append(f"database_host={terraform_output['database_host']}")
+    ansible_vars.append(f"db_private_ip={terraform_output['db_private_ip']}")
 
     return ansible_vars
 
@@ -127,7 +125,7 @@ def _terraform_apply(deploy_environment, ssh_ips, inbound_ips):
 
 
 def _ansible_apply(deploy_environment, playbook, extra_args=[]):
-    if playbook not in ["deply-app.yaml", "deploy-db.yaml", "update-app.yaml"]:
+    if playbook not in ["deploy-app.yaml", "deploy-db.yaml", "update-app.yaml"]:
         click.echo("Invalid playbook")
         return False
 
@@ -149,7 +147,7 @@ def _ansible_apply(deploy_environment, playbook, extra_args=[]):
     return True
 
 
-def _ssh(server, deploy_environment, args=None, use_popen=False):
+def _ssh(deploy_environment, server, args=None, use_popen=False):
     app_ip, db_ip, _ = _get_ips(deploy_environment)
     if not app_ip or not db_ip:
         return
@@ -266,7 +264,7 @@ def ansible_app(deploy_environment):
     if not _validate_env(deploy_environment):
         return
 
-    if not _ansible_apply("deploy-app.yaml", deploy_environment):
+    if not _ansible_apply(deploy_environment, "deploy-app.yaml"):
         return
 
 
@@ -277,7 +275,7 @@ def ansible_db(deploy_environment):
     if not _validate_env(deploy_environment):
         return
 
-    if not _ansible_apply("deploy-db.yaml", deploy_environment):
+    if not _ansible_apply(deploy_environment, "deploy-db.yaml"):
         return
 
 
@@ -373,11 +371,20 @@ def destroy_staging():
 
 @main.command()
 @click.argument("deploy_environment", nargs=1)
-def ssh(deploy_environment):
-    """SSH to server"""
+def ssh_app(deploy_environment):
+    """SSH to app server"""
     if not _validate_env(deploy_environment):
         return
-    _ssh(deploy_environment)
+    _ssh(deploy_environment, "app")
+
+
+@main.command()
+@click.argument("deploy_environment", nargs=1)
+def ssh_db(deploy_environment):
+    """SSH to db server"""
+    if not _validate_env(deploy_environment):
+        return
+    _ssh(deploy_environment, "db")
 
 
 @main.command()
