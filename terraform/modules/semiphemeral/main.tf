@@ -12,9 +12,8 @@ variable "inbound_ips" {}
 variable "domain" {}
 
 resource "digitalocean_vpc" "semiphemeral" {
-  name     = "semiphemeral-${var.deploy_environment}"
-  region   = "nyc1"
-  ip_range = "10.10.10.0/24"
+  name   = "semiphemeral-${var.deploy_environment}"
+  region = "nyc1"
 }
 
 
@@ -106,11 +105,9 @@ resource "digitalocean_droplet" "db" {
 
 resource "digitalocean_volume" "db_data" {
   region                  = "nyc1"
-  vpc_uuid                = digitalocean_vpc.semiphemeral.id
-  name                    = "db_data"
+  name                    = "db"
   size                    = 100
   initial_filesystem_type = "ext4"
-  description             = "an example volume"
 }
 
 resource "digitalocean_volume_attachment" "db_data" {

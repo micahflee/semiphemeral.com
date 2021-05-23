@@ -22,30 +22,10 @@ output "app_ip" {
   value = module.semiphemeral.app_ip
 }
 
-output "database_uri" {
-  value = module.semiphemeral.database_uri
+output "db_ip" {
+  value = module.semiphemeral.app_ip
 }
 
-output "database_host" {
-  value = module.semiphemeral.database_host
-}
-
-output "database_port" {
-  value = module.semiphemeral.database_port
-}
-
-output "database_name" {
-  value = module.semiphemeral.database_name
-}
-
-output "database_user" {
-  value = module.semiphemeral.database_user
-}
-
-output "database_password" {
-  value = module.semiphemeral.database_password
-}
-
-output "postbird_url" {
-  value = module.semiphemeral.postbird_url
+output "db_private_ip" {
+  value = module.semiphemeral.app_ip
 }
