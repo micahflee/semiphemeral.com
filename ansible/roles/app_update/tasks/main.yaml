@@ -1,0 +1,45 @@
+---
+- name: copy the app
+  copy:
+    src: "{{ app_tgz }}"
+    dest: /tmp/app.tgz
+
+- name: extract the app
+  unarchive:
+    remote_src: yes
+    src: /tmp/app.tgz
+    dest: /opt/semiphemeral
+
+- name: /opt/semiphemeral/app/docker-compose.yml template
+  template:
+    src: ../../../../app/docker-compose.yml
+    dest: /opt/semiphemeral/app/docker-compose.yml
+
+- name: /opt/semiphemeral/app/proxy/etc/nginx/conf.d/semiphemeral.conf template
+  template:
+    src: ../../../../app/proxy/etc/nginx/conf.d/semiphemeral.conf
+    dest: /opt/semiphemeral/app/proxy/etc/nginx/conf.d/semiphemeral.conf
+
+- name: /opt/semiphemeral/src/alembic.ini template
+  template:
+    src: ../../../../app/src/alembic.ini
+    dest: /opt/semiphemeral/app/src/alembic.ini
+
+- name: ensure containers are down
+  docker_compose:
+    state: absent
+    pull: yes
+    build: true
+    project_src: /opt/semiphemeral/app
+
+- name: run database migrations
+  shell: |
+    cd /opt/semiphemeral/app && docker-compose build
+    docker run app_web poetry run alembic upgrade head
+
+- name: ensure containers are up
+  docker_compose:
+    state: present
+    pull: yes
+    build: true
+    project_src: /opt/semiphemeral/app

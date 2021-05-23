@@ -126,67 +126,20 @@ def _terraform_apply(deploy_environment, ssh_ips, inbound_ips):
     return True
 
 
-def _ansible_apply(deploy_environment, update_only=False):
-    # Move node_modules away
-    tmp_dir = tempfile.TemporaryDirectory()
-    frontend_node_modules_dir = os.path.join(
-        _get_root_dir(), "app/src/frontend/node_modules"
-    )
-    frontend_node_modules_dir_exists = os.path.exists(frontend_node_modules_dir)
-    if frontend_node_modules_dir_exists:
-        shutil.move(frontend_node_modules_dir, tmp_dir.name)
-    admin_tmp_dir = tempfile.TemporaryDirectory()
-    admin_frontend_node_modules_dir = os.path.join(
-        _get_root_dir(), "app/src/admin-frontend/node_modules"
-    )
-    admin_frontend_node_modules_dir_exists = os.path.exists(
-        admin_frontend_node_modules_dir
-    )
-    if admin_frontend_node_modules_dir_exists:
-        shutil.move(admin_frontend_node_modules_dir, admin_tmp_dir.name)
-
-    # Compress the app folder
-    app_tgz = os.path.join(tmp_dir.name, "app.tgz")
-    with tarfile.TarFile(app_tgz, mode="w") as tar:
-        tar.add(os.path.join(_get_root_dir(), "app"), arcname="app")
-
-    # Move node_modules back
-    if frontend_node_modules_dir_exists:
-        shutil.move(
-            os.path.join(tmp_dir.name, "node_modules"), frontend_node_modules_dir
-        )
-    if admin_frontend_node_modules_dir_exists:
-        shutil.move(
-            os.path.join(admin_tmp_dir.name, "node_modules"),
-            admin_frontend_node_modules_dir,
-        )
+def _ansible_apply(deploy_environment, playbook, extra_args=[]):
+    if playbook not in ["deply-app.yaml", "deploy-db.yaml", "update-app.yaml"]:
+        click.echo("Invalid playbook")
+        return False
 
     # Write the inventory file
     inventory_filename = _write_ansible_inventory(deploy_environment)
 
-    # Run deploy playbook
-    if not update_only:
-        p = subprocess.run(
-            ["ansible-playbook", "-i", inventory_filename]
-            + _ansible_variables(deploy_environment)
-            + ["deploy.yaml"],
-            cwd=os.path.join(_get_root_dir(), "ansible"),
-        )
-        if p.returncode != 0:
-            click.echo("Error running deploy ansible playbook")
-            return False
-
-    # Run update app playbook
+    # Run the playbook
     p = subprocess.run(
-        [
-            "ansible-playbook",
-            "-i",
-            inventory_filename,
-            "-e",
-            f"app_tgz={app_tgz}",
-        ]
+        ["ansible-playbook", "-i", inventory_filename]
+        + extra_args
         + _ansible_variables(deploy_environment)
-        + ["update_app.yaml"],
+        + [playbook],
         cwd=os.path.join(_get_root_dir(), "ansible"),
     )
     if p.returncode != 0:
@@ -196,10 +149,15 @@ def _ansible_apply(deploy_environment, update_only=False):
     return True
 
 
-def _ssh(deploy_environment, args=None, use_popen=False):
-    ip = _get_ip(deploy_environment)
-    if not ip:
+def _ssh(server, deploy_environment, args=None, use_popen=False):
+    app_ip, db_ip, _ = _get_ips(deploy_environment)
+    if not app_ip or not db_ip:
         return
+
+    if server == "app":
+        ip = app_ip
+    elif server == "db":
+        ip = db_ip
 
     if not args:
         args = []
@@ -236,21 +194,26 @@ def _get_terraform_output(deploy_environment):
     return terraform_output
 
 
-def _get_ip(deploy_environment):
-    # Make sure the IP is in there
+def _get_ips(deploy_environment):
     terraform_output = _get_terraform_output(deploy_environment)
-    if "app_ip" not in terraform_output:
-        print(
-            "Terraform output is missing `app_ip`. Did you run `terraform apply` successfully?"
-        )
+    if (
+        ("app_ip" not in terraform_output)
+        or ("db_ip" not in terraform_output)
+        or ("db_private_ip" not in terraform_output)
+    ):
+        print("Missing terraform output. Did you run `terraform apply` successfully?")
         return False
 
-    return terraform_output["app_ip"]
+    return (
+        terraform_output["app_ip"],
+        terraform_output["db_ip"],
+        terraform_output["db_private_ip"],
+    )
 
 
 def _write_ansible_inventory(deploy_environment):
-    ip = _get_ip(deploy_environment)
-    if not ip:
+    app_ip, db_ip, _ = _get_ips(deploy_environment)
+    if not app_ip or not db_ip:
         return
 
     # Create the ansible inventory file
@@ -258,8 +221,11 @@ def _write_ansible_inventory(deploy_environment):
         _get_root_dir(), f"ansible/inventory-{deploy_environment}"
     )
     with open(inventory_filename, "w") as f:
-        f.write(f"[app]\n")
-        f.write(f"{ip}\n")
+        f.write("[app]\n")
+        f.write(f"{app_ip}\n")
+        f.write("\n")
+        f.write("[db]\n")
+        f.write(f"{db_ip}\n")
 
     return inventory_filename
 
@@ -295,37 +261,68 @@ def main():
 
 @main.command()
 @click.argument("deploy_environment", nargs=1)
-def deploy(deploy_environment):
-    """Deploy and configure infrastructure"""
+def ansible_app(deploy_environment):
+    """Deploy and configure infrastructure app server"""
     if not _validate_env(deploy_environment):
         return
 
-    devops_ip = _get_devops_ip()
-
-    # deploy with terraform, allowing all IPs for 80 and 443 for Let's Encrypt
-    if not _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"]):
+    if not _ansible_apply("deploy-app.yaml", deploy_environment):
         return
-
-    # configure the server
-    if not _ansible_apply(deploy_environment):
-        return
-
-    # deploy with terraform again, this time only allowing the devops IP to access 80 and 443
-    # (but all all IPs for production)
-    # if deploy_environment == "staging":
-    #     if not _terraform_apply(deploy_environment, [devops_ip], [devops_ip]):
-    #         return
 
 
 @main.command()
 @click.argument("deploy_environment", nargs=1)
-def update_app(deploy_environment):
-    """Just update the app on already-deployed infrastructure"""
+def ansible_db(deploy_environment):
+    """Deploy and configure infrastructure db server"""
     if not _validate_env(deploy_environment):
         return
 
-    # configure the server
-    _ansible_apply(deploy_environment, update_only=True)
+    if not _ansible_apply("deploy-db.yaml", deploy_environment):
+        return
+
+
+@main.command()
+@click.argument("deploy_environment", nargs=1)
+def ansible_app_update(deploy_environment):
+    """Update the app on already-deployed app server"""
+    if not _validate_env(deploy_environment):
+        return
+
+    # Move node_modules away
+    tmp_dir = tempfile.TemporaryDirectory()
+    frontend_node_modules_dir = os.path.join(
+        _get_root_dir(), "app/src/frontend/node_modules"
+    )
+    frontend_node_modules_dir_exists = os.path.exists(frontend_node_modules_dir)
+    if frontend_node_modules_dir_exists:
+        shutil.move(frontend_node_modules_dir, tmp_dir.name)
+    admin_tmp_dir = tempfile.TemporaryDirectory()
+    admin_frontend_node_modules_dir = os.path.join(
+        _get_root_dir(), "app/src/admin-frontend/node_modules"
+    )
+    admin_frontend_node_modules_dir_exists = os.path.exists(
+        admin_frontend_node_modules_dir
+    )
+    if admin_frontend_node_modules_dir_exists:
+        shutil.move(admin_frontend_node_modules_dir, admin_tmp_dir.name)
+
+    # Compress the app folder
+    app_tgz = os.path.join(tmp_dir.name, "app.tgz")
+    with tarfile.TarFile(app_tgz, mode="w") as tar:
+        tar.add(os.path.join(_get_root_dir(), "app"), arcname="app")
+
+    # Move node_modules back
+    if frontend_node_modules_dir_exists:
+        shutil.move(
+            os.path.join(tmp_dir.name, "node_modules"), frontend_node_modules_dir
+        )
+    if admin_frontend_node_modules_dir_exists:
+        shutil.move(
+            os.path.join(admin_tmp_dir.name, "node_modules"),
+            admin_frontend_node_modules_dir,
+        )
+
+    _ansible_apply(deploy_environment, "update-app.yaml", ["-e", f"app_tgz={app_tgz}"])
 
 
 @main.command()
@@ -346,7 +343,6 @@ def terraform(deploy_environment, open_firewall):
     if open_firewall or deploy_environment == "production":
         _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
     else:
-        # _terraform_apply(deploy_environment, [devops_ip], [devops_ip])
         _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
 
 
@@ -394,6 +390,7 @@ def forward_postgres(deploy_environment):
     terraform_output = _get_terraform_output(deploy_environment)
     click.echo(f"postbird connection URL: {terraform_output['postbird_url']}")
     _ssh(
+        "app",
         deploy_environment,
         [
             "-N",
@@ -510,7 +507,7 @@ def backup_restore(deploy_environment, backup_filename):
     _write_pgpass(deploy_environment, postgres_port)
 
     # Restore the database
-    click.echo(f"Restoring database backup")
+    click.echo("Restoring database backup")
     subprocess.run(
         [
             "psql",
@@ -537,7 +534,7 @@ def backup_restore(deploy_environment, backup_filename):
     click.echo("Stopping forwarding postgres port")
     p.kill()
 
-    click.echo(f"Backup restored")
+    click.echo("Backup restored")
 
 
 if __name__ == "__main__":

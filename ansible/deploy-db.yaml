@@ -1,0 +1,7 @@
+---
+- name: install and configure db server
+  hosts: db
+  remote_user: root
+  roles:
+    - base
+    - db

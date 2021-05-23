@@ -1,0 +1,68 @@
+---
+- name: update all packages
+  apt:
+    update_cache: yes
+    upgrade: dist
+    autoremove: yes
+
+- name: ensure dependencies are installed
+  apt:
+    state: present
+    name: "{{ packages }}"
+  vars:
+    packages:
+      - unattended-upgrades
+
+- name: ensure unattended-upgrades is configured
+  shell: |
+    echo unattended-upgrades unattended-upgrades/enable_auto_updates boolean true | debconf-set-selections
+    dpkg-reconfigure -f noninteractive unattended-upgrades
+
+- name: ensure unattended-upgrades is enabled
+  systemd:
+    name: unattended-upgrades
+    state: started
+    enabled: yes
+
+- name: ensure /root/.screenrc is there
+  copy:
+    src: "../templates/root/.screenrc"
+    dest: /root/.screenrc
+
+- name: ensure /root/.vimrc is there
+  copy:
+    src: "../templates/root/.vimrc"
+    dest: /root/.vimrc
+
+- name: check if swap file exists
+  stat:
+    path: /swapfile
+  register: swapfile
+
+- name: create 16GB swapfile
+  shell: fallocate -l 16G /swapfile
+  when: swapfile.stat.exists == false
+
+- name: ensure swapfile has the right permissions
+  file:
+    path: /swapfile
+    owner: "root"
+    group: "root"
+    mode: "0600"
+
+- name: check if swapfile is formatted
+  shell: file /swapfile | grep "swap file (new style)"
+  ignore_errors: yes
+  register: file_swapfile
+
+- name: format swapfile
+  shell: mkswap /swapfile
+  when: file_swapfile.rc != 0
+
+- name: ensure /etc/fstab has the swap file
+  copy:
+    src: "etc/fstab"
+    dest: /etc/fstab
+
+- name: make sure swap is on
+  shell: swapon --all
