@@ -23,9 +23,9 @@ output "app_ip" {
 }
 
 output "db_ip" {
-  value = module.semiphemeral.app_ip
+  value = module.semiphemeral.db_ip
 }
 
 output "db_private_ip" {
-  value = module.semiphemeral.app_ip
+  value = module.semiphemeral.db_private_ip
 }

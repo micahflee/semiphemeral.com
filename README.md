@@ -8,13 +8,10 @@ The hosted version of [semiphemeral](https://github.com/micahflee/semiphemeral).
 
 To backup and restore, you need `postgresql-client` installed.
 
-Install [terraform](https://www.terraform.io/downloads.html) and python 3.7+, and these pip dependencies:
+Install [terraform](https://www.terraform.io/downloads.html) and Python 3+, and these pip dependencies:
 
 ```sh
-# from pip
 pip3 install --user ansible black click requests
-# or from apt
-sudo apt install ansible black python3-click python3-requests
 ```
 
 Copy `vars-terraform-sample.json` to `.vars-terraform.json` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean. Copy `vars-ansible-sample.json` to `.vars-ansible.json` and edit it to add Twitter app credentials.
