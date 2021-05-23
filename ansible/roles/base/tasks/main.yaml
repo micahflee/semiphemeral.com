@@ -61,7 +61,7 @@
 
 - name: ensure /etc/fstab has the swap file
   copy:
-    src: "etc/fstab"
+    src: "../templates/etc/fstab"
     dest: /etc/fstab
 
 - name: make sure swap is on
