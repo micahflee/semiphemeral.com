@@ -1,0 +1,9 @@
+---
+- name: install and configure app server
+  hosts: app
+  remote_user: root
+  roles:
+    - base
+    - docker
+    - app
+    - app_updates

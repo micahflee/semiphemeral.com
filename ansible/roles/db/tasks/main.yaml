@@ -1,0 +1,4 @@
+---
+- name: set hostname
+  hostname:
+    name: "db-{{ deploy_environment }}"

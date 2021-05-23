@@ -11,15 +11,22 @@ variable "inbound_ips" {}
 # for DNS records
 variable "domain" {}
 
+resource "digitalocean_vpc" "semiphemeral" {
+  name     = "semiphemeral-${var.deploy_environment}"
+  region   = "nyc1"
+  ip_range = "10.10.10.0/24"
+}
+
+
 resource "digitalocean_droplet" "app" {
   name               = "app-${var.deploy_environment}"
-  image              = "ubuntu-18-04-x64"
+  image              = "ubuntu-20-04-x64"
   region             = "nyc1"
-  size               = "s-2vcpu-4gb"
+  size               = "s-2vcpu-2gb"
   private_networking = true
-  ssh_keys = [
-    var.ssh_fingerprint
-  ]
+  vpc_uuid           = digitalocean_vpc.semiphemeral.id
+  monitoring         = true
+  ssh_keys           = [var.ssh_fingerprint]
 }
 
 resource "digitalocean_firewall" "app" {
@@ -51,8 +58,79 @@ resource "digitalocean_firewall" "app" {
 
   outbound_rule {
     protocol              = "tcp"
+    port_range            = "80"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "443"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "5432"
+    destination_addresses = [digitalocean_droplet.db.ipv4_address_private]
+  }
+
+  outbound_rule {
+    protocol              = "tcp"
     port_range            = "53"
     destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "udp"
+    port_range            = "53"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "icmp"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+  }
+}
+
+resource "digitalocean_droplet" "db" {
+  name               = "db-${var.deploy_environment}"
+  image              = "ubuntu-20-04-x64"
+  size               = "s-2vcpu-2gb"
+  private_networking = true
+  region             = "nyc1"
+  vpc_uuid           = digitalocean_vpc.semiphemeral.id
+  backups            = true
+  monitoring         = true
+  ssh_keys           = [var.ssh_fingerprint]
+}
+
+resource "digitalocean_volume" "db_data" {
+  region                  = "nyc1"
+  vpc_uuid                = digitalocean_vpc.semiphemeral.id
+  name                    = "db_data"
+  size                    = 100
+  initial_filesystem_type = "ext4"
+  description             = "an example volume"
+}
+
+resource "digitalocean_volume_attachment" "db_data" {
+  droplet_id = digitalocean_droplet.db.id
+  volume_id  = digitalocean_volume.db_data.id
+}
+
+resource "digitalocean_firewall" "db" {
+  name        = "ssh-${var.deploy_environment}"
+  droplet_ids = [digitalocean_droplet.db.id]
+
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "22"
+    source_addresses = jsondecode(var.ssh_ips)
+  }
+
+  inbound_rule {
+    protocol         = "icmp"
+    source_addresses = jsondecode(var.inbound_ips)
   }
 
   outbound_rule {
@@ -67,17 +145,9 @@ resource "digitalocean_firewall" "app" {
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
-  # DigitalOcean postgresql database cluster's connection pool
-  # I can't seem to restrict it to a hostname, and I don't know the cluster's IP
   outbound_rule {
     protocol              = "tcp"
-    port_range            = "25060"
-    destination_addresses = ["0.0.0.0/0", "::/0"]
-  }
-
-  outbound_rule {
-    protocol              = "tcp"
-    port_range            = "25061"
+    port_range            = "53"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
@@ -131,61 +201,14 @@ resource "digitalocean_record" "helm_cname" {
   ttl    = "3600"
 }
 
-resource "digitalocean_database_cluster" "db" {
-  name       = "db-${var.deploy_environment}"
-  engine     = "pg"
-  version    = "12"
-  size       = "db-s-2vcpu-4gb"
-  region     = "nyc1"
-  node_count = 1
-}
-
-resource "digitalocean_database_firewall" "fw" {
-  cluster_id = digitalocean_database_cluster.db.id
-
-  rule {
-    type  = "droplet"
-    value = digitalocean_droplet.app.id
-  }
-}
-
-resource "digitalocean_database_connection_pool" "pool" {
-  cluster_id = digitalocean_database_cluster.db.id
-  name       = "pool-01-${var.deploy_environment}"
-  mode       = "session"
-  size       = 20
-  db_name    = digitalocean_database_cluster.db.database
-  user       = digitalocean_database_cluster.db.user
-}
-
 output "app_ip" {
   value = digitalocean_droplet.app.ipv4_address
 }
 
-output "database_uri" {
-  value = digitalocean_database_connection_pool.pool.private_uri
+output "db_ip" {
+  value = digitalocean_droplet.db.ipv4_address
 }
 
-output "database_host" {
-  value = digitalocean_database_connection_pool.pool.private_host
-}
-
-output "database_port" {
-  value = digitalocean_database_connection_pool.pool.port
-}
-
-output "database_name" {
-  value = digitalocean_database_connection_pool.pool.name
-}
-
-output "database_user" {
-  value = digitalocean_database_connection_pool.pool.user
-}
-
-output "database_password" {
-  value = digitalocean_database_connection_pool.pool.password
-}
-
-output "postbird_url" {
-  value = "postgresql://doadmin:${digitalocean_database_cluster.db.password}@localhost:5432/defaultdb?ssl=true"
+output "db_private_ip" {
+  value = digitalocean_droplet.db.ipv4_address_private
 }
