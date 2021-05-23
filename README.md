@@ -8,7 +8,7 @@ The hosted version of [semiphemeral](https://github.com/micahflee/semiphemeral).
 
 To backup and restore, you need `postgresql-client` installed.
 
-Install [terraform](https://www.terraform.io/downloads.html) and Python 3+, and these pip dependencies:
+Install [terraform](https://www.terraform.io/downloads.html) (`snap install terraform`) and Python 3+, and these pip dependencies:
 
 ```sh
 pip3 install --user ansible black click requests
@@ -28,14 +28,16 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  backup-restore    Restore a database backup
-  backup-save       Save a database backup
-  deploy            Deploy and configure infrastructure
-  destroy           Destroy infrastructure
-  forward-postgres  Forward the postgres port to localhost, using SSH
-  ssh               SSH to server
-  terraform         Re-apply terraform (uses current IP for devops IP)
-  update-app        Just update the app on already-deployed infrastructure
+  ansible-app         Deploy and configure infrastructure app server
+  ansible-app-update  Update the app on already-deployed app server
+  ansible-db          Deploy and configure infrastructure db server
+  backup-restore      Restore a database backup
+  backup-save         Save a database backup
+  destroy-staging     Destroy staging infrastructure
+  forward-postgres    Forward the postgres port to localhost, using SSH
+  ssh-app             SSH to app server
+  ssh-db              SSH to db server
+  terraform           Re-apply terraform (uses current IP for devops IP)
 ```
 
 When you run deploy, it will use terraform to deploy/update DigitalOcean infrastructure, and then use ansible to ensure the server is configured.
