@@ -3,4 +3,4 @@
   hosts: app
   remote_user: root
   roles:
-    - app_updates
+    - app_update
