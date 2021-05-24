@@ -421,6 +421,11 @@ def backup_save(deploy_environment):
     if not _validate_env(deploy_environment):
         return
 
+    # load ansible variables
+    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible.json"))[
+        deploy_environment
+    ]
+
     postgres_port = _find_available_port()
     backup_filename = os.path.join(
         _get_root_dir(),
@@ -438,7 +443,7 @@ def backup_save(deploy_environment):
         [
             "-N",
             "-L",
-            f"{postgres_port}:{terraform_output['database_host']}:{terraform_output['database_port']}",
+            f"{postgres_port}:{terraform_output['db_private_ip']}:5432",
         ],
         use_popen=True,
     )
@@ -459,8 +464,8 @@ def backup_save(deploy_environment):
             "-p",
             str(postgres_port),
             "-U",
-            terraform_output["database_user"],
-            terraform_output["database_name"],
+            variables["postgres_username"],
+            variables["postgres_db"],
             "-f",
             backup_filename,
         ],
@@ -489,6 +494,11 @@ def backup_restore(deploy_environment, backup_filename):
     if not _validate_env(deploy_environment):
         return
 
+    # load ansible variables
+    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible.json"))[
+        deploy_environment
+    ]
+
     postgres_port = _find_available_port()
     terraform_output = _get_terraform_output(deploy_environment)
 
@@ -512,7 +522,7 @@ def backup_restore(deploy_environment, backup_filename):
         [
             "-N",
             "-L",
-            f"{postgres_port}:{terraform_output['database_host']}:{terraform_output['database_port']}",
+            f"{postgres_port}:{terraform_output['db_private_ip']}:5432",
         ],
         use_popen=True,
     )
@@ -531,9 +541,9 @@ def backup_restore(deploy_environment, backup_filename):
             "-p",
             str(postgres_port),
             "-U",
-            terraform_output["database_user"],
+            variables["postgres_username"],
             "-d",
-            terraform_output["database_name"],
+            variables["postgres_db"],
             "-f",
             sql_filename,
         ],

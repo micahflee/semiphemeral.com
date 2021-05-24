@@ -10,10 +10,10 @@
     src: /tmp/app.tgz
     dest: /opt/semiphemeral
 
-- name: /opt/semiphemeral/app/docker-compose.yml template
+- name: /opt/semiphemeral/app/docker-compose.yaml template
   template:
-    src: ../../../../app/docker-compose.yml
-    dest: /opt/semiphemeral/app/docker-compose.yml
+    src: ../../../../app/docker-compose.yaml
+    dest: /opt/semiphemeral/app/docker-compose.yaml
 
 - name: /opt/semiphemeral/app/proxy/etc/nginx/conf.d/semiphemeral.conf template
   template:
