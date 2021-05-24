@@ -1,0 +1,4 @@
+LABEL=cloudimg-rootfs   /        ext4   defaults        0 0
+LABEL=UEFI      /boot/efi       vfat    defaults        0 0
+/dev/disk/by-id/scsi-0DO_Volume_db-{{ deploy_environment }} /db/mnt ext4 defaults,nofail,discard 0 0
+/swapfile none swap sw 0 0
