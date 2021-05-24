@@ -10,7 +10,7 @@ services:
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
       - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
-      - DATABASE_URI={{ database_uri }}
+      - DATABASE_URI=postgres://{{ postgres_username }}:postgres://{{ postgres_password }}@postgres://{{ db_private_ip }}:5432/postgres://{{ postgres_db }}
       - COOKIE_FERNET_KEY={{ cookie_fernet_key }}
       - STRIPE_PUBLISHABLE_KEY={{ stripe_publishable_key }}
       - STRIPE_SECRET_KEY={{ stripe_secret_key }}
@@ -56,7 +56,7 @@ services:
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
       - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
       - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
-      - DATABASE_URI={{ database_uri }}
+      - DATABASE_URI=postgres://{{ postgres_username }}:postgres://{{ postgres_password }}@postgres://{{ db_private_ip }}:5432/postgres://{{ postgres_db }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
     networks:
@@ -78,7 +78,7 @@ services:
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
       - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
       - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
-      - DATABASE_URI={{ database_uri }}
+      - DATABASE_URI=postgres://{{ postgres_username }}:postgres://{{ postgres_password }}@postgres://{{ db_private_ip }}:5432/postgres://{{ postgres_db }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
     volumes:
