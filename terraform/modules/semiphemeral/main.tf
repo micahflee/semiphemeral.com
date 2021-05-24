@@ -29,7 +29,7 @@ resource "digitalocean_droplet" "app" {
 }
 
 resource "digitalocean_firewall" "app" {
-  name        = "ssh-http-https-postgresql-${var.deploy_environment}"
+  name        = "app-${var.deploy_environment}"
   droplet_ids = [digitalocean_droplet.app.id]
 
   inbound_rule {
@@ -116,13 +116,19 @@ resource "digitalocean_volume_attachment" "db_data" {
 }
 
 resource "digitalocean_firewall" "db" {
-  name        = "ssh-${var.deploy_environment}"
+  name        = "db-${var.deploy_environment}"
   droplet_ids = [digitalocean_droplet.db.id]
 
   inbound_rule {
     protocol         = "tcp"
     port_range       = "22"
     source_addresses = jsondecode(var.ssh_ips)
+  }
+
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "5432"
+    source_addresses = [digitalocean_droplet.app.ipv4_address_private]
   }
 
   inbound_rule {
