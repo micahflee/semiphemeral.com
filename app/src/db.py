@@ -171,9 +171,5 @@ class Fascist(db.Model):
 
 
 async def connect_db():
-    ctx = ssl.create_default_context(
-        cafile=os.path.abspath("digitalocean/ca-certificate.crt")
-    )
     database_uri = os.environ.get("DATABASE_URI")
-
-    return await db.set_bind(database_uri, ssl=ctx)
+    return await db.set_bind(database_uri)
