@@ -13,7 +13,10 @@
         "stripe_webhook_secret_key": "whsec_blahblahblahfromstripe",
         "maintenance_secret": "output of: python3 -c 'import secrets; print(secrets.token_hex(16))'",
         "admin_username": "micahflee",
-        "admin_webhook": ""
+        "admin_webhook": "",
+        "postgres_user": "semiphemeral",
+        "postgres_password": "blahblah-something-random",
+        "postgres_db": "semiphemeral"
     },
     "production": {
         "domain": "semiphemeral.com",
@@ -29,6 +32,9 @@
         "stripe_webhook_secret_key": "whsec_blahblahblahfromstripe",
         "maintenance_secret": "output of: python3 -c 'import secrets; print(secrets.token_hex(16))'",
         "admin_username": "micahflee",
-        "admin_webhook": ""
+        "admin_webhook": "",
+        "postgres_user": "semiphemeral",
+        "postgres_password": "blahblah-something-random",
+        "postgres_db": "semiphemeral"
     }
 }

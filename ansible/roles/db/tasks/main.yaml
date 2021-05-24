@@ -2,3 +2,35 @@
 - name: set hostname
   hostname:
     name: "db-{{ deploy_environment }}"
+
+- name: ensure /db directory exists
+  file:
+    path: /db
+    state: directory
+
+- name: ensure /db/data directory exists
+  file:
+    path: /db/mnt
+    state: directory
+
+- name: ensure /etc/fstab mounts the data volume (and swap)
+  template:
+    src: "../templates/etc/fstab"
+    dest: /etc/fstab
+
+- name: mount everything
+  command: mount -a
+  args:
+    warn: no
+  become: true
+
+- name: /db/docker-compose.yaml template
+  template:
+    src: ../templates/docker-compose.yaml
+    dest: /db/docker-compose.yaml
+
+- name: ensure containers are up
+  docker_compose:
+    state: present
+    pull: yes
+    project_src: /db

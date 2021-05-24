@@ -105,7 +105,7 @@ resource "digitalocean_droplet" "db" {
 
 resource "digitalocean_volume" "db_data" {
   region                  = "nyc1"
-  name                    = "db"
+  name                    = "db-${var.deploy_environment}"
   size                    = 100
   initial_filesystem_type = "ext4"
 }
