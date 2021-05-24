@@ -394,15 +394,22 @@ def forward_postgres(deploy_environment):
     if not _validate_env(deploy_environment):
         return
 
+    # load ansible variables
+    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible.json"))[
+        deploy_environment
+    ]
+
     terraform_output = _get_terraform_output(deploy_environment)
-    click.echo(f"postbird connection URL: {terraform_output['postbird_url']}")
+    click.echo(
+        f"postbird connection URL: postgres://{variables['postgres_user']}:{variables['postgres_password']}@127.0.0.1:5432/{variables['postgres_db']}"
+    )
     _ssh(
-        "app",
         deploy_environment,
+        "db",
         [
             "-N",
             "-L",
-            f"5432:{terraform_output['database_host']}:25060",
+            f"5432:{terraform_output['db_private_ip']}:5432",
         ],
     )
 
@@ -427,6 +434,7 @@ def backup_save(deploy_environment):
     click.echo("Starting forwarding postgres port")
     p = _ssh(
         deploy_environment,
+        "db",
         [
             "-N",
             "-L",
