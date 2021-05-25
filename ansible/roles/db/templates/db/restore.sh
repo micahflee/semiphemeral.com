@@ -15,4 +15,4 @@ psql \
     -f "$FILENAME" &&
 
 echo "== Database restored, deleting backup from server" && 
-rm *.gz
+rm "$FILENAME"
