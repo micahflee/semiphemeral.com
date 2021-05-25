@@ -98,7 +98,6 @@ resource "digitalocean_droplet" "db" {
   private_networking = true
   region             = "nyc1"
   vpc_uuid           = digitalocean_vpc.semiphemeral.id
-  backups            = true
   monitoring         = true
   ssh_keys           = [var.ssh_fingerprint]
 }
