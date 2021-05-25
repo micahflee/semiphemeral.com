@@ -10,8 +10,6 @@ import pipes
 import socket
 import random
 import warnings
-import time
-from datetime import datetime
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -147,7 +145,7 @@ def _ansible_apply(deploy_environment, playbook, extra_args=[]):
     return True
 
 
-def _ssh(deploy_environment, server, args=None, use_popen=False):
+def _ssh(deploy_environment, server, args=None, use_popen=False, cmds=None):
     app_ip, db_ip, _ = _get_ips(deploy_environment)
     if not app_ip or not db_ip:
         return
@@ -160,6 +158,10 @@ def _ssh(deploy_environment, server, args=None, use_popen=False):
     if not args:
         args = []
     args = ["ssh"] + args + [f"root@{ip}"]
+
+    if not cmds:
+        cmds = []
+    args = args + cmds
 
     # SSH into the server
     args_str = " ".join(pipes.quote(s) for s in args)
@@ -226,30 +228,6 @@ def _write_ansible_inventory(deploy_environment):
         f.write(f"{db_ip}\n")
 
     return inventory_filename
-
-
-def _write_pgpass(deploy_environment, postgres_port):
-    # Write a postgres password to disk
-    # https://www.postgresql.org/docs/current/libpq-pgpass.html
-    pgpass_filename = os.path.expanduser("~/.pgpass")
-    terraform_output = _get_terraform_output(deploy_environment)
-    with open(pgpass_filename, "w") as f:
-        f.write(
-            ":".join(
-                [
-                    "127.0.0.1",
-                    str(postgres_port),
-                    terraform_output["database_name"],
-                    terraform_output["database_user"],
-                    terraform_output["database_password"],
-                ]
-            )
-        )
-    os.chmod(pgpass_filename, 0o600)
-
-
-def _rm_pgpass():
-    os.remove(os.path.expanduser("~/.pgpass"))
 
 
 @click.group()
@@ -421,69 +399,16 @@ def backup_save(deploy_environment):
     if not _validate_env(deploy_environment):
         return
 
-    # load ansible variables
-    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible.json"))[
-        deploy_environment
-    ]
+    _, db_ip, _ = _get_ips(deploy_environment)
 
-    postgres_port = _find_available_port()
-    backup_filename = os.path.join(
-        _get_root_dir(),
-        "backups",
-        f"semiphemeral-{deploy_environment}-{datetime.now().strftime('%Y-%m-%d_%H:%M:%S')}.sql",
-    )
+    # Save the backup
+    _ssh(deploy_environment, "db", cmds=["/db/backup.sh"])
 
-    terraform_output = _get_terraform_output(deploy_environment)
+    # Download the backup
+    subprocess.run(["scp", f"root@{db_ip}:/db/semiphemeral-*.sql.gz", "./backups"])
 
-    # First, forward the postgres port
-    click.echo("Starting forwarding postgres port")
-    p = _ssh(
-        deploy_environment,
-        "db",
-        [
-            "-N",
-            "-L",
-            f"{postgres_port}:{terraform_output['db_private_ip']}:5432",
-        ],
-        use_popen=True,
-    )
-    time.sleep(3)
-
-    # Write a postgres password to disk
-    _write_pgpass(deploy_environment, postgres_port)
-
-    # Dump the database
-    click.echo(f"Backing up to {backup_filename}")
-    subprocess.run(
-        [
-            "pg_dump",
-            "--clean",
-            "--if-exists",
-            "-h",
-            "127.0.0.1",
-            "-p",
-            str(postgres_port),
-            "-U",
-            variables["postgres_username"],
-            variables["postgres_db"],
-            "-f",
-            backup_filename,
-        ],
-        env={**os.environ, "PGSSLMODE": "allow"},
-    )
-
-    # Delete postgres password from disk
-    _rm_pgpass()
-
-    # Compress backup
-    click.echo("Compressing")
-    subprocess.run(["gzip", backup_filename])
-
-    # Stop forwarding the postgres port
-    click.echo("Stopping forwarding of postgres port")
-    p.kill()
-
-    click.echo(f"Backup complete: {backup_filename}.gz")
+    # Delete the backup
+    _ssh(deploy_environment, "db", cmds=["rm", "/db/semiphemeral-*.sql.gz"])
 
 
 @main.command()
@@ -494,72 +419,20 @@ def backup_restore(deploy_environment, backup_filename):
     if not _validate_env(deploy_environment):
         return
 
-    # load ansible variables
-    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible.json"))[
-        deploy_environment
-    ]
+    _, db_ip, _ = _get_ips(deploy_environment)
 
-    postgres_port = _find_available_port()
-    terraform_output = _get_terraform_output(deploy_environment)
-
-    # If it's gzipped, extract it
-    ext = os.path.splitext(backup_filename)[1]
-    if ext == ".gz":
-        subprocess.run(["gunzip", "-k", backup_filename])
-        sql_filename = os.path.splitext(backup_filename)[0]
-        delete_sql_file_when_done = True
-    elif ext == ".sql":
-        sql_filename = backup_filename
-        delete_sql_file_when_done = False
-    else:
-        click.echo("File must be .sql or .sql.gz")
+    # Validate
+    if not backup_filename.endswith(".sql.gz"):
+        click.echo("Backup must be a .sql.gz file")
         return
 
-    # Forward the postgres port
-    click.echo("Starting forwarding of postgres port")
-    p = _ssh(
-        deploy_environment,
-        [
-            "-N",
-            "-L",
-            f"{postgres_port}:{terraform_output['db_private_ip']}:5432",
-        ],
-        use_popen=True,
-    )
-    time.sleep(3)
+    basename = os.path.basename(backup_filename)
 
-    # Write a postgres password to disk
-    _write_pgpass(deploy_environment, postgres_port)
+    # Upload the backup
+    subprocess.run(["scp", backup_filename, f"root@{db_ip}:/db/"])
 
-    # Restore the database
-    click.echo("Restoring database backup")
-    subprocess.run(
-        [
-            "psql",
-            "-h",
-            "127.0.0.1",
-            "-p",
-            str(postgres_port),
-            "-U",
-            variables["postgres_username"],
-            "-d",
-            variables["postgres_db"],
-            "-f",
-            sql_filename,
-        ],
-        env={**os.environ, "PGSSLMODE": "allow"},
-    )
-
-    # Clean up
-    _rm_pgpass()
-    if delete_sql_file_when_done:
-        os.remove(sql_filename)
-
-    # Stop forwarding the postgres port
-    click.echo("Stopping forwarding postgres port")
-    p.kill()
-
-    click.echo("Backup restored")
+    # Restore the backup
+    _ssh(deploy_environment, "db", cmds=["/db/restore.sh", basename])
 
 
 if __name__ == "__main__":

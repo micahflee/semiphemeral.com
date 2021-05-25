@@ -3,6 +3,14 @@
   hostname:
     name: "db-{{ deploy_environment }}"
 
+- name: ensure dependencies are installed
+  apt:
+    state: present
+    name: "{{ packages }}"
+  vars:
+    packages:
+      - postgresql-client
+
 - name: ensure /db directory exists
   file:
     path: /db
@@ -24,10 +32,31 @@
     warn: no
   become: true
 
+- name: /root/.pgpass template
+  template:
+    src: ../templates/root/.pgpass
+    dest: /root/.pgpass
+    owner: "root"
+    mode: 0600
+
 - name: /db/docker-compose.yaml template
   template:
-    src: ../templates/docker-compose.yaml
+    src: ../templates/db/docker-compose.yaml
     dest: /db/docker-compose.yaml
+
+- name: /db/backup.sh template
+  template:
+    src: ../templates/db/backup.sh
+    dest: /db/backup.sh
+    owner: "root"
+    mode: 0700
+
+- name: /db/restore.sh template
+  template:
+    src: ../templates/db/restore.sh
+    dest: /db/restore.sh
+    owner: "root"
+    mode: 0700
 
 - name: ensure containers are up
   docker_compose:
