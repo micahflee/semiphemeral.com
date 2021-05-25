@@ -3,7 +3,7 @@
 TIMESTAMP=$(date +%F_%T)
 FILENAME=/db/semiphemeral-{{ deploy_environment }}-$TIMESTAMP.sql
 
-echo "== Dumping"
+echo "== Dumping" &&
 pg_dump \
     --clean \
     --if-exists \
@@ -11,10 +11,10 @@ pg_dump \
     -p 5432 \
     -U "{{ postgres_user }}" \
     "{{ postgres_db }}" \
-    -f $FILENAME
+    -f $FILENAME &&
 
-echo "== Compressing"
-gzip $FILENAME
+echo "== Compressing" &&
+gzip $FILENAME &&
 
-echo "== Finished"
+echo "== Finished" &&
 echo "${FILENAME}.gz"
