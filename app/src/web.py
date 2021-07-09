@@ -1092,7 +1092,7 @@ async def api_post_dashboard(request):
                 .order_by(Tweet.created_at.desc())
                 .gino.all()
             )
-            if len(fascist_tweets) > 10:
+            if len(fascist_tweets) > 15:
                 return web.json_response(
                     {
                         "message": "You've liked too many fascist tweets to be allowed to automatically unblock yourself"
