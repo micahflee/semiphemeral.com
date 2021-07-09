@@ -491,7 +491,7 @@ async def fetch(gino_db, job, job_runner_id):
         .where(Tweet.created_at > six_months_ago)
         .gino.all()
     )
-    if len(fascist_tweets) > 0:
+    if len(fascist_tweets) > 4:
         # Create a block job
         await BlockJob.create(
             user_id=user.id,
@@ -1388,6 +1388,11 @@ async def start_unblock_job(unblock_job):
         )[0]
 
         if not friendship.blocking:
+            # Update the user
+            user = await User.query.where(User.id == unblock_job.user_id).gino.first()
+            if user and user.blocked:
+                await user.update(paused=True, blocked=False).apply()
+
             # Already unblocked, so our work here is done
             await unblock_job.update(
                 status="unblocked", unblocked_timestamp=datetime.now()

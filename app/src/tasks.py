@@ -132,6 +132,42 @@ async def _cleanup_dm_jobs():
     await send_admin_dm(admin_message)
 
 
+async def _unblock_users():
+    gino_db = await connect_db()
+
+    blocked_users = await User.query.where(User.blocked == True).gino.all()
+    i = 0
+    unblocked_user_count = 0
+    count = len(blocked_users)
+    for user in blocked_users:
+        print(
+            f"\r[{i}/{count}] checking @{user.twitter_screen_name} ..." + " " * 20,
+            end="",
+        )
+
+        # Are they already unblocked?
+        api = await tweepy_api(user)
+        friendship = (
+            await tweepy_api_call(
+                None,
+                api,
+                "show_friendship",
+                source_screen_name="semiphemeral",
+                target_screen_name=user.twitter_screen_name,
+            )
+        )[0]
+        if not friendship.blocking:
+            unblocked_user_count += 1
+            await user.update(paused=True, blocked=False).apply()
+            print(
+                f"\r[{i}/{count}, unblocked {unblocked_user_count}], set @{user.twitter_screen_name} to unblocked"
+            )
+
+        i += 1
+
+    print("")
+
+
 @click.group()
 def main():
     """semiphemeral.com tasks"""
@@ -159,6 +195,14 @@ def cleanup_users():
 )
 def cleanup_dm_jobs():
     asyncio.run(_cleanup_dm_jobs())
+
+
+@main.command(
+    "unblock-users",
+    short_help="Set users to unblocked if they shouldn't be blocked",
+)
+def unblock_users():
+    asyncio.run(_unblock_users())
 
 
 if __name__ == "__main__":
