@@ -146,22 +146,28 @@ async def _unblock_users():
         )
 
         # Are they already unblocked?
-        api = await tweepy_api(user)
-        friendship = (
-            await tweepy_api_call(
-                None,
-                api,
-                "show_friendship",
-                source_screen_name="semiphemeral",
-                target_screen_name=user.twitter_screen_name,
-            )
-        )[0]
-        if not friendship.blocking:
-            unblocked_user_count += 1
-            await user.update(paused=True, blocked=False).apply()
+        try:
+            api = await tweepy_api(user)
+            friendship = (
+                await tweepy_api_call(
+                    None,
+                    api,
+                    "show_friendship",
+                    source_screen_name="semiphemeral",
+                    target_screen_name=user.twitter_screen_name,
+                )
+            )[0]
+            if not friendship.blocking:
+                unblocked_user_count += 1
+                await user.update(paused=True, blocked=False).apply()
+                print(
+                    f"\r[{i}/{count}, unblocked {unblocked_user_count}], set @{user.twitter_screen_name} to unblocked"
+                )
+        except tweepy.error.TweepError as e:
             print(
-                f"\r[{i}/{count}, unblocked {unblocked_user_count}], set @{user.twitter_screen_name} to unblocked"
+                f"\r[{i}/{count}, deleting @{user.twitter_screen_name}: {e}"
             )
+            await delete_user(user)
 
         i += 1
 
