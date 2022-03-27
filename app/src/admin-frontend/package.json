@@ -1,5 +1,5 @@
 {
-  "name": "semiphemeral-frontend",
+  "name": "semiphemeral-admin",
   "version": "1.0.0",
   "devDependencies": {
     "css-loader": "^3.6.0",
