@@ -119,7 +119,6 @@ terraform/staging/terraform.tfstate
 ansible/inventory-*
 backups/*.sql
 backups/*.sql.gz
-.pgpass
 
 # frontend
 app/src/frontend/node_modules
