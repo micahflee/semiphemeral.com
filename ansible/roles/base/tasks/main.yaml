@@ -12,6 +12,7 @@
   vars:
     packages:
       - unattended-upgrades
+      - byobu
 
 - name: ensure unattended-upgrades is configured
   shell: |
@@ -23,11 +24,6 @@
     name: unattended-upgrades
     state: started
     enabled: yes
-
-- name: ensure /root/.screenrc is there
-  copy:
-    src: "../templates/root/.screenrc"
-    dest: /root/.screenrc
 
 - name: ensure /root/.vimrc is there
   copy:
