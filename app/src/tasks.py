@@ -87,9 +87,9 @@ async def _cleanup_users():
         )
         api = await tweepy_api(user)
         try:
-            await tweepy_api_call(None, api, "me")
+            await tweepy_api_call(None, api, "get_user", user_id=User.twitter_id)
             # print(f"\r[{i}/{count}] checking @{user.twitter_screen_name} valid")
-        except tweepy.error.TweepError as e:
+        except tweepy.errors.TweepyException as e:
             print(
                 f"\r[{i}/{count}, deleted {users_deleted}] deleting @{user.twitter_screen_name}: {e}"
             )
@@ -163,10 +163,8 @@ async def _unblock_users():
                 print(
                     f"\r[{i}/{count}, unblocked {unblocked_user_count}], set @{user.twitter_screen_name} to unblocked"
                 )
-        except tweepy.error.TweepError as e:
-            print(
-                f"\r[{i}/{count}, deleting @{user.twitter_screen_name}: {e}"
-            )
+        except tweepy.errors.TweepyException as e:
+            print(f"\r[{i}/{count}, deleting @{user.twitter_screen_name}: {e}")
             await delete_user(user)
 
         i += 1

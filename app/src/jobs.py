@@ -69,8 +69,8 @@ def test_api_creds(func):
         api = await tweepy_api(user)
         try:
             # Make an API request
-            await tweepy_api_call(job, api, "me")
-        except tweepy.error.TweepError as e:
+            await tweepy_api_call(job, api, "get_user", user_id=User.twitter_id)
+        except tweepy.errors.TweepyException as e:
             print(
                 f"user_id={user.id} API creds failed ({e}), canceling job and pausing user"
             )
@@ -622,7 +622,7 @@ async def delete(gino_db, job, job_runner_id):
                         )
                         await tweet.update(is_deleted=True).apply()
                         break
-                    except tweepy.error.TweepError as e:
+                    except tweepy.errors.TweepyException as e:
                         if e.api_code == 144:
                             # Already deleted
                             await tweet.update(is_deleted=True).apply()
@@ -695,7 +695,7 @@ async def delete(gino_db, job, job_runner_id):
                         #     job, f"#{job_runner_id} Deleted like {tweet.status_id}"
                         # )
                         break
-                    except tweepy.error.TweepError as e:
+                    except tweepy.errors.TweepyException as e:
                         if e.api_code == 144:  # 144 = No status found with that ID
                             # Already unliked
                             await tweet.update(is_unliked=True).apply()
@@ -753,7 +753,7 @@ async def delete(gino_db, job, job_runner_id):
                     await tweet.update(is_deleted=True, text=None).apply()
                     # await log(job, f"#{job_runner_id} Deleted tweet {tweet.status_id}")
                     break
-                except tweepy.error.TweepError as e:
+                except tweepy.errors.TweepyException as e:
                     if e.api_code == 144:  # No status found with that ID
                         # Already deleted
                         await tweet.update(is_deleted=True, text=None).apply()
@@ -774,8 +774,8 @@ async def delete(gino_db, job, job_runner_id):
         # Make sure the DMs API authenticates successfully
         proceed = False
         try:
-            dms_api = await twitter_dms_api(user)
-            twitter_user = await twitter_api_call(dms_api, "me")
+            dms_api = await tweepy_dms_api(user)
+            twitter_user = await tweepy_api_call(job, dms_api, "get_user", user_id=User.twitter_id)
             proceed = True
         except:
             # It doesn't, so disable deleting direct messages
@@ -811,7 +811,7 @@ async def delete(gino_db, job, job_runner_id):
                         job, f"#{job_runner_id} Hit the end of fetch DMs loop, breaking"
                     )
                     break
-                except tweepy.TweepError as e:
+                except tweepy.errors.TweepyException as e:
                     await update_progress_rate_limit(job, progress, job_runner_id)
                     continue
 
@@ -828,7 +828,7 @@ async def delete(gino_db, job, job_runner_id):
                                 )
                                 await log(job, f"#{job_runner_id} Deleted DM {dm.id}")
                                 break
-                            except tweepy.error.TweepError as e:
+                            except tweepy.errors.TweepyException as e:
                                 if e.api_code == 429:  # 429 = Too Many Requests
                                     await update_progress_rate_limit(
                                         job, progress, job_runner_id
@@ -1015,7 +1015,7 @@ async def delete_dms_job(job, dm_type, job_runner_id):
                 try:
                     await loop.run_in_executor(None, dms_api.me)
                     break
-                except tweepy.error.TweepError as e:
+                except tweepy.errors.TweepyException as e:
                     if e.api_code == 429:  # 429 = Too Many Requests
                         await update_progress_rate_limit(job, progress, job_runner_id)
                         # Don't break, so it tries again
@@ -1090,7 +1090,7 @@ async def delete_dms_job(job, dm_type, job_runner_id):
                             progress["dms_deleted"] += 1
                             await update_progress(job, progress)
                             break
-                        except tweepy.error.TweepError as e:
+                        except tweepy.errors.TweepyException as e:
                             if e.api_code == 429:  # 429 = Too Many Requests
                                 await update_progress_rate_limit(
                                     job, progress, job_runner_id
