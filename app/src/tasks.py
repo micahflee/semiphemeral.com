@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import tweepy
 
 from db import connect_db, User, Job, DirectMessageJob
-from common import send_admin_dm, tweepy_api, tweepy_api_call, delete_user
+from common import send_admin_notification, tweepy_api, tweepy_api_call, delete_user
 
 
 async def _send_reminders():
@@ -69,7 +69,7 @@ async def _send_reminders():
             f"Queued semiphemeral reminder DMs to {len(reminded_users)} users:\n\n"
             + "\n".join(reminded_users)
         )
-        await send_admin_dm(admin_message)
+        await send_admin_notification(admin_message)
 
 
 async def _cleanup_users():
@@ -100,7 +100,7 @@ async def _cleanup_users():
 
     admin_message = f"Deleted {users_deleted} users and all their data"
     print(admin_message)
-    await send_admin_dm(admin_message)
+    await send_admin_notification(admin_message)
 
 
 async def _cleanup_dm_jobs():
@@ -129,7 +129,7 @@ async def _cleanup_dm_jobs():
 
     admin_message = f"Deleted {num_deleted} pending DM jobs from deleted users"
     print(admin_message)
-    await send_admin_dm(admin_message)
+    await send_admin_notification(admin_message)
 
 
 async def _unblock_users():

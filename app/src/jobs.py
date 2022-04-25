@@ -23,7 +23,7 @@ from common import (
     peony_dms_client,
     twitter_semiphemeral_dm_api,
     tweets_to_delete,
-    send_admin_dm,
+    send_admin_notification,
 )
 from db import (
     Job,
@@ -1562,7 +1562,7 @@ async def start_jobs(gino_db):
 async def start_dm_jobs():
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         await asyncio.sleep(5)
-    await send_admin_dm(
+    await send_admin_notification(
         f"DM jobs container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
     )
 
