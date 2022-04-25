@@ -47,6 +47,4 @@
 - name: ensure containers are up
   docker_compose:
     state: present
-    pull: yes
-    build: true
     project_src: /opt/semiphemeral/app

@@ -136,7 +136,7 @@ async def tweepy_api_call(job, api, method, **kwargs):
                 None, functools.partial(getattr(api, method), **kwargs)
             )
             return result
-        except tweepy.error.TweepError as e:
+        except tweepy.errors.TweepyException as e:
             if e.api_code == 130:  # 130 = Over Capacity
                 await log(job, f"tweepy_api_call, hit exception, retrying in 60s: {e}")
                 await asyncio.sleep(60)

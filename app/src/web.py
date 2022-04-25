@@ -97,7 +97,9 @@ async def _api_validate_dms_authenticated(user):
         # Check if user is authenticated with DMs twitter app
         try:
             dms_api = await tweepy_dms_api(user)
-            twitter_user = await tweepy_api_call(None, dms_api, "me")
+            twitter_user = await tweepy_api_call(
+                None, api, "get_user", user_id=User.twitter_id
+            )
             return True
         except:
             pass
@@ -160,10 +162,12 @@ async def auth_login(request):
         auth.set_access_token(
             user.twitter_access_token, user.twitter_access_token_secret
         )
-        api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+        api = tweepy.API(auth, wait_on_rate_limit=True)
 
         # Validate user
-        twitter_user = await tweepy_api_call(None, api, "me")
+        twitter_user = await tweepy_api_call(
+            None, api, "get_user", user_id=User.twitter_id
+        )
         if session["twitter_id"] == str(twitter_user.id):
             raise web.HTTPFound("/dashboard")
 
@@ -175,7 +179,7 @@ async def auth_login(request):
         )
         redirect_url = auth.get_authorization_url()
         raise web.HTTPFound(location=redirect_url)
-    except tweepy.TweepError as e:
+    except tweepy.errors.TweepyException as e:
         raise web.HTTPUnauthorized(
             text=f"Error, failed to get request token from Twitter: {e}"
         )
@@ -215,13 +219,15 @@ async def auth_twitter_callback(request):
 
     try:
         auth.get_access_token(verifier)
-    except tweepy.TweepError:
+    except tweepy.errors.TweepyException:
         raise web.HTTPUnauthorized(text="Error, failed to get access token")
 
     try:
-        api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-        twitter_user = await tweepy_api_call(None, api, "me")
-    except tweepy.TweepError as e:
+        api = tweepy.API(auth, wait_on_rate_limit=True)
+        twitter_user = await tweepy_api_call(
+            None, api, "get_user", user_id=User.twitter_id
+        )
+    except tweepy.errors.TweepyException as e:
         raise web.HTTPUnauthorized(text=f"Error, error using Twitter API: {e}")
 
     # Save values in the session
@@ -285,13 +291,15 @@ async def auth_twitter_dms_callback(request):
 
     try:
         auth.get_access_token(verifier)
-    except tweepy.TweepError:
+    except tweepy.errors.TweepyException:
         raise web.HTTPUnauthorized(text="Error, failed to get access token")
 
     try:
-        api = tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
-        twitter_user = await tweepy_api_call(None, api, "me")
-    except tweepy.TweepError as e:
+        api = tweepy.API(auth, wait_on_rate_limit=True)
+        twitter_user = await tweepy_api_call(
+            None, api, "get_user", user_id=User.twitter_id
+        )
+    except tweepy.errors.TweepyException as e:
         raise web.HTTPUnauthorized(text=f"Error, error using Twitter API: {e}")
 
     # Does this user already exist?
@@ -455,7 +463,9 @@ async def api_get_user(request):
     else:
         # Just a normal user
         api = await tweepy_api(user)
-        twitter_user = await tweepy_api_call(None, api, "me")
+        twitter_user = await tweepy_api_call(
+            None, api, "get_user", user_id=User.twitter_id
+        )
 
     return web.json_response(
         {
@@ -574,7 +584,7 @@ async def api_post_settings(request):
             )
             redirect_url = auth.get_authorization_url()
             return web.json_response({"error": False, "redirect_url": redirect_url})
-        except tweepy.TweepError as e:
+        except tweepy.errors.TweepyException as e:
             return web.json_response({"error": True, "error_message": str(e)})
 
 
