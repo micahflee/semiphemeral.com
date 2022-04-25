@@ -1,10 +1,8 @@
 import os
 import base64
-import tweepy
 import logging
 import asyncio
 import functools
-import subprocess
 import csv
 import json
 from datetime import datetime, timedelta
@@ -19,11 +17,7 @@ import stripe
 from sqlalchemy import or_
 
 from common import (
-    tweepy_api,
-    tweepy_dms_api,
-    tweepy_api_call,
-    tweets_to_delete,
-    send_admin_dm,
+    send_admin_notification,
     delete_user,
 )
 from db import (
@@ -430,10 +424,10 @@ async def stripe_callback(request):
     else:
         print(f"stripe_callback: {data['type']} (not implemented)")
 
-    # Send a DM to the admin
+    # Send notification to the admin
     if message:
         print(f"stripe_callback: {message}")
-        await send_admin_dm(message)
+        await send_admin_notification(message)
 
     return web.HTTPOk()
 
@@ -1777,7 +1771,7 @@ async def maintenance_refresh_logging(request=None):
 
 async def start_web_server():
     # Send admin DM now, so it doesn't get immediately canceled in staging
-    await send_admin_dm(
+    await send_admin_notification(
         f"web server container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
     )
 

@@ -5,7 +5,6 @@ import requests
 import json
 from datetime import datetime, timedelta, timezone
 
-import tweepy
 import peony
 from peony import PeonyClient
 
@@ -123,53 +122,6 @@ async def peony_dms_client(user):
     return client
 
 
-async def tweepy_api_call(job, api, method, **kwargs):
-    """
-    Wrapper around Twitter API to support asyncio for all API calls. See:
-    https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.run_in_executor
-    https://docs.python.org/3/library/asyncio-eventloop.html#asyncio-pass-keywords
-    """
-    while True:
-        try:
-            loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(
-                None, functools.partial(getattr(api, method), **kwargs)
-            )
-            return result
-        except tweepy.errors.TweepyException as e:
-            if e.api_code == 130:  # 130 = Over Capacity
-                await log(job, f"tweepy_api_call, hit exception, retrying in 60s: {e}")
-                await asyncio.sleep(60)
-            # elif (
-            #     e.api_code == 220
-            # ):  # Your credentials do not allow access to this resource
-            #     pass
-            else:
-                raise e
-
-
-async def tweepy_api(user):
-    auth = tweepy.OAuthHandler(
-        os.environ.get("TWITTER_CONSUMER_TOKEN"),
-        os.environ.get("TWITTER_CONSUMER_KEY"),
-    )
-    auth.set_access_token(user.twitter_access_token, user.twitter_access_token_secret)
-    api = tweepy.API(auth)
-    return api
-
-
-async def tweepy_dms_api(user):
-    auth = tweepy.OAuthHandler(
-        os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
-        os.environ.get("TWITTER_DM_CONSUMER_KEY"),
-    )
-    auth.set_access_token(
-        user.twitter_dms_access_token, user.twitter_dms_access_token_secret
-    )
-    api = tweepy.API(auth)
-    return api
-
-
 # The API to send DMs from the @semiphemeral account
 async def twitter_semiphemeral_dm_api():
     auth = tweepy.OAuthHandler(
@@ -241,7 +193,7 @@ async def tweets_to_delete(user, include_manually_excluded=False):
     return tweets_to_delete
 
 
-async def send_admin_dm(message):
+async def send_admin_notification(message):
     # Webhook
     webhook_url = os.environ.get("ADMIN_WEBHOOK")
     try:
