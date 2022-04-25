@@ -1,7 +1,7 @@
 #!/bin/bash
 
 TIMESTAMP=$(date +%F_%T)
-FILENAME=/db/semiphemeral-{{ deploy_environment }}-$TIMESTAMP.sql
+FILENAME=/db/mnt/semiphemeral-{{ deploy_environment }}-$TIMESTAMP.sql
 
 echo "== Dumping" &&
 pg_dump \

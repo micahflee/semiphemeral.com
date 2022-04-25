@@ -101,7 +101,7 @@ class PoenyErrorHandler(peony.ErrorHandler):
 
 
 async def peony_oauth1(twitter_consumer_token, twitter_consumer_key, callback_path):
-    token = get_oauth_token(
+    token = await get_oauth_token(
         twitter_consumer_token,
         twitter_consumer_key,
         callback_uri=f"https://{os.environ.get('DOMAIN')}{callback_path}",
@@ -119,7 +119,7 @@ async def peony_oauth2(
     oauth_token_secret,
     oauth_verifier,
 ):
-    token = get_access_token(
+    token = await get_access_token(
         twitter_consumer_token,
         twitter_consumer_key,
         oauth_token,

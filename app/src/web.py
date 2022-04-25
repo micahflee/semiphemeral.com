@@ -24,7 +24,7 @@ from common import (
     peony_oauth1,
     peony_oauth2,
     peony_client,
-    peony_dms_client
+    peony_dms_client,
 )
 from db import (
     User,
@@ -157,7 +157,7 @@ async def auth_login(request):
             raise web.HTTPFound("/dashboard")
 
     # Otherwise, authorize with Twitter
-    redirect_url, token = peony_oauth1(
+    redirect_url, token = await peony_oauth1(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
         "/auth/twitter_callback",
@@ -190,7 +190,7 @@ async def auth_twitter_callback(request):
 
     # Authenticate with twitter
     session = await get_session(request)
-    token = peony_oauth2(
+    token = await peony_oauth2(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
         oauth_token,
@@ -252,7 +252,7 @@ async def auth_twitter_dms_callback(request):
 
     # Authenticate with twitter
     session = await get_session(request)
-    token = peony_oauth2(
+    token = await peony_oauth2(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
         oauth_token,
@@ -421,12 +421,14 @@ async def api_get_user(request):
         twitter_user = await client.api.users.lookup.get(
             screen_name=user.twitter_screen_name
         )
+        twitter_user = twitter_user[0]
     else:
         # Just a normal user
         client = await peony_client(user)
         twitter_user = await client.api.users.lookup.get(
             screen_name=user.twitter_screen_name
         )
+        twitter_user = twitter_user[0]
 
     return web.json_response(
         {
@@ -538,7 +540,7 @@ async def api_post_settings(request):
 
     if data["action"] == "authenticate_dms":
         # Authorize with Twitter
-        redirect_url, token = peony_oauth1(
+        redirect_url, token = await peony_oauth1(
             os.environ.get("TWITTER_CONSUMER_TOKEN"),
             os.environ.get("TWITTER_CONSUMER_KEY"),
             "/auth/twitter_callback",
@@ -1042,11 +1044,11 @@ async def api_post_dashboard(request):
         # Are we still blocked?
         client = await peony_client(user)
         friendship = await client.api.friendships.show.get(
-            source_screen_name=user.twitter_screen_name
-            target_screen_name="semiphemeral"
+            source_screen_name=user.twitter_screen_name,
+            target_screen_name="semiphemeral",
         )
 
-        if friendship['relationship']['blocked_by']:
+        if friendship["relationship"]["blocked_by"]:
             # Still blocked by semiphemeral. Should we unblock?
 
             # Count fascist tweets
@@ -1089,11 +1091,11 @@ async def api_post_dashboard(request):
         # Are we still blocked?
         client = await peony_client(user)
         friendship = await client.api.friendships.show.get(
-            source_screen_name=user.twitter_screen_name
-            target_screen_name="semiphemeral"
+            source_screen_name=user.twitter_screen_name,
+            target_screen_name="semiphemeral",
         )
 
-        if friendship['relationship']['blocked_by']:
+        if friendship["relationship"]["blocked_by"]:
             return web.json_response({"unblocked": False})
         else:
             # Delete the user's likes so we can start over and check them all

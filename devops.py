@@ -405,10 +405,10 @@ def backup_save(deploy_environment):
     _ssh(deploy_environment, "db", cmds=["/db/backup.sh"])
 
     # Download the backup
-    subprocess.run(["scp", f"root@{db_ip}:/db/semiphemeral-*.sql.gz", "./backups"])
+    subprocess.run(["scp", f"root@{db_ip}:/db/mnt/semiphemeral-*.sql.gz", "./backups"])
 
     # Delete the backup
-    _ssh(deploy_environment, "db", cmds=["rm", "/db/semiphemeral-*.sql.gz"])
+    _ssh(deploy_environment, "db", cmds=["rm", "/db/mnt/semiphemeral-*.sql.gz"])
 
 
 @main.command()
@@ -429,7 +429,7 @@ def backup_restore(deploy_environment, backup_filename):
     basename = os.path.basename(backup_filename)
 
     # Upload the backup
-    subprocess.run(["scp", backup_filename, f"root@{db_ip}:/db/"])
+    subprocess.run(["scp", backup_filename, f"root@{db_ip}:/db/mnt/"])
 
     # Restore the backup
     _ssh(deploy_environment, "db", cmds=["/db/restore.sh", basename])
