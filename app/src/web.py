@@ -14,22 +14,26 @@ import aiohttp_jinja2
 from aiopg.sa import create_engine
 import stripe
 
+from peony import PeonyClient
+
 from sqlalchemy import or_
 
 from common import (
     send_admin_notification,
     delete_user,
+    peony_oauth1,
+    peony_oauth2,
+    peony_client,
+    peony_dms_client
 )
 from db import (
     User,
     Tip,
     RecurringTip,
-    Nag,
     Job,
     BlockJob,
     UnblockJob,
     Tweet,
-    Thread,
     Fascist,
 )
 
@@ -90,10 +94,8 @@ async def _api_validate_dms_authenticated(user):
     ):
         # Check if user is authenticated with DMs twitter app
         try:
-            dms_api = await tweepy_dms_api(user)
-            twitter_user = await tweepy_api_call(
-                None, api, "get_user", user_id=User.twitter_id
-            )
+            dms_client = await peony_dms_client(user)
+            twitter_user = await dms_client.user
             return True
         except:
             pass
@@ -149,34 +151,20 @@ async def auth_login(request):
     user = await _logged_in_user(session)
     if user:
         # If we're already logged in, redirect
-        auth = tweepy.OAuthHandler(
-            os.environ.get("TWITTER_CONSUMER_TOKEN"),
-            os.environ.get("TWITTER_CONSUMER_KEY"),
-        )
-        auth.set_access_token(
-            user.twitter_access_token, user.twitter_access_token_secret
-        )
-        api = tweepy.API(auth, wait_on_rate_limit=True)
-
-        # Validate user
-        twitter_user = await tweepy_api_call(
-            None, api, "get_user", user_id=User.twitter_id
-        )
-        if session["twitter_id"] == str(twitter_user.id):
+        client = peony_client(user)
+        twitter_user = await client.user
+        if twitter_user.id_str == str(User.twitter_id):
             raise web.HTTPFound("/dashboard")
 
     # Otherwise, authorize with Twitter
-    try:
-        auth = tweepy.OAuthHandler(
-            os.environ.get("TWITTER_CONSUMER_TOKEN"),
-            os.environ.get("TWITTER_CONSUMER_KEY"),
-        )
-        redirect_url = auth.get_authorization_url()
-        raise web.HTTPFound(location=redirect_url)
-    except tweepy.errors.TweepyException as e:
-        raise web.HTTPUnauthorized(
-            text=f"Error, failed to get request token from Twitter: {e}"
-        )
+    redirect_url, token = peony_oauth1(
+        os.environ.get("TWITTER_CONSUMER_TOKEN"),
+        os.environ.get("TWITTER_CONSUMER_KEY"),
+        "/auth/twitter_callback",
+    )
+    session["oauth_token"] = token["oauth_token"]
+    session["oauth_token_secret"] = token["oauth_token_secret"]
+    raise web.HTTPFound(location=redirect_url)
 
 
 async def auth_logout(request):
@@ -198,44 +186,34 @@ async def auth_twitter_callback(request):
         )
 
     oauth_token = params["oauth_token"]
-    verifier = params["oauth_verifier"]
+    oauth_verifier = params["oauth_verifier"]
 
     # Authenticate with twitter
     session = await get_session(request)
-    auth = tweepy.OAuthHandler(
+    token = peony_oauth2(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
+        oauth_token,
+        session["oauth_token_secret"],
+        oauth_verifier,
     )
-    auth.request_token = {
-        "oauth_token": oauth_token,
-        "oauth_token_secret": verifier,
-    }
-
-    try:
-        auth.get_access_token(verifier)
-    except tweepy.errors.TweepyException:
-        raise web.HTTPUnauthorized(text="Error, failed to get access token")
-
-    try:
-        api = tweepy.API(auth, wait_on_rate_limit=True)
-        twitter_user = await tweepy_api_call(
-            None, api, "get_user", user_id=User.twitter_id
-        )
-    except tweepy.errors.TweepyException as e:
-        raise web.HTTPUnauthorized(text=f"Error, error using Twitter API: {e}")
+    twitter_access_token = token["oauth_token"]
+    twitter_access_token_secret = token["oauth_token_secret"]
+    twitter_id = token["user_id"]
+    twitter_screen_name = token["screen_name"]
 
     # Save values in the session
-    session["twitter_id"] = str(twitter_user.id)
+    session["twitter_id"] = str(twitter_id)
 
     # Does this user already exist?
-    user = await User.query.where(User.twitter_id == str(twitter_user.id)).gino.first()
+    user = await User.query.where(User.twitter_id == str(twitter_id)).gino.first()
     if user is None:
         # Create a new user
         user = await User.create(
-            twitter_id=str(twitter_user.id),
-            twitter_screen_name=twitter_user.screen_name,
-            twitter_access_token=auth.access_token,
-            twitter_access_token_secret=auth.access_token_secret,
+            twitter_id=str(twitter_id),
+            twitter_screen_name=twitter_screen_name,
+            twitter_access_token=twitter_access_token,
+            twitter_access_token_secret=twitter_access_token_secret,
             paused=True,
             blocked=False,
         )
@@ -250,8 +228,8 @@ async def auth_twitter_callback(request):
     else:
         # Make sure to update the user's twitter access token and secret
         await user.update(
-            twitter_access_token=auth.access_token,
-            twitter_access_token_secret=auth.access_token_secret,
+            twitter_access_token=twitter_access_token,
+            twitter_access_token_secret=twitter_access_token_secret,
         ).apply()
 
     # Redirect to app
@@ -270,42 +248,31 @@ async def auth_twitter_dms_callback(request):
         )
 
     oauth_token = params["oauth_token"]
-    verifier = params["oauth_verifier"]
+    oauth_verifier = params["oauth_verifier"]
 
-    # Authenticate with twitter (DMs)
+    # Authenticate with twitter
     session = await get_session(request)
-    auth = tweepy.OAuthHandler(
-        os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
-        os.environ.get("TWITTER_DM_CONSUMER_KEY"),
+    token = peony_oauth2(
+        os.environ.get("TWITTER_CONSUMER_TOKEN"),
+        os.environ.get("TWITTER_CONSUMER_KEY"),
+        oauth_token,
+        session["dms_oauth_token_secret"],
+        oauth_verifier,
     )
-    auth.request_token = {
-        "oauth_token": oauth_token,
-        "oauth_token_secret": verifier,
-    }
-
-    try:
-        auth.get_access_token(verifier)
-    except tweepy.errors.TweepyException:
-        raise web.HTTPUnauthorized(text="Error, failed to get access token")
-
-    try:
-        api = tweepy.API(auth, wait_on_rate_limit=True)
-        twitter_user = await tweepy_api_call(
-            None, api, "get_user", user_id=User.twitter_id
-        )
-    except tweepy.errors.TweepyException as e:
-        raise web.HTTPUnauthorized(text=f"Error, error using Twitter API: {e}")
+    twitter_access_token = token["oauth_token"]
+    twitter_access_token_secret = token["oauth_token_secret"]
+    twitter_id = token["user_id"]
 
     # Does this user already exist?
-    user = await User.query.where(User.twitter_id == str(twitter_user.id)).gino.first()
+    user = await User.query.where(User.twitter_id == str(twitter_id)).gino.first()
     if user is None:
         # Uh, that's weird, there really should already be a user... so just ignore in that case
         pass
     else:
         # Update the user's DM twitter access token and secret
         await user.update(
-            twitter_dms_access_token=auth.access_token,
-            twitter_dms_access_token_secret=auth.access_token_secret,
+            twitter_dms_access_token=twitter_access_token,
+            twitter_dms_access_token_secret=twitter_access_token_secret,
         ).apply()
 
     # Redirect to settings page again
@@ -448,17 +415,17 @@ async def api_get_user(request):
         and "impersonating_twitter_id" in session
     ):
         # Load the API using the admin user
-        api = await tweepy_api(user)
+        client = await peony_client(user)
         # Load the impersonated user
         user = await _logged_in_user(session)
-        twitter_user = await tweepy_api_call(
-            None, api, "get_user", screen_name=user.twitter_screen_name
+        twitter_user = await client.api.users.lookup.get(
+            screen_name=user.twitter_screen_name
         )
     else:
         # Just a normal user
-        api = await tweepy_api(user)
-        twitter_user = await tweepy_api_call(
-            None, api, "get_user", user_id=User.twitter_id
+        client = await peony_client(user)
+        twitter_user = await client.api.users.lookup.get(
+            screen_name=user.twitter_screen_name
         )
 
     return web.json_response(
@@ -571,15 +538,14 @@ async def api_post_settings(request):
 
     if data["action"] == "authenticate_dms":
         # Authorize with Twitter
-        try:
-            auth = tweepy.OAuthHandler(
-                os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
-                os.environ.get("TWITTER_DM_CONSUMER_KEY"),
-            )
-            redirect_url = auth.get_authorization_url()
-            return web.json_response({"error": False, "redirect_url": redirect_url})
-        except tweepy.errors.TweepyException as e:
-            return web.json_response({"error": True, "error_message": str(e)})
+        redirect_url, token = peony_oauth1(
+            os.environ.get("TWITTER_CONSUMER_TOKEN"),
+            os.environ.get("TWITTER_CONSUMER_KEY"),
+            "/auth/twitter_callback",
+        )
+        session["dms_oauth_token"] = token["oauth_token"]
+        session["dms_oauth_token_secret"] = token["oauth_token_secret"]
+        return web.json_response({"error": False, "redirect_url": redirect_url})
 
 
 @authentication_required_401
@@ -1074,18 +1040,13 @@ async def api_post_dashboard(request):
             raise web.HTTPBadRequest(text="Can only 'unblock' if the user is blocked")
 
         # Are we still blocked?
-        api = await tweepy_api(user)
-        friendship = (
-            await tweepy_api_call(
-                None,
-                api,
-                "show_friendship",
-                source_id=user.twitter_id,
-                target_screen_name="semiphemeral",
-            )
-        )[0]
+        client = await peony_client(user)
+        friendship = await client.api.friendships.show.get(
+            source_screen_name=user.twitter_screen_name
+            target_screen_name="semiphemeral"
+        )
 
-        if friendship.blocked_by:
+        if friendship['relationship']['blocked_by']:
             # Still blocked by semiphemeral. Should we unblock?
 
             # Count fascist tweets
@@ -1126,18 +1087,13 @@ async def api_post_dashboard(request):
             )
 
         # Are we still blocked?
-        api = await tweepy_api(user)
-        friendship = (
-            await tweepy_api_call(
-                None,
-                api,
-                "show_friendship",
-                source_id=user.twitter_id,
-                target_screen_name="semiphemeral",
-            )
-        )[0]
+        client = await peony_client(user)
+        friendship = await client.api.friendships.show.get(
+            source_screen_name=user.twitter_screen_name
+            target_screen_name="semiphemeral"
+        )
 
-        if friendship.blocked_by:
+        if friendship['relationship']['blocked_by']:
             return web.json_response({"unblocked": False})
         else:
             # Delete the user's likes so we can start over and check them all

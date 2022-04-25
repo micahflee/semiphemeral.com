@@ -1,14 +1,14 @@
 import os
 import asyncio
-import functools
 import requests
 import json
 from datetime import datetime, timedelta, timezone
 
 import peony
 from peony import PeonyClient
+from peony.oauth_dance import get_oauth_token, get_access_token
 
-from db import Tweet, Thread, User, DirectMessageJob, Nag, Job, Tip
+from db import Tweet, Thread, Nag, Job, Tip
 
 
 async def log(job, s):
@@ -98,6 +98,35 @@ class PoenyErrorHandler(peony.ErrorHandler):
             self.progress = None
             self.job_runner_id = None
         return await super().__call__(**kwargs)
+
+
+async def peony_oauth1(twitter_consumer_token, twitter_consumer_key, callback_path):
+    token = get_oauth_token(
+        twitter_consumer_token,
+        twitter_consumer_key,
+        callback_uri=f"https://{os.environ.get('DOMAIN')}{callback_path}",
+    )
+    redirect_url = (
+        f"https://api.twitter.com/oauth/authorize?oauth_token={token['oauth_token']}"
+    )
+    return redirect_url, token
+
+
+async def peony_oauth2(
+    twitter_consumer_token,
+    twitter_consumer_key,
+    oauth_token,
+    oauth_token_secret,
+    oauth_verifier,
+):
+    token = get_access_token(
+        twitter_consumer_token,
+        twitter_consumer_key,
+        oauth_token,
+        oauth_token_secret,
+        oauth_verifier,
+    )
+    return token
 
 
 async def peony_client(user):
