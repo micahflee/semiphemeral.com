@@ -541,9 +541,9 @@ async def api_post_settings(request):
     if data["action"] == "authenticate_dms":
         # Authorize with Twitter
         redirect_url, token = await peony_oauth1(
-            os.environ.get("TWITTER_CONSUMER_TOKEN"),
-            os.environ.get("TWITTER_CONSUMER_KEY"),
-            "/auth/twitter_callback",
+            os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
+            os.environ.get("TWITTER_DM_CONSUMER_KEY"),
+            "/auth/twitter_dms_callback",
         )
         session["dms_oauth_token"] = token["oauth_token"]
         session["dms_oauth_token_secret"] = token["oauth_token_secret"]
