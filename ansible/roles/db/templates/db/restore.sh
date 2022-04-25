@@ -1,6 +1,6 @@
 #!/bin/bash
 
-GZ_FILENAME=/db/$1
+GZ_FILENAME=/db/mnt/$1
 FILENAME=$(echo $GZ_FILENAME | cut -d"." -f1-2)
 
 echo "== Decompressing" &&
@@ -14,5 +14,5 @@ psql \
     -d "{{ postgres_db }}" \
     -f "$FILENAME" &&
 
-echo "== Database restored, deleting backup from server" && 
+echo "== Database restored, deleting backup from server" &&
 rm "$FILENAME"

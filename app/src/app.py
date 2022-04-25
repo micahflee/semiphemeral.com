@@ -6,7 +6,8 @@ import asyncpg
 
 from db import connect_db
 from web import start_web_server
-from jobs import start_jobs, start_dm_jobs
+
+# from jobs import start_jobs, start_dm_jobs
 
 
 async def main():
@@ -23,8 +24,8 @@ async def main():
                 # Long twitter threads need big recursion limits
                 sys.setrecursionlimit(5000)
                 await start_jobs(gino_db)
-            elif os.environ.get("SEMIPHEMERAL_DM_JOBS") == "1":
-                await start_dm_jobs()
+            # elif os.environ.get("SEMIPHEMERAL_DM_JOBS") == "1":
+            #     await start_dm_jobs()
             break
         except asyncpg.exceptions.ConnectionDoesNotExistError:
             print("Error connecting, sleeping 5 seconds and trying again")
