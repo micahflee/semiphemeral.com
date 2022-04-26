@@ -57,7 +57,7 @@ def test_api_creds(func):
         Make sure the API creds work, and if not pause semiphemeral for the user
         """
         user = await User.query.where(User.id == job.user_id).gino.first()
-        client = peony_client(user)
+        client = await peony_client(user)
         try:
             twitter_user = await client.user
         except peony.exceptions.InvalidOrExpiredToken:
@@ -79,15 +79,15 @@ def ensure_user_follows_us(func):
         if user.twitter_screen_name == "semiphemeral":
             return await func(gino_db, job, job_runner_id)
 
-        client = peony_client(user)
+        client = await peony_client(user)
 
         # Is the user following us?
         friendship = await client.api.friendships.show.get(
             source_screen_name=user.twitter_screen_name,
             target_screen_name="semiphemeral",
-        )[0]
+        )
 
-        if friendship.blocked_by:
+        if friendship["relationship"]["source"]["blocked_by"]:
             # The semiphemeral user has blocked this user, so they're not allowed
             # to use this service
             print(f"user_id={user.id} is blocked, canceling job and updating user")
@@ -95,16 +95,12 @@ def ensure_user_follows_us(func):
             await user.update(paused=True, blocked=True).apply()
             return False
 
-        elif not friendship.following:
+        elif not friendship["relationship"]["source"]["following"]:
             # Make follow request
             print(f"user_id={user.id} not following, making follow request")
             try:
-                await tweepy_api_call(
-                    job,
-                    api,
-                    "create_friendship",
-                    screen_name="semiphemeral",
-                    follow=True,
+                await client.api.friendships.create.post(
+                    screen_name="semiphemeral", follow=True
                 )
             except:
                 print(
@@ -515,9 +511,6 @@ async def delete(gino_db, job, job_runner_id):
 
     user = await User.query.where(User.id == job.user_id).gino.first()
     client = await peony_client(user)
-    api = await tweepy_api(user)
-
-    loop = asyncio.get_running_loop()
 
     await log(job, f"#{job_runner_id} Delete started")
 
@@ -554,74 +547,44 @@ async def delete(gino_db, job, job_runner_id):
 
             for tweet in tweets:
                 # Delete retweet
-
-                # I heard delete RTs wasn't working, so switching back from peony to tweepy
-
-                # try:
-                #     await client.api.statuses.unretweet[tweet.status_id].post(
-                #         _data=(job, progress, job_runner_id),
-                #     )
-                #     # await log(
-                #     #     job, f"#{job_runner_id} Deleted retweet {tweet.status_id}"
-                #     # )
-                #     await tweet.update(is_deleted=True).apply()
-                # except peony.exceptions.StatusNotFound:
-                #     await log(
-                #         job,
-                #         f"#{job_runner_id} Skipped deleting retweet, StatusNotFound {tweet.status_id}",
-                #     )
-                #     await tweet.update(is_deleted=True).apply()
-                # except peony.exceptions.UserSuspended:
-                #     await log(
-                #         job,
-                #         f"#{job_runner_id} Skipped deleting retweet, UserSuspended {tweet.status_id}",
-                #     )
-                #     await tweet.update(is_deleted=True).apply()
-                # except peony.exceptions.DoesNotExist:
-                #     await log(
-                #         job,
-                #         f"#{job_runner_id} Skipped deleting retweet, DoesNotExist {tweet.status_id}",
-                #     )
-                #     await tweet.update(is_deleted=True).apply()
-                # except peony.exceptions.ProtectedTweet:
-                #     await log(
-                #         job,
-                #         f"#{job_runner_id} Skipped deleting retweet, ProtectedTweet {tweet.status_id}",
-                #     )
-                #     await tweet.update(is_deleted=True).apply()
-                # except peony.exceptions.HTTPForbidden:
-                #     await log(
-                #         job,
-                #         f"#{job_runner_id} Skipped deleting retweet, HTTPForbidden {tweet.status_id}",
-                #     )
-                #     await tweet.update(is_deleted=True).apply()
-
-                # Try deleting the tweet, in a while loop in case it gets rate limited and
-                # needs to try again
-                while True:
-                    try:
-                        await loop.run_in_executor(
-                            None, api.destroy_status, tweet.status_id
-                        )
-                        await tweet.update(is_deleted=True).apply()
-                        break
-                    except tweepy.errors.TweepyException as e:
-                        if e.api_code == 144:
-                            # Already deleted
-                            await tweet.update(is_deleted=True).apply()
-                            break
-                        elif e.api_code == 429:  # 429 = Too Many Requests
-                            await update_progress_rate_limit(
-                                job, progress, job_runner_id
-                            )
-                            # Don't break, so it tries again
-                        else:
-                            # Unknown error
-                            print(f"job_id={job.id} Error deleting retweet {e}")
-                            break
-
-                progress["retweets_deleted"] += 1
-                await update_progress(job, progress)
+                try:
+                    await client.api.statuses.unretweet[tweet.status_id].post(
+                        _data=(job, progress, job_runner_id),
+                    )
+                    # await log(
+                    #     job, f"#{job_runner_id} Deleted retweet {tweet.status_id}"
+                    # )
+                    await tweet.update(is_deleted=True).apply()
+                except peony.exceptions.StatusNotFound:
+                    await log(
+                        job,
+                        f"#{job_runner_id} Skipped deleting retweet, StatusNotFound {tweet.status_id}",
+                    )
+                    await tweet.update(is_deleted=True).apply()
+                except peony.exceptions.UserSuspended:
+                    await log(
+                        job,
+                        f"#{job_runner_id} Skipped deleting retweet, UserSuspended {tweet.status_id}",
+                    )
+                    await tweet.update(is_deleted=True).apply()
+                except peony.exceptions.DoesNotExist:
+                    await log(
+                        job,
+                        f"#{job_runner_id} Skipped deleting retweet, DoesNotExist {tweet.status_id}",
+                    )
+                    await tweet.update(is_deleted=True).apply()
+                except peony.exceptions.ProtectedTweet:
+                    await log(
+                        job,
+                        f"#{job_runner_id} Skipped deleting retweet, ProtectedTweet {tweet.status_id}",
+                    )
+                    await tweet.update(is_deleted=True).apply()
+                except peony.exceptions.HTTPForbidden:
+                    await log(
+                        job,
+                        f"#{job_runner_id} Skipped deleting retweet, HTTPForbidden {tweet.status_id}",
+                    )
+                    await tweet.update(is_deleted=True).apply()
 
         # Unlike
         if user.retweets_likes_delete_likes:
@@ -647,51 +610,19 @@ async def delete(gino_db, job, job_runner_id):
             for tweet in tweets:
                 # Delete like
 
-                # For some reason, I'm getting this error when I use peony:
-                # {"errors":[{"code":32,"message":"Could not authenticate you."}]}
-
-                # try:
-                #     await client.api.favorites.destroy.post(
-                #         id=tweet.status_id,
-                #         _data=(job, progress, job_runner_id),
-                #     )
-                #     await tweet.update(is_unliked=True).apply()
-                #     await log(job, f"#{job_runner_id} Deleted like {tweet.status_id}")
-                # except peony.exceptions.StatusNotFound:
-                #     await log(
-                #         job,
-                #         f"#{job_runner_id} Skipped deleting like, StatusNotFound {tweet.status_id}",
-                #     )
-                #     await tweet.update(is_unliked=True).apply()
-
-                # Use tweepy instead
-
-                # Try unliking the tweet, in a while loop in case it gets rate limited and
-                # needs to try again
-                while True:
-                    try:
-                        await loop.run_in_executor(
-                            None, api.destroy_favorite, tweet.status_id
-                        )
-                        await tweet.update(is_unliked=True).apply()
-                        # await log(
-                        #     job, f"#{job_runner_id} Deleted like {tweet.status_id}"
-                        # )
-                        break
-                    except tweepy.errors.TweepyException as e:
-                        if e.api_code == 144:  # 144 = No status found with that ID
-                            # Already unliked
-                            await tweet.update(is_unliked=True).apply()
-                            break
-                        elif e.api_code == 429:  # 429 = Too Many Requests
-                            await update_progress_rate_limit(
-                                job, progress, job_runner_id
-                            )
-                            # Don't break, so it tries again
-                        else:
-                            # Unknown error
-                            print(f"job_id={job.id} Error deleting like {e}")
-                            break
+                try:
+                    await client.api.favorites.destroy.post(
+                        id=tweet.status_id,
+                        _data=(job, progress, job_runner_id),
+                    )
+                    await tweet.update(is_unliked=True).apply()
+                    await log(job, f"#{job_runner_id} Deleted like {tweet.status_id}")
+                except peony.exceptions.StatusNotFound:
+                    await log(
+                        job,
+                        f"#{job_runner_id} Skipped deleting like, StatusNotFound {tweet.status_id}",
+                    )
+                    await tweet.update(is_unliked=True).apply()
 
                 progress["likes_deleted"] += 1
                 await update_progress(job, progress)
@@ -707,47 +638,18 @@ async def delete(gino_db, job, job_runner_id):
 
         for tweet in tweets:
             # Delete tweet
-
-            # For some reason, I'm getting this error when I use peony:
-            # {"errors":[{"code":32,"message":"Could not authenticate you."}]}
-
-            # try:
-            #     await client.api.statuses.destroy.post(
-            #         id=tweet.status_id,
-            #         _data=(job, progress, job_runner_id),
-            #     )
-            #     await tweet.update(is_deleted=True).apply()
-            # except peony.exceptions.StatusNotFound:
-            #     await log(
-            #         job,
-            #         f"#{job_runner_id} Skipped deleting retweet, StatusNotFound {tweet.status_id}",
-            #     )
-            #     await tweet.update(is_deleted=True).apply()
-
-            # Use tweepy instead
-
-            # Try deleting the tweet, in a while loop in case it gets rate limited and
-            # needs to try again
-            while True:
-                try:
-                    await loop.run_in_executor(
-                        None, api.destroy_status, tweet.status_id
-                    )
-                    await tweet.update(is_deleted=True, text=None).apply()
-                    # await log(job, f"#{job_runner_id} Deleted tweet {tweet.status_id}")
-                    break
-                except tweepy.errors.TweepyException as e:
-                    if e.api_code == 144:  # No status found with that ID
-                        # Already deleted
-                        await tweet.update(is_deleted=True, text=None).apply()
-                        break
-                    elif e.api_code == 429:  # 429 = Too Many Requests
-                        await update_progress_rate_limit(job, progress, job_runner_id)
-                        # Don't break, so it tries again
-                    else:
-                        # Unknown error
-                        print(f"job_id={job.id} Error deleting tweet {e}")
-                        break
+            try:
+                await client.api.statuses.destroy.post(
+                    id=tweet.status_id,
+                    _data=(job, progress, job_runner_id),
+                )
+                await tweet.update(is_deleted=True).apply()
+            except peony.exceptions.StatusNotFound:
+                await log(
+                    job,
+                    f"#{job_runner_id} Skipped deleting retweet, StatusNotFound {tweet.status_id}",
+                )
+                await tweet.update(is_deleted=True).apply()
 
             progress["tweets_deleted"] += 1
             await update_progress(job, progress)
@@ -756,13 +658,11 @@ async def delete(gino_db, job, job_runner_id):
     if user.direct_messages:
         # Make sure the DMs API authenticates successfully
         proceed = False
+        dms_client = await peony_dms_client(user)
         try:
-            dms_api = await tweepy_dms_api(user)
-            twitter_user = await tweepy_api_call(
-                job, dms_api, "get_user", user_id=User.twitter_id
-            )
+            twitter_user = await dms_client.user
             proceed = True
-        except:
+        except peony.exceptions.InvalidOrExpiredToken:
             # It doesn't, so disable deleting direct messages
             await user.update(
                 direct_messages=False,
@@ -779,61 +679,66 @@ async def delete(gino_db, job, job_runner_id):
                 days=user.direct_messages_threshold
             )
 
-            # Fetch DMs
-            pages = await loop.run_in_executor(
-                None,
-                tweepy.Cursor(dms_api.list_direct_messages).pages,
-            )
-            while True:
-                try:
-                    page = pages.next()
-                    await log(
-                        job,
-                        f"#{job_runner_id} Fetch DMs loop: got page with {len(page)} DMs",
-                    )
-                except StopIteration:
-                    await log(
-                        job, f"#{job_runner_id} Hit the end of fetch DMs loop, breaking"
-                    )
-                    break
-                except tweepy.errors.TweepyException as e:
-                    await update_progress_rate_limit(job, progress, job_runner_id)
-                    continue
+            # TODO: Work on making DMs work later
 
-                for dm in page:
-                    created_timestamp = datetime.fromtimestamp(
-                        int(dm.created_timestamp) / 1000
-                    )
-                    if created_timestamp <= datetime_threshold:
-                        # Try deleting the DM in a loop, in case it gets rate-limited
-                        while True:
-                            try:
-                                await loop.run_in_executor(
-                                    None, dms_api.destroy_direct_message, dm.id
-                                )
-                                await log(job, f"#{job_runner_id} Deleted DM {dm.id}")
-                                break
-                            except tweepy.errors.TweepyException as e:
-                                if e.api_code == 429:  # 429 = Too Many Requests
-                                    await update_progress_rate_limit(
-                                        job, progress, job_runner_id
-                                    )
-                                    # Don't break, so it tries again
-                                else:
-                                    if (
-                                        e.api_code == 89
-                                    ):  # 89 = Invalid or expired token.
-                                        pass
-                                    else:
-                                        # Unknown error
-                                        print(f"job_id={job.id} Error deleting DM {e}")
-                                        break
+            # # Fetch DMs
+            # dms_request = dms_client.api.direct_messages.events.list.get(count=50)
+            # dm_ids = dms_request.iterator.with_cursor()
 
-                        progress["dms_deleted"] += 1
-                        await update_progress(job, progress)
+            # pages = await loop.run_in_executor(
+            #     None,
+            #     tweepy.Cursor(dms_api.list_direct_messages).pages,
+            # )
+            # while True:
+            #     try:
+            #         page = pages.next()
+            #         await log(
+            #             job,
+            #             f"#{job_runner_id} Fetch DMs loop: got page with {len(page)} DMs",
+            #         )
+            #     except StopIteration:
+            #         await log(
+            #             job, f"#{job_runner_id} Hit the end of fetch DMs loop, breaking"
+            #         )
+            #         break
+            #     except tweepy.errors.TweepyException as e:
+            #         await update_progress_rate_limit(job, progress, job_runner_id)
+            #         continue
 
-                    else:
-                        await log(job, f"Skipping DM {dm.id}")
+            #     for dm in page:
+            #         created_timestamp = datetime.fromtimestamp(
+            #             int(dm.created_timestamp) / 1000
+            #         )
+            #         if created_timestamp <= datetime_threshold:
+            #             # Try deleting the DM in a loop, in case it gets rate-limited
+            #             while True:
+            #                 try:
+            #                     await loop.run_in_executor(
+            #                         None, dms_api.destroy_direct_message, dm.id
+            #                     )
+            #                     await log(job, f"#{job_runner_id} Deleted DM {dm.id}")
+            #                     break
+            #                 except tweepy.errors.TweepyException as e:
+            #                     if e.api_code == 429:  # 429 = Too Many Requests
+            #                         await update_progress_rate_limit(
+            #                             job, progress, job_runner_id
+            #                         )
+            #                         # Don't break, so it tries again
+            #                     else:
+            #                         if (
+            #                             e.api_code == 89
+            #                         ):  # 89 = Invalid or expired token.
+            #                             pass
+            #                         else:
+            #                             # Unknown error
+            #                             print(f"job_id={job.id} Error deleting DM {e}")
+            #                             break
+
+            #             progress["dms_deleted"] += 1
+            #             await update_progress(job, progress)
+
+            #         else:
+            #             await log(job, f"Skipping DM {dm.id}")
 
     progress["status"] = "Finished"
     await update_progress(job, progress)
@@ -976,9 +881,16 @@ async def delete_dm_groups(gino_db, job, job_runner_id):
 
 async def delete_dms_job(job, dm_type, job_runner_id):
     user = await User.query.where(User.id == job.user_id).gino.first()
-    dms_api = await tweepy_dms_api(user)
 
-    loop = asyncio.get_running_loop()
+    dms_client = await peony_dms_client(user)
+    try:
+        twitter_user = await dms_client.user
+    except peony.exceptions.InvalidOrExpiredToken:
+        await log(
+            job, f"#{job_runner_id} DMs Twitter API creds don't work, canceling job"
+        )
+        await job.update(status="canceled", started_timestamp=datetime.now()).apply()
+        raise JobCanceled()
 
     if dm_type == "dms":
         await log(job, f"#{job_runner_id} Delete DMs started")
@@ -988,36 +900,6 @@ async def delete_dms_job(job, dm_type, job_runner_id):
     # Start the progress
     progress = {"dms_deleted": 0, "dms_skipped": 0, "status": "Verifying permissions"}
     await update_progress(job, progress)
-
-    # Make sure the DM credentials work
-    dm_creds_work = False
-    if (
-        user.twitter_dms_access_token != ""
-        and user.twitter_dms_access_token_secret != ""
-    ):
-        try:
-            while True:
-                try:
-                    await loop.run_in_executor(None, dms_api.me)
-                    break
-                except tweepy.errors.TweepyException as e:
-                    if e.api_code == 429:  # 429 = Too Many Requests
-                        await update_progress_rate_limit(job, progress, job_runner_id)
-                        # Don't break, so it tries again
-                    else:
-                        # Unknown error
-                        print(f"job_id={job.id} Error deleting DM {e}")
-                        break
-            dm_creds_work = True
-        except:
-            pass
-
-    if not dm_creds_work:
-        await log(
-            job, f"#{job_runner_id} DMs Twitter API creds don't work, canceling job"
-        )
-        await job.update(status="canceled", started_timestamp=datetime.now()).apply()
-        raise JobCanceled()
 
     # Make sure deleting DMs is enabled
     if not user.direct_messages:
@@ -1064,33 +946,19 @@ async def delete_dms_job(job, dm_type, job_runner_id):
                 if created_timestamp <= datetime_threshold:
                     dm_id = message["messageCreate"]["id"]
 
-                    # Try deleting the DM in a loop, in case it gets rate-limited
-                    while True:
-                        try:
-                            await loop.run_in_executor(
-                                None, dms_api.destroy_direct_message, dm_id
-                            )
-                            await log(job, f"#{job_runner_id} Deleted DM {dm_id}")
+                    await dms_client.api.direct_messages.events.destroy.delete(id=dm_id)
 
-                            progress["dms_deleted"] += 1
-                            await update_progress(job, progress)
-                            break
-                        except tweepy.errors.TweepyException as e:
-                            if e.api_code == 429:  # 429 = Too Many Requests
-                                await update_progress_rate_limit(
-                                    job, progress, job_runner_id
-                                )
-                                # Don't break, so it tries again
-                            else:
-                                # Unknown error
-                                await log(
-                                    job,
-                                    f"#{job_runner_id} Error deleting DM {dm_id}: {e}",
-                                )
+                    # TODO: handle exceptions, but I'm not sure which exceptions yet
+                    # Here's some exception code:
 
-                                progress["dms_skipped"] += 1
-                                await update_progress(job, progress)
-                                break
+                    # await log(
+                    #     job,
+                    #     f"#{job_runner_id} Error deleting DM {dm_id}: {e}",
+                    # )
+
+                    # progress["dms_skipped"] += 1
+                    # await update_progress(job, progress)
+                    # break
 
     # Delete the DM metadata file
     try:
