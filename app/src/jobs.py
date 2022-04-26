@@ -1107,198 +1107,131 @@ async def start_dm_job(dm_job):
 async def start_block_job(block_job):
     client = await peony_semiphemeral_dm_client()
 
-    try:
-        # Are they already blocked?
-        friendship = (
-            await tweepy_api_call(
-                block_job,
-                api,
-                "show_friendship",
-                source_screen_name="semiphemeral",
-                target_screen_name=block_job.twitter_username,
-            )
-        )[0]
-
-        if friendship.blocking:
-            # Already blocked, so our work here is done
-            await block_job.update(
-                status="blocked", blocked_timestamp=datetime.now()
-            ).apply()
-            print(
-                f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} already blocked {block_job.twitter_username}"
-            )
-            return
-
-        # If we're blocking a semiphemeral user, and not just a fascist influencer
-        if block_job.user_id:
-            user = await User.query.where(User.id == block_job.user_id).gino.first()
-            if user and not user.blocked:
-                # Update the user
-                await user.update(paused=True, blocked=True).apply()
-
-                # Get all the recent fascist tweets
-                six_months_ago = datetime.now() - timedelta(days=180)
-                fascist_tweets = (
-                    await Tweet.query.where(Tweet.user_id == user.id)
-                    .where(Tweet.favorited == True)
-                    .where(Tweet.is_fascist == True)
-                    .where(Tweet.created_at > six_months_ago)
-                    .gino.all()
-                )
-
-                # When do we unblock them?
-                last_fascist_tweet = (
-                    await Tweet.query.where(Tweet.user_id == user.id)
-                    .where(Tweet.is_fascist == True)
-                    .order_by(Tweet.created_at.desc())
-                    .gino.first()
-                )
-                if last_fascist_tweet:
-                    unblock_timestamp = last_fascist_tweet.created_at + timedelta(
-                        days=180
-                    )
-                else:
-                    unblock_timestamp = datetime.now() + timedelta(days=180)
-                unblock_timestamp_formatted = unblock_timestamp.strftime("%B %-d, %Y")
-
-                # Send the DM
-                message = f"You have liked {len(fascist_tweets)} tweets from a prominent fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated.\n\nTo see which tweets you liked and learn how to get yourself unblocked, see https://{os.environ.get('DOMAIN')}/dashboard.\n\nOr you can wait until {unblock_timestamp_formatted} when you will get automatically unblocked, at which point you can login to reactivate your account so long as you've stop liking tweets from fascists."
-
-                await tweepy_api_call(
-                    block_job,
-                    api,
-                    "send_direct_message",
-                    recipient_id=int(user.twitter_id),
-                    text=message,
-                )
-                print(
-                    f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} sent DM to {block_job.twitter_username}"
-                )
-
-                # Create the unblock job
-                await UnblockJob.create(
-                    user_id=block_job.user_id,
-                    twitter_username=block_job.twitter_username,
-                    status="pending",
-                    scheduled_timestamp=unblock_timestamp,
-                )
-
-                # Wait 10 seconds before blocking, to ensure they receive the DM
-                await asyncio.sleep(10)
-
-        # Block the user
-        await tweepy_api_call(
-            block_job, api, "create_block", screen_name=block_job.twitter_username
-        )
-
-        # Success, update block_job
+    # Are they already blocked?
+    friendship = await client.api.friendships.show.get(
+        source_screen_name="semiphemeral",
+        target_screen_name=block_job.twitter_username,
+    )
+    if friendship["relationship"]["source"]["blocking"]:
+        # Already blocked, so our work here is done
         await block_job.update(
             status="blocked", blocked_timestamp=datetime.now()
         ).apply()
-
         print(
-            f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} blocked user {block_job.twitter_username}"
+            f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} already blocked {block_job.twitter_username}"
         )
-    except Exception as e:
-        try:
-            error_code = e.args[0][0]["code"]
-        except:
-            error_code = e.api_code
+        return
 
-        # 108: Cannot find specified user.
-        # 89: Invalid or expired token.
-        # 50: User not found.
-        if error_code == 108 or error_code == 89 or error_code == 50:
-            print(
-                f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} failed ({e}), marking as failure"
+    # If we're blocking a semiphemeral user, and not just a fascist influencer
+    if block_job.user_id:
+        user = await User.query.where(User.id == block_job.user_id).gino.first()
+        if user and not user.blocked:
+            # Update the user
+            await user.update(paused=True, blocked=True).apply()
+
+            # Get all the recent fascist tweets
+            six_months_ago = datetime.now() - timedelta(days=180)
+            fascist_tweets = (
+                await Tweet.query.where(Tweet.user_id == user.id)
+                .where(Tweet.favorited == True)
+                .where(Tweet.is_fascist == True)
+                .where(Tweet.created_at > six_months_ago)
+                .gino.all()
             )
-            await block_job.update(status="failed").apply()
-        else:
-            # Try again in 5 minutes
-            await block_job.update(
+
+            # When do we unblock them?
+            last_fascist_tweet = (
+                await Tweet.query.where(Tweet.user_id == user.id)
+                .where(Tweet.is_fascist == True)
+                .order_by(Tweet.created_at.desc())
+                .gino.first()
+            )
+            if last_fascist_tweet:
+                unblock_timestamp = last_fascist_tweet.created_at + timedelta(days=180)
+            else:
+                unblock_timestamp = datetime.now() + timedelta(days=180)
+            unblock_timestamp_formatted = unblock_timestamp.strftime("%B %-d, %Y")
+
+            # Send the DM
+            message_text = f"You have liked {len(fascist_tweets)} tweets from a prominent fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated.\n\nTo see which tweets you liked and learn how to get yourself unblocked, see https://{os.environ.get('DOMAIN')}/dashboard.\n\nOr you can wait until {unblock_timestamp_formatted} when you will get automatically unblocked, at which point you can login to reactivate your account so long as you've stop liking tweets from fascists."
+
+            message = {
+                "event": {
+                    "type": "message_create",
+                    "message_create": {
+                        "target": {"recipient_id": int(user.twitter_id)},
+                        "message_data": {"text": message_text},
+                    },
+                }
+            }
+            await client.api.direct_messages.events.new.post(_json=message)
+            print(
+                f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} sent DM to {block_job.twitter_username}"
+            )
+
+            # Create the unblock job
+            await UnblockJob.create(
+                user_id=block_job.user_id,
+                twitter_username=block_job.twitter_username,
                 status="pending",
-                scheduled_timestamp=datetime.now() + timedelta(minutes=5),
-            ).apply()
-
-            print(
-                f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} failed ({e}), delaying 5 minutes"
+                scheduled_timestamp=unblock_timestamp,
             )
+
+            # Wait 10 seconds before blocking, to ensure they receive the DM
+            await asyncio.sleep(10)
+
+    # Block the user
+    await client.api.blocks.create.post(screen_name=block_job.twitter_username)
+
+    # Success, update block_job
+    await block_job.update(status="blocked", blocked_timestamp=datetime.now()).apply()
+
+    print(
+        f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} blocked user {block_job.twitter_username}"
+    )
 
 
 async def start_unblock_job(unblock_job):
     client = await peony_semiphemeral_dm_client()
 
-    try:
-        # Are they already unblocked?
-        friendship = (
-            await tweepy_api_call(
-                unblock_job,
-                api,
-                "show_friendship",
-                source_screen_name="semiphemeral",
-                target_screen_name=unblock_job.twitter_username,
-            )
-        )[0]
+    # Are they already unblocked?
+    friendship = await client.api.friendships.show.get(
+        source_screen_name="semiphemeral",
+        target_screen_name=block_job.twitter_username,
+    )
+    if not friendship["relationship"]["source"]["blocking"]:
+        # Update the user
+        user = await User.query.where(User.id == unblock_job.user_id).gino.first()
+        if user and user.blocked:
+            await user.update(paused=True, blocked=False).apply()
 
-        if not friendship.blocking:
-            # Update the user
-            user = await User.query.where(User.id == unblock_job.user_id).gino.first()
-            if user and user.blocked:
-                await user.update(paused=True, blocked=False).apply()
-
-            # Already unblocked, so our work here is done
-            await unblock_job.update(
-                status="unblocked", unblocked_timestamp=datetime.now()
-            ).apply()
-            print(
-                f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} already unblocked {unblock_job.twitter_username}"
-            )
-            return
-
-        # Unblock them
-        await tweepy_api_call(
-            unblock_job, api, "destroy_block", screen_name=unblock_job.twitter_username
-        )
-
-        # If we're unblocking a semiphemeral user
-        if unblock_job.user_id:
-            user = await User.query.where(User.id == unblock_job.user_id).gino.first()
-            if user and user.blocked:
-                # Update the user
-                await user.update(paused=True, blocked=False).apply()
-
-        # Success, update block_job
+        # Already unblocked, so our work here is done
         await unblock_job.update(
             status="unblocked", unblocked_timestamp=datetime.now()
         ).apply()
-
         print(
-            f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} unblocked user {unblock_job.twitter_username}"
+            f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} already unblocked {unblock_job.twitter_username}"
         )
-    except Exception as e:
-        try:
-            error_code = e.args[0][0]["code"]
-        except:
-            error_code = e.api_code
+        return
 
-        # 108: Cannot find specified user.
-        # 89: Invalid or expired token.
-        # 50: User not found.
-        if error_code == 108 or error_code == 89 or error_code == 50:
-            print(
-                f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} failed ({e}), marking as failure"
-            )
-            await unblock_job.update(status="failed").apply()
-        else:
-            # Try again in 5 minutes
-            await unblock_job.update(
-                status="pending",
-                scheduled_timestamp=datetime.now() + timedelta(minutes=5),
-            ).apply()
+    # Unblock them
+    await client.api.blocks.create.destroy(screen_name=unblock_job.twitter_username)
 
-            print(
-                f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} failed ({e}), delaying 5 minutes"
-            )
+    # If we're unblocking a semiphemeral user
+    if unblock_job.user_id:
+        user = await User.query.where(User.id == unblock_job.user_id).gino.first()
+        if user and user.blocked:
+            # Update the user
+            await user.update(paused=True, blocked=False).apply()
+
+    # Success, update block_job
+    await unblock_job.update(
+        status="unblocked", unblocked_timestamp=datetime.now()
+    ).apply()
+
+    print(
+        f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} unblocked user {unblock_job.twitter_username}"
+    )
 
 
 async def job_runner(gino_db, job_runner_id):
