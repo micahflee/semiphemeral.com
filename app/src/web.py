@@ -94,11 +94,11 @@ async def _api_validate_dms_authenticated(user):
         and user.twitter_dms_access_token_secret != ""
     ):
         # Check if user is authenticated with DMs twitter app
+        dms_client = await peony_dms_client(user)
         try:
-            dms_client = await peony_dms_client(user)
             twitter_user = await dms_client.user
             return True
-        except:
+        except peony.exceptions.InvalidOrExpiredToken:
             pass
 
     return False
