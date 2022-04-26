@@ -1,27 +1,18 @@
 import asyncio
 import json
 import os
-import shutil
-import csv
-import time
-import zipfile
 import queue
-import math
 from datetime import datetime, timedelta, timezone
 
-import tweepy
 import peony
 
 from common import (
     log,
     update_progress,
     update_progress_rate_limit,
-    tweepy_api,
-    tweepy_dms_api,
-    tweepy_api_call,
     peony_client,
     peony_dms_client,
-    twitter_semiphemeral_dm_api,
+    peony_semiphemeral_dm_client,
     tweets_to_delete,
     send_admin_notification,
 )
@@ -66,14 +57,11 @@ def test_api_creds(func):
         Make sure the API creds work, and if not pause semiphemeral for the user
         """
         user = await User.query.where(User.id == job.user_id).gino.first()
-        api = await tweepy_api(user)
+        client = peony_client(user)
         try:
-            # Make an API request
-            await tweepy_api_call(job, api, "get_user", user_id=User.twitter_id)
-        except tweepy.errors.TweepyException as e:
-            print(
-                f"user_id={user.id} API creds failed ({e}), canceling job and pausing user"
-            )
+            twitter_user = await client.user
+        except peony.exceptions.InvalidOrExpiredToken:
+            print(f"user_id={user.id} API creds failed, canceling job and pausing user")
             await user.update(paused=True).apply()
             await job.update(status="canceled").apply()
             return False
@@ -91,17 +79,12 @@ def ensure_user_follows_us(func):
         if user.twitter_screen_name == "semiphemeral":
             return await func(gino_db, job, job_runner_id)
 
-        api = await tweepy_api(user)
+        client = peony_client(user)
 
         # Is the user following us?
-        friendship = (
-            await tweepy_api_call(
-                job,
-                api,
-                "show_friendship",
-                source_id=int(user.twitter_id),
-                target_screen_name="semiphemeral",
-            )
+        friendship = await client.api.friendships.show.get(
+            source_screen_name=user.twitter_screen_name,
+            target_screen_name="semiphemeral",
         )[0]
 
         if friendship.blocked_by:
@@ -775,7 +758,9 @@ async def delete(gino_db, job, job_runner_id):
         proceed = False
         try:
             dms_api = await tweepy_dms_api(user)
-            twitter_user = await tweepy_api_call(job, dms_api, "get_user", user_id=User.twitter_id)
+            twitter_user = await tweepy_api_call(
+                job, dms_api, "get_user", user_id=User.twitter_id
+            )
             proceed = True
         except:
             # It doesn't, so disable deleting direct messages
@@ -1183,7 +1168,7 @@ async def start_job(gino_db, job, job_runner_id):
 
 
 async def start_dm_job(dm_job):
-    api = await twitter_semiphemeral_dm_api()
+    client = await peony_semiphemeral_dm_client()
 
     try:
         # Send the DM
@@ -1252,7 +1237,7 @@ async def start_dm_job(dm_job):
 
 
 async def start_block_job(block_job):
-    api = await twitter_semiphemeral_dm_api()
+    client = await peony_semiphemeral_dm_client()
 
     try:
         # Are they already blocked?
@@ -1373,7 +1358,7 @@ async def start_block_job(block_job):
 
 
 async def start_unblock_job(unblock_job):
-    api = await twitter_semiphemeral_dm_api()
+    client = await peony_semiphemeral_dm_client()
 
     try:
         # Are they already unblocked?
