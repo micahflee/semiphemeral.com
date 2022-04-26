@@ -14,6 +14,7 @@ import aiohttp_jinja2
 from aiopg.sa import create_engine
 import stripe
 
+import peony
 from peony import PeonyClient
 
 from sqlalchemy import or_
@@ -152,9 +153,12 @@ async def auth_login(request):
     if user:
         # If we're already logged in, redirect
         client = peony_client(user)
-        twitter_user = await client.user
-        if twitter_user.id_str == str(User.twitter_id):
-            raise web.HTTPFound("/dashboard")
+        try:
+            twitter_user = await client.user
+            if twitter_user.id_str == str(User.twitter_id):
+                raise web.HTTPFound("/dashboard")
+        except peony.exceptions.InvalidOrExpiredToken:
+            pass
 
     # Otherwise, authorize with Twitter
     redirect_url, token = await peony_oauth1(
@@ -421,14 +425,14 @@ async def api_get_user(request):
         twitter_user = await client.api.users.lookup.get(
             screen_name=user.twitter_screen_name
         )
-        twitter_user = twitter_user[0]
     else:
         # Just a normal user
         client = await peony_client(user)
         twitter_user = await client.api.users.lookup.get(
             screen_name=user.twitter_screen_name
         )
-        twitter_user = twitter_user[0]
+
+    twitter_user = twitter_user[0]
 
     return web.json_response(
         {
@@ -1048,7 +1052,7 @@ async def api_post_dashboard(request):
             target_screen_name="semiphemeral",
         )
 
-        if friendship["relationship"]["blocked_by"]:
+        if friendship["relationship"]["source"]["blocked_by"]:
             # Still blocked by semiphemeral. Should we unblock?
 
             # Count fascist tweets
@@ -1095,7 +1099,7 @@ async def api_post_dashboard(request):
             target_screen_name="semiphemeral",
         )
 
-        if friendship["relationship"]["blocked_by"]:
+        if friendship["relationship"]["source"]["blocked_by"]:
             return web.json_response({"unblocked": False})
         else:
             # Delete the user's likes so we can start over and check them all

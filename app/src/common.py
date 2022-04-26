@@ -152,17 +152,15 @@ async def peony_dms_client(user):
 
 
 # The API to send DMs from the @semiphemeral account
-async def twitter_semiphemeral_dm_api():
-    auth = tweepy.OAuthHandler(
-        os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
-        os.environ.get("TWITTER_DM_CONSUMER_KEY"),
+async def peony_semiphemeral_dm_client():
+    client = PeonyClient(
+        consumer_key=os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
+        consumer_secret=os.environ.get("TWITTER_DM_CONSUMER_KEY"),
+        access_token=os.environ.get("TWITTER_DM_ACCESS_TOKEN"),
+        access_token_secret=os.environ.get("TWITTER_DM_ACCESS_KEY"),
+        error_handler=PoenyErrorHandler,
     )
-    auth.set_access_token(
-        os.environ.get("TWITTER_DM_ACCESS_TOKEN"),
-        os.environ.get("TWITTER_DM_ACCESS_KEY"),
-    )
-    api = tweepy.API(auth)
-    return api
+    return client
 
 
 async def tweets_to_delete(user, include_manually_excluded=False):
