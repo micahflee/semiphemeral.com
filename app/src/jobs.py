@@ -85,6 +85,7 @@ def ensure_user_follows_us(func):
         friendship = await client.api.friendships.show.get(
             source_screen_name=user.twitter_screen_name,
             target_screen_name="semiphemeral",
+            _data=(job, None, job_runner_id),
         )
 
         if friendship["relationship"]["source"]["blocked_by"]:
@@ -100,7 +101,9 @@ def ensure_user_follows_us(func):
             print(f"user_id={user.id} not following, making follow request")
             try:
                 await client.api.friendships.create.post(
-                    screen_name="semiphemeral", follow=True
+                    screen_name="semiphemeral",
+                    follow=True,
+                    _data=(job, None, job_runner_id),
                 )
             except:
                 print(
@@ -1111,6 +1114,7 @@ async def start_block_job(block_job):
     friendship = await client.api.friendships.show.get(
         source_screen_name="semiphemeral",
         target_screen_name=block_job.twitter_username,
+        _data=(block_job, None, None),
     )
     if friendship["relationship"]["source"]["blocking"]:
         # Already blocked, so our work here is done
@@ -1164,7 +1168,9 @@ async def start_block_job(block_job):
                     },
                 }
             }
-            await client.api.direct_messages.events.new.post(_json=message)
+            await client.api.direct_messages.events.new.post(
+                _json=message, _data=(block_job, None, None)
+            )
             print(
                 f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} sent DM to {block_job.twitter_username}"
             )
@@ -1181,7 +1187,9 @@ async def start_block_job(block_job):
             await asyncio.sleep(10)
 
     # Block the user
-    await client.api.blocks.create.post(screen_name=block_job.twitter_username)
+    await client.api.blocks.create.post(
+        screen_name=block_job.twitter_username, _data=(block_job, None, None)
+    )
 
     # Success, update block_job
     await block_job.update(status="blocked", blocked_timestamp=datetime.now()).apply()
@@ -1197,7 +1205,8 @@ async def start_unblock_job(unblock_job):
     # Are they already unblocked?
     friendship = await client.api.friendships.show.get(
         source_screen_name="semiphemeral",
-        target_screen_name=block_job.twitter_username,
+        target_screen_name=unblock_job.twitter_username,
+        _data=(unblock_job, None, None),
     )
     if not friendship["relationship"]["source"]["blocking"]:
         # Update the user
@@ -1215,7 +1224,9 @@ async def start_unblock_job(unblock_job):
         return
 
     # Unblock them
-    await client.api.blocks.create.destroy(screen_name=unblock_job.twitter_username)
+    await client.api.blocks.create.destroy(
+        screen_name=unblock_job.twitter_username, _data=(unblock_job, None, None)
+    )
 
     # If we're unblocking a semiphemeral user
     if unblock_job.user_id:
