@@ -1043,9 +1043,17 @@ async def start_dm_job(dm_job):
 
     try:
         # Send the DM
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(
-            None, api.send_direct_message, dm_job.dest_twitter_id, dm_job.message
+        message = {
+            "event": {
+                "type": "message_create",
+                "message_create": {
+                    "target": {"recipient_id": int(dm_job.dest_twitter_id)},
+                    "message_data": {"text": dm_job.message},
+                },
+            }
+        }
+        await client.api.direct_messages.events.new.post(
+            _json=message, _data=(block_job, None, None)
         )
 
         # Success, update dm_job as sent
