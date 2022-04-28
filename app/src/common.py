@@ -3,6 +3,7 @@ import asyncio
 import requests
 import json
 import math
+import aiohttp
 from datetime import datetime, timedelta, timezone
 
 import peony
@@ -46,57 +47,9 @@ async def update_progress_rate_limit(job, progress, job_runner_id=None, seconds=
     await log(job, f"#{job_runner_id} Finished waiting, resuming")
 
 
-class PoenyErrorHandler(peony.ErrorHandler):
-    """
-    https://peony-twitter.readthedocs.io/en/stable/adv_usage/error_handler.html
-    """
-
-    def __init__(self, request):
-        super().__init__(request)
-
-    @peony.ErrorHandler.handle(peony.exceptions.RateLimitExceeded)
-    async def handle_rate_limits(self, exception):
-        rate_limit_reset_ts = int(exception.response.headers.get("x-rate-limit-reset"))
-        now_ts = datetime.now(timezone.utc).replace(tzinfo=timezone.utc).timestamp()
-        seconds_to_wait = math.ceil(rate_limit_reset_ts - now_ts)
-        if seconds_to_wait > 0:
-            await update_progress_rate_limit(
-                self.job, self.progress, self.job_runner_id, seconds=seconds_to_wait
-            )
-        return peony.ErrorHandler.RETRY
-
-    @peony.ErrorHandler.handle(asyncio.TimeoutError, TimeoutError)
-    async def handle_timeout_error(self):
-        await log(self.job, f"#{self.job_runner_id} Timed out, retrying in 5s")
-        await asyncio.sleep(5)
-        return peony.ErrorHandler.RETRY
-
-    @peony.ErrorHandler.handle(
-        peony.exceptions.InternalError,
-        peony.exceptions.HTTPServiceUnavailable,
-        peony.exceptions.OverCapacity,
-    )
-    async def handle_delay_errors(self, exception):
-        exception_str = str(exception).replace("\n", ", ")
-        await log(self.job, f"#{self.job_runner_id} {exception_str}, retrying in 60s")
-        await asyncio.sleep(60)
-        return peony.ErrorHandler.RETRY
-
-    @peony.ErrorHandler.handle(Exception)
-    async def default_handler(self, exception):
-        return peony.ErrorHandler.RAISE
-
-    async def __call__(self, data=None, **kwargs):
-        if data:
-            self.job, self.progress, self.job_runner_id = data
-        else:
-            self.job = None
-            self.progress = None
-            self.job_runner_id = None
-        return await super().__call__(**kwargs)
-
-
-async def peony_oauth1(twitter_consumer_token, twitter_consumer_key, callback_path):
+async def peony_oauth_step1(
+    twitter_consumer_token, twitter_consumer_key, callback_path
+):
     token = await get_oauth_token(
         twitter_consumer_token,
         twitter_consumer_key,
@@ -108,7 +61,7 @@ async def peony_oauth1(twitter_consumer_token, twitter_consumer_key, callback_pa
     return redirect_url, token
 
 
-async def peony_oauth2(
+async def peony_oauth_step3(
     twitter_consumer_token,
     twitter_consumer_key,
     oauth_token,
@@ -131,7 +84,6 @@ async def peony_client(user):
         consumer_secret=os.environ.get("TWITTER_CONSUMER_KEY"),
         access_token=user.twitter_access_token,
         access_token_secret=user.twitter_access_token_secret,
-        error_handler=PoenyErrorHandler,
     )
     return client
 
@@ -142,7 +94,6 @@ async def peony_dms_client(user):
         consumer_secret=os.environ.get("TWITTER_DM_CONSUMER_KEY"),
         access_token=user.twitter_dms_access_token,
         access_token_secret=user.twitter_dms_access_token_secret,
-        error_handler=PoenyErrorHandler,
     )
     return client
 
@@ -154,7 +105,6 @@ async def peony_semiphemeral_dm_client():
         consumer_secret=os.environ.get("TWITTER_DM_CONSUMER_KEY"),
         access_token=os.environ.get("TWITTER_DM_ACCESS_TOKEN"),
         access_token_secret=os.environ.get("TWITTER_DM_ACCESS_KEY"),
-        error_handler=PoenyErrorHandler,
     )
     return client
 

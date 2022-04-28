@@ -85,7 +85,6 @@ def ensure_user_follows_us(func):
         friendship = await client.api.friendships.show.get(
             source_screen_name=user.twitter_screen_name,
             target_screen_name="semiphemeral",
-            _data=(job, None, job_runner_id),
         )
 
         if friendship["relationship"]["source"]["blocked_by"]:
@@ -99,18 +98,9 @@ def ensure_user_follows_us(func):
         elif not friendship["relationship"]["source"]["following"]:
             # Make follow request
             print(f"user_id={user.id} not following, making follow request")
-            try:
-                await client.api.friendships.create.post(
-                    screen_name="semiphemeral",
-                    follow=True,
-                    _data=(job, None, job_runner_id),
-                )
-            except:
-                print(
-                    f"user_id={user.id} failed to make follow request, pause the user"
-                )
-                await user.update(paused=True).apply()
-                return
+            await client.api.friendships.create.post(
+                screen_name="semiphemeral",
+            )
 
         return await func(gino_db, job, job_runner_id)
 
@@ -221,7 +211,6 @@ async def import_tweet_and_thread(user, client, job, progress, status, job_runne
                 parent_statuses = await client.api.statuses.lookup.get(
                     id=tweet["in_reply_to_status_id_str"],
                     tweet_mode="extended",
-                    _data=(job, progress, job_runner_id),
                 )
                 if len(parent_statuses) > 0:
                     await import_tweet_and_thread(
@@ -307,7 +296,6 @@ async def fetch(gino_db, job, job_runner_id):
         "screen_name": user.twitter_screen_name,
         "tweet_mode": "extended",
         "count": 200,
-        "_data": (job, progress, job_runner_id),
     }
     if since_id:
         params["since_id"] = since_id
@@ -399,7 +387,6 @@ async def fetch(gino_db, job, job_runner_id):
         "screen_name": user.twitter_screen_name,
         "tweet_mode": "extended",
         "count": 200,
-        "_data": (job, progress, job_runner_id),
     }
     if since_id:
         params["since_id"] = since_id
@@ -551,9 +538,7 @@ async def delete(gino_db, job, job_runner_id):
             for tweet in tweets:
                 # Delete retweet
                 try:
-                    await client.api.statuses.unretweet[tweet.status_id].post(
-                        _data=(job, progress, job_runner_id),
-                    )
+                    await client.api.statuses.unretweet[tweet.status_id].post()
                     # await log(
                     #     job, f"#{job_runner_id} Deleted retweet {tweet.status_id}"
                     # )
@@ -614,10 +599,7 @@ async def delete(gino_db, job, job_runner_id):
                 # Delete like
 
                 try:
-                    await client.api.favorites.destroy.post(
-                        id=tweet.status_id,
-                        _data=(job, progress, job_runner_id),
-                    )
+                    await client.api.favorites.destroy.post(id=tweet.status_id)
                     await tweet.update(is_unliked=True).apply()
                     await log(job, f"#{job_runner_id} Deleted like {tweet.status_id}")
                 except peony.exceptions.StatusNotFound:
@@ -642,10 +624,7 @@ async def delete(gino_db, job, job_runner_id):
         for tweet in tweets:
             # Delete tweet
             try:
-                await client.api.statuses.destroy.post(
-                    id=tweet.status_id,
-                    _data=(job, progress, job_runner_id),
-                )
+                await client.api.statuses.destroy.post(id=tweet.status_id)
                 await tweet.update(is_deleted=True).apply()
             except peony.exceptions.StatusNotFound:
                 await log(
@@ -1052,9 +1031,7 @@ async def start_dm_job(dm_job):
                 },
             }
         }
-        await client.api.direct_messages.events.new.post(
-            _json=message, _data=(block_job, None, None)
-        )
+        await client.api.direct_messages.events.new.post(_json=message)
 
         # Success, update dm_job as sent
         await dm_job.update(status="sent", sent_timestamp=datetime.now()).apply()
@@ -1122,7 +1099,6 @@ async def start_block_job(block_job):
     friendship = await client.api.friendships.show.get(
         source_screen_name="semiphemeral",
         target_screen_name=block_job.twitter_username,
-        _data=(block_job, None, None),
     )
     if friendship["relationship"]["source"]["blocking"]:
         # Already blocked, so our work here is done
@@ -1176,9 +1152,7 @@ async def start_block_job(block_job):
                     },
                 }
             }
-            await client.api.direct_messages.events.new.post(
-                _json=message, _data=(block_job, None, None)
-            )
+            await client.api.direct_messages.events.new.post(_json=message)
             print(
                 f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} sent DM to {block_job.twitter_username}"
             )
@@ -1195,9 +1169,7 @@ async def start_block_job(block_job):
             await asyncio.sleep(10)
 
     # Block the user
-    await client.api.blocks.create.post(
-        screen_name=block_job.twitter_username, _data=(block_job, None, None)
-    )
+    await client.api.blocks.create.post(screen_name=block_job.twitter_username)
 
     # Success, update block_job
     await block_job.update(status="blocked", blocked_timestamp=datetime.now()).apply()
@@ -1214,7 +1186,6 @@ async def start_unblock_job(unblock_job):
     friendship = await client.api.friendships.show.get(
         source_screen_name="semiphemeral",
         target_screen_name=unblock_job.twitter_username,
-        _data=(unblock_job, None, None),
     )
     if not friendship["relationship"]["source"]["blocking"]:
         # Update the user
@@ -1232,9 +1203,7 @@ async def start_unblock_job(unblock_job):
         return
 
     # Unblock them
-    await client.api.blocks.create.destroy(
-        screen_name=unblock_job.twitter_username, _data=(unblock_job, None, None)
-    )
+    await client.api.blocks.create.destroy(screen_name=unblock_job.twitter_username)
 
     # If we're unblocking a semiphemeral user
     if unblock_job.user_id:
