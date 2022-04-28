@@ -11,19 +11,17 @@ from aiohttp_session import setup, get_session, new_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 import jinja2
 import aiohttp_jinja2
-from aiopg.sa import create_engine
 import stripe
 
-import peony
-from peony import PeonyClient
+from peony.exceptions import InvalidOrExpiredToken
 
 from sqlalchemy import or_
 
 from common import (
     send_admin_notification,
     delete_user,
-    peony_oauth1,
-    peony_oauth2,
+    peony_oauth_step1,
+    peony_oauth_step3,
     peony_client,
     peony_dms_client,
 )
@@ -98,7 +96,7 @@ async def _api_validate_dms_authenticated(user):
         try:
             twitter_user = await dms_client.user
             return True
-        except peony.exceptions.InvalidOrExpiredToken:
+        except InvalidOrExpiredToken:
             pass
 
     return False
@@ -157,11 +155,11 @@ async def auth_login(request):
             twitter_user = await client.user
             if twitter_user.id_str == str(User.twitter_id):
                 raise web.HTTPFound("/dashboard")
-        except peony.exceptions.InvalidOrExpiredToken:
+        except InvalidOrExpiredToken:
             pass
 
     # Otherwise, authorize with Twitter
-    redirect_url, token = await peony_oauth1(
+    redirect_url, token = await peony_oauth_step1(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
         "/auth/twitter_callback",
@@ -192,12 +190,16 @@ async def auth_twitter_callback(request):
     oauth_token = params["oauth_token"]
     oauth_verifier = params["oauth_verifier"]
 
-    # Authenticate with twitter
     session = await get_session(request)
-    token = await peony_oauth2(
+
+    if oauth_token != session["oauth_token"]:
+        raise web.HTTPUnauthorized(text="Error, invalid oath_token in the session")
+
+    # Authenticate with twitter
+    token = await peony_oauth_step3(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
-        oauth_token,
+        session["oauth_token"],
         session["oauth_token_secret"],
         oauth_verifier,
     )
@@ -254,12 +256,16 @@ async def auth_twitter_dms_callback(request):
     oauth_token = params["oauth_token"]
     oauth_verifier = params["oauth_verifier"]
 
-    # Authenticate with twitter
     session = await get_session(request)
-    token = await peony_oauth2(
+
+    if oauth_token != session["dms_oauth_token"]:
+        raise web.HTTPUnauthorized(text="Error, invalid dms_oauth_token in the session")
+
+    # Authenticate with twitter
+    token = await peony_oauth_step3(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
-        oauth_token,
+        session["dms_oauth_token"],
         session["dms_oauth_token_secret"],
         oauth_verifier,
     )
@@ -544,7 +550,7 @@ async def api_post_settings(request):
 
     if data["action"] == "authenticate_dms":
         # Authorize with Twitter
-        redirect_url, token = await peony_oauth1(
+        redirect_url, token = await peony_oauth_step1(
             os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
             os.environ.get("TWITTER_DM_CONSUMER_KEY"),
             "/auth/twitter_dms_callback",
