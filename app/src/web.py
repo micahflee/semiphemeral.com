@@ -13,7 +13,7 @@ import jinja2
 import aiohttp_jinja2
 import stripe
 
-from peony.exceptions import InvalidOrExpiredToken
+from peony.exceptions import InvalidOrExpiredToken, HTTPForbidden
 
 from sqlalchemy import or_
 
@@ -96,7 +96,7 @@ async def _api_validate_dms_authenticated(user):
         try:
             twitter_user = await dms_client.user
             return True
-        except InvalidOrExpiredToken:
+        except (InvalidOrExpiredToken, HTTPForbidden):
             pass
 
     return False
