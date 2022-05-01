@@ -279,8 +279,6 @@ async def fetch(gino_db, job, job_runner_id):
 
     await log(job, f"#{job_runner_id} Fetch started")
 
-    loop = asyncio.get_running_loop()
-
     # Start the progress
     progress = {"tweets_fetched": 0, "likes_fetched": 0}
     if since_id:
@@ -661,66 +659,35 @@ async def delete(gino_db, job, job_runner_id):
                 days=user.direct_messages_threshold
             )
 
-            # TODO: Work on making DMs work later
+            # Fetch DMs
+            dms = []
+            cursor = None
+            while True:
+                dms_request = await dms_client.api.direct_messages.events.list.get(
+                    count=50, cursor=cursor
+                )
+                dms.extend(dms_request["events"])
+                if "next_cursor" in dms_request:
+                    cursor = dms_request["next_cursor"]
+                else:
+                    break
 
-            # # Fetch DMs
-            # dms_request = dms_client.api.direct_messages.events.list.get(count=50)
-            # dm_ids = dms_request.iterator.with_cursor()
+            for dm in dms:
+                created_timestamp = datetime.fromtimestamp(
+                    int(dm.created_timestamp) / 1000
+                )
+                if created_timestamp <= datetime_threshold:
+                    # Delete the DM
+                    await log(job, f"Deleted DM {dm.id}")
+                    try:
+                        await dms_client.api.direct_messages.events.destroy.delete(
+                            id=dm.id
+                        )
+                    except peony.exceptions.DoesNotExist as e:
+                        await log(job, f"Skipping DM {dm.id}, {e}")
 
-            # pages = await loop.run_in_executor(
-            #     None,
-            #     tweepy.Cursor(dms_api.list_direct_messages).pages,
-            # )
-            # while True:
-            #     try:
-            #         page = pages.next()
-            #         await log(
-            #             job,
-            #             f"#{job_runner_id} Fetch DMs loop: got page with {len(page)} DMs",
-            #         )
-            #     except StopIteration:
-            #         await log(
-            #             job, f"#{job_runner_id} Hit the end of fetch DMs loop, breaking"
-            #         )
-            #         break
-            #     except tweepy.errors.TweepyException as e:
-            #         await update_progress_rate_limit(job, progress, job_runner_id)
-            #         continue
-
-            #     for dm in page:
-            #         created_timestamp = datetime.fromtimestamp(
-            #             int(dm.created_timestamp) / 1000
-            #         )
-            #         if created_timestamp <= datetime_threshold:
-            #             # Try deleting the DM in a loop, in case it gets rate-limited
-            #             while True:
-            #                 try:
-            #                     await loop.run_in_executor(
-            #                         None, dms_api.destroy_direct_message, dm.id
-            #                     )
-            #                     await log(job, f"#{job_runner_id} Deleted DM {dm.id}")
-            #                     break
-            #                 except tweepy.errors.TweepyException as e:
-            #                     if e.api_code == 429:  # 429 = Too Many Requests
-            #                         await update_progress_rate_limit(
-            #                             job, progress, job_runner_id
-            #                         )
-            #                         # Don't break, so it tries again
-            #                     else:
-            #                         if (
-            #                             e.api_code == 89
-            #                         ):  # 89 = Invalid or expired token.
-            #                             pass
-            #                         else:
-            #                             # Unknown error
-            #                             print(f"job_id={job.id} Error deleting DM {e}")
-            #                             break
-
-            #             progress["dms_deleted"] += 1
-            #             await update_progress(job, progress)
-
-            #         else:
-            #             await log(job, f"Skipping DM {dm.id}")
+                    progress["dms_deleted"] += 1
+                    await update_progress(job, progress)
 
     progress["status"] = "Finished"
     await update_progress(job, progress)
@@ -928,19 +895,17 @@ async def delete_dms_job(job, dm_type, job_runner_id):
                 if created_timestamp <= datetime_threshold:
                     dm_id = message["messageCreate"]["id"]
 
-                    await dms_client.api.direct_messages.events.destroy.delete(id=dm_id)
-
-                    # TODO: handle exceptions, but I'm not sure which exceptions yet
-                    # Here's some exception code:
-
-                    # await log(
-                    #     job,
-                    #     f"#{job_runner_id} Error deleting DM {dm_id}: {e}",
-                    # )
-
-                    # progress["dms_skipped"] += 1
-                    # await update_progress(job, progress)
-                    # break
+                    # Delete the DM
+                    try:
+                        await dms_client.api.direct_messages.events.destroy.delete(
+                            id=dm_id
+                        )
+                        progress["dms_deleted"] += 1
+                        await update_progress(job, progress)
+                    except peony.exceptions.DoesNotExist as e:
+                        await log(job, f"Error deleting DM {dm_id}, {e}")
+                        progress["dms_skipped"] += 1
+                        await update_progress(job, progress)
 
     # Delete the DM metadata file
     try:
