@@ -87,12 +87,17 @@ async def _cleanup_users():
         client = await peony_client(user)
         try:
             twitter_user = await client.user
-        except peony.exceptions.InvalidOrExpiredToken:
+        except (
+            peony.exceptions.InvalidOrExpiredToken,
+            peony.exceptions.NotAuthenticated,
+        ) as e:
             print(
                 f"\r[{i}/{count}, deleted {users_deleted}] deleting @{user.twitter_screen_name}: {e}"
             )
             await delete_user(user)
             users_deleted += 1
+
+        await client.close()
 
         i += 1
 
@@ -150,6 +155,7 @@ async def _unblock_users():
                 source_screen_name=user.twitter_screen_name,
                 target_screen_name="semiphemeral",
             )
+            await client.close()
 
             if not friendship["relationship"]["source"]["blocked_by"]:
                 unblocked_user_count += 1

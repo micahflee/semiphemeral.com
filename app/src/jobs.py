@@ -60,7 +60,11 @@ def test_api_creds(func):
         client = await peony_client(user)
         try:
             twitter_user = await client.user
-        except peony.exceptions.InvalidOrExpiredToken:
+            await client.close()
+        except (
+            peony.exceptions.InvalidOrExpiredToken,
+            peony.exceptions.NotAuthenticated,
+        ) as e:
             print(f"user_id={user.id} API creds failed, canceling job and pausing user")
             await user.update(paused=True).apply()
             await job.update(status="canceled").apply()
@@ -102,6 +106,7 @@ def ensure_user_follows_us(func):
                 screen_name="semiphemeral",
             )
 
+        await client.close()
         return await func(gino_db, job, job_runner_id)
 
     return wrapper
@@ -424,6 +429,8 @@ async def fetch(gino_db, job, job_runner_id):
 
         await update_progress(job, progress)
 
+    await client.close()
+
     # All done, update the since_id
     async with gino_db.acquire() as conn:
         await conn.all("BEGIN")
@@ -634,6 +641,8 @@ async def delete(gino_db, job, job_runner_id):
             progress["tweets_deleted"] += 1
             await update_progress(job, progress)
 
+    await client.close()
+
     # Deleting direct messages
     if user.direct_messages:
         # Make sure the DMs API authenticates successfully
@@ -642,7 +651,10 @@ async def delete(gino_db, job, job_runner_id):
         try:
             twitter_user = await dms_client.user
             proceed = True
-        except peony.exceptions.InvalidOrExpiredToken:
+        except (
+            peony.exceptions.InvalidOrExpiredToken,
+            peony.exceptions.NotAuthenticated,
+        ) as e:
             # It doesn't, so disable deleting direct messages
             await user.update(
                 direct_messages=False,
@@ -688,6 +700,8 @@ async def delete(gino_db, job, job_runner_id):
 
                     progress["dms_deleted"] += 1
                     await update_progress(job, progress)
+
+        await dms_client.close()
 
     progress["status"] = "Finished"
     await update_progress(job, progress)
@@ -834,7 +848,10 @@ async def delete_dms_job(job, dm_type, job_runner_id):
     dms_client = await peony_dms_client(user)
     try:
         twitter_user = await dms_client.user
-    except peony.exceptions.InvalidOrExpiredToken:
+    except (
+        peony.exceptions.InvalidOrExpiredToken,
+        peony.exceptions.NotAuthenticated,
+    ) as e:
         await log(
             job, f"#{job_runner_id} DMs Twitter API creds don't work, canceling job"
         )
@@ -906,6 +923,8 @@ async def delete_dms_job(job, dm_type, job_runner_id):
                         await log(job, f"Error deleting DM {dm_id}, {e}")
                         progress["dms_skipped"] += 1
                         await update_progress(job, progress)
+
+    await dms_client.close()
 
     # Delete the DM metadata file
     try:
@@ -985,76 +1004,64 @@ async def start_job(gino_db, job, job_runner_id):
 async def start_dm_job(dm_job):
     client = await peony_semiphemeral_dm_client()
 
-    try:
-        # Send the DM
-        message = {
-            "event": {
-                "type": "message_create",
-                "message_create": {
-                    "target": {"recipient_id": int(dm_job.dest_twitter_id)},
-                    "message_data": {"text": dm_job.message},
-                },
-            }
+    # Send the DM
+    message = {
+        "event": {
+            "type": "message_create",
+            "message_create": {
+                "target": {"recipient_id": int(dm_job.dest_twitter_id)},
+                "message_data": {"text": dm_job.message},
+            },
         }
-        await client.api.direct_messages.events.new.post(_json=message)
+    }
 
-        # Success, update dm_job as sent
-        await dm_job.update(status="sent", sent_timestamp=datetime.now()).apply()
+    # TODO: error handling
+    # Send the DM
+    await client.api.direct_messages.events.new.post(_json=message)
+    await dm_job.update(status="sent", sent_timestamp=datetime.now()).apply()
+    print(
+        f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sent DM to twitter_id={dm_job.dest_twitter_id}"
+    )
 
-        print(
-            f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sent DM to twitter_id={dm_job.dest_twitter_id}"
-        )
-    except Exception as e:
-        try:
-            error_code = e.args[0][0]["code"]
-        except:
-            if (
-                hasattr(e, "reason")
-                and e.reason == "Twitter error response: status code = 420"
-            ):
-                error_code = 420
-            else:
-                error_code = e.api_code
-
-        # 150: You cannot send messages to users who are not following you.
-        # 349: You cannot send messages to this user.
-        # 108: Cannot find specified user.
-        # 89: Invalid or expired token.
-        # 389: You cannot send messages to users you have blocked.
-        if (
-            error_code == 150
-            or error_code == 349
-            or error_code == 108
-            or error_code == 89
-            or error_code == 389
-        ):
-            print(
-                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}) error code {error_code}, marking as failure"
-            )
-            await dm_job.update(status="failed").apply()
-        elif error_code == 226 or error_code == 420:
-            # 226: This request looks like it might be automated. To protect our users from spam and
-            # other malicious activity, we can't complete this action right now. Please try again later.
-            # 420: Enhance Your Calm
-            await dm_job.update(
-                status="pending",
-                scheduled_timestamp=datetime.now() + timedelta(minutes=10),
-            ).apply()
-            print(
-                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sending DMs too fast, rescheduling and cooling off on DM sending for 10 minutes"
-            )
-            await asyncio.sleep(10 * 60)
-        else:
-            # If sending the DM failed, try again in 5 minutes
-            await dm_job.update(
-                status="pending",
-                scheduled_timestamp=datetime.now() + timedelta(minutes=5),
-            ).apply()
-            print(f"{type(e)}, {dir(e)}")
-            print(f"api_code={e.api_code}, reason={e.reason}")
-            print(
-                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), delaying 5 minutes"
-            )
+    # # 150: You cannot send messages to users who are not following you.
+    # # 349: You cannot send messages to this user.
+    # # 108: Cannot find specified user.
+    # # 89: Invalid or expired token.
+    # # 389: You cannot send messages to users you have blocked.
+    # if (
+    #     error_code == 150
+    #     or error_code == 349
+    #     or error_code == 108
+    #     or error_code == 89
+    #     or error_code == 389
+    # ):
+    #     print(
+    #         f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}) error code {error_code}, marking as failure"
+    #     )
+    #     await dm_job.update(status="failed").apply()
+    # elif error_code == 226 or error_code == 420:
+    #     # 226: This request looks like it might be automated. To protect our users from spam and
+    #     # other malicious activity, we can't complete this action right now. Please try again later.
+    #     # 420: Enhance Your Calm
+    #     await dm_job.update(
+    #         status="pending",
+    #         scheduled_timestamp=datetime.now() + timedelta(minutes=10),
+    #     ).apply()
+    #     print(
+    #         f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sending DMs too fast, rescheduling and cooling off on DM sending for 10 minutes"
+    #     )
+    #     await asyncio.sleep(10 * 60)
+    # else:
+    #     # If sending the DM failed, try again in 5 minutes
+    #     await dm_job.update(
+    #         status="pending",
+    #         scheduled_timestamp=datetime.now() + timedelta(minutes=5),
+    #     ).apply()
+    #     print(f"{type(e)}, {dir(e)}")
+    #     print(f"api_code={e.api_code}, reason={e.reason}")
+    #     print(
+    #         f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), delaying 5 minutes"
+    #     )
 
 
 async def start_block_job(block_job):
@@ -1168,7 +1175,10 @@ async def start_unblock_job(unblock_job):
         return
 
     # Unblock them
-    await client.api.blocks.create.destroy(screen_name=unblock_job.twitter_username)
+    try:
+        await client.api.blocks.destroy.post(screen_name=unblock_job.twitter_username)
+    except peony.exceptions.DoesNotExist:
+        pass
 
     # If we're unblocking a semiphemeral user
     if unblock_job.user_id:
