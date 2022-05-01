@@ -3,10 +3,9 @@ import asyncio
 import click
 from datetime import datetime, timedelta
 
-import tweepy
-
+import peony
 from db import connect_db, User, Job, DirectMessageJob
-from common import send_admin_notification, tweepy_api, tweepy_api_call, delete_user
+from common import send_admin_notification, peony_client, delete_user
 
 
 async def _send_reminders():
@@ -85,11 +84,10 @@ async def _cleanup_users():
             f"\r[{i}/{count}] checking @{user.twitter_screen_name} ..." + " " * 20,
             end="",
         )
-        api = await tweepy_api(user)
+        client = await peony_client(user)
         try:
-            await tweepy_api_call(None, api, "get_user", user_id=User.twitter_id)
-            # print(f"\r[{i}/{count}] checking @{user.twitter_screen_name} valid")
-        except tweepy.errors.TweepyException as e:
+            twitter_user = await client.user
+        except peony.exceptions.InvalidOrExpiredToken:
             print(
                 f"\r[{i}/{count}, deleted {users_deleted}] deleting @{user.twitter_screen_name}: {e}"
             )
@@ -147,23 +145,19 @@ async def _unblock_users():
 
         # Are they already unblocked?
         try:
-            api = await tweepy_api(user)
-            friendship = (
-                await tweepy_api_call(
-                    None,
-                    api,
-                    "show_friendship",
-                    source_screen_name="semiphemeral",
-                    target_screen_name=user.twitter_screen_name,
-                )
-            )[0]
-            if not friendship.blocking:
+            client = await peony_client(user)
+            friendship = await client.api.friendships.show.get(
+                source_screen_name=user.twitter_screen_name,
+                target_screen_name="semiphemeral",
+            )
+
+            if not friendship["relationship"]["source"]["blocked_by"]:
                 unblocked_user_count += 1
                 await user.update(paused=True, blocked=False).apply()
                 print(
                     f"\r[{i}/{count}, unblocked {unblocked_user_count}], set @{user.twitter_screen_name} to unblocked"
                 )
-        except tweepy.errors.TweepyException as e:
+        except Exception as e:
             print(f"\r[{i}/{count}, deleting @{user.twitter_screen_name}: {e}")
             await delete_user(user)
 
