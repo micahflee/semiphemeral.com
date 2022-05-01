@@ -13,7 +13,7 @@ import jinja2
 import aiohttp_jinja2
 import stripe
 
-from peony.exceptions import InvalidOrExpiredToken, HTTPForbidden
+import peony
 
 from sqlalchemy import or_
 
@@ -95,9 +95,14 @@ async def _api_validate_dms_authenticated(user):
         dms_client = await peony_dms_client(user)
         try:
             twitter_user = await dms_client.user
+            await dms_client.close()
             return True
-        except (InvalidOrExpiredToken, HTTPForbidden):
-            pass
+        except (
+            peony.exceptions.InvalidOrExpiredToken,
+            peony.exceptions.HTTPForbidden,
+            peony.exceptions.NotAuthenticated,
+        ):
+            await dms_client.close()
 
     return False
 
@@ -153,10 +158,14 @@ async def auth_login(request):
         client = peony_client(user)
         try:
             twitter_user = await client.user
+            await client.close()
             if twitter_user.id_str == str(User.twitter_id):
                 raise web.HTTPFound("/dashboard")
-        except InvalidOrExpiredToken:
-            pass
+        except (
+            peony.exceptions.InvalidOrExpiredToken,
+            peony.exceptions.NotAuthenticated,
+        ):
+            await client.close()
 
     # Otherwise, authorize with Twitter
     redirect_url, token = await peony_oauth_step1(
@@ -439,6 +448,7 @@ async def api_get_user(request):
         )
 
     twitter_user = twitter_user[0]
+    await client.close()
 
     return web.json_response(
         {
@@ -1057,6 +1067,7 @@ async def api_post_dashboard(request):
             source_screen_name=user.twitter_screen_name,
             target_screen_name="semiphemeral",
         )
+        await client.close()
 
         if friendship["relationship"]["source"]["blocked_by"]:
             # Still blocked by semiphemeral. Should we unblock?
@@ -1104,6 +1115,7 @@ async def api_post_dashboard(request):
             source_screen_name=user.twitter_screen_name,
             target_screen_name="semiphemeral",
         )
+        await client.close()
 
         if friendship["relationship"]["source"]["blocked_by"]:
             return web.json_response({"unblocked": False})
