@@ -81,25 +81,29 @@ def ensure_user_follows_us(func):
 
         async with SemiphemeralPeonyClient(user) as client:
             # Is the user following us?
-            friendship = await client.api.friendships.show.get(
-                source_screen_name=user.twitter_screen_name,
-                target_screen_name="semiphemeral",
-            )
-
-            if friendship["relationship"]["source"]["blocked_by"]:
-                # The semiphemeral user has blocked this user, so they're not allowed
-                # to use this service
-                print(f"user_id={user.id} is blocked, canceling job and updating user")
-                await job.update(status="canceled").apply()
-                await user.update(paused=True, blocked=True).apply()
-                return False
-
-            elif not friendship["relationship"]["source"]["following"]:
-                # Make follow request
-                print(f"user_id={user.id} not following, making follow request")
-                await client.api.friendships.create.post(
-                    screen_name="semiphemeral",
+            try:
+                friendship = await client.api.friendships.show.get(
+                    source_screen_name=user.twitter_screen_name,
+                    target_screen_name="semiphemeral",
                 )
+
+                if friendship["relationship"]["source"]["blocked_by"]:
+                    # The semiphemeral user has blocked this user, so they're not allowed
+                    # to use this service
+                    print(f"user_id={user.id} is blocked, canceling job and updating user")
+                    await job.update(status="canceled").apply()
+                    await user.update(paused=True, blocked=True).apply()
+                    return False
+
+                elif not friendship["relationship"]["source"]["following"]:
+                    # Make follow request
+                    print(f"user_id={user.id} not following, making follow request")
+                    await client.api.friendships.create.post(
+                        screen_name="semiphemeral",
+                    )
+
+            except Exception as e:
+                await log(job, f"#{job_runner_id} Exception in ensure_user_follows_us: {e}")
 
         return await func(gino_db, job, job_runner_id)
 
@@ -1133,56 +1137,8 @@ async def job_runner(gino_db, job_runner_id):
     global job_q, job_q_lock, job_q_last_refresh
 
     while True:
-        # Wait until the job queue isn't locked
-        while job_q_lock:
-            await asyncio.sleep(1)
-
-        # If there are no jobs in the queue and it hasn't been refreshed recently
-        recently = datetime.now() - timedelta(minutes=2)
-        if job_q.qsize() == 0 and (
-            (not job_q_last_refresh or job_q_last_refresh < recently)
-            or os.environ.get("DEPLOY_ENVIRONMENT") == "staging"
-        ):
-            job_q_lock = True
-
-            if os.environ.get("DEPLOY_ENVIRONMENT") != "staging":
-                print(
-                    f"#{job_runner_id} Job queue is empty, replenishing from the database"
-                )
-
-            # Add all pending job_ids to the queue
-            async with gino_db.acquire() as conn:
-                now = datetime.now()
-
-                await conn.all("BEGIN")
-                r = await conn.all(
-                    text(
-                        "SELECT id FROM jobs WHERE status='pending' AND scheduled_timestamp <= :scheduled_timestamp ORDER BY scheduled_timestamp FOR UPDATE SKIP LOCKED"
-                    ),
-                    scheduled_timestamp=now,
-                )
-
-                for row in r:
-                    job_id = row[0]
-                    job_q.put(job_id)
-
-                await conn.all(
-                    text(
-                        "UPDATE jobs SET status='queued' WHERE status='pending' AND scheduled_timestamp <= :scheduled_timestamp"
-                    ),
-                    scheduled_timestamp=now,
-                )
-                await conn.all("COMMIT")
-
-            if os.environ.get("DEPLOY_ENVIRONMENT") != "staging":
-                print(
-                    f"#{job_runner_id} There are {job_q.qsize()} pending jobs in the queue"
-                )
-
-            job_q_lock = False
-            job_q_last_refresh = datetime.now()
-
         try:
+            print(f"#{job_runner_id} Pulling a job from the queue")
             job_id = job_q.get(block=False)
             job = await Job.query.where(Job.id == job_id).gino.first()
             if job:
@@ -1193,11 +1149,60 @@ async def job_runner(gino_db, job_runner_id):
                         f"#{job_runner_id} gino.exceptions.NoSuchRowError, moving on to the next job"
                     )
 
+            await asyncio.sleep(1)
+
         except queue.Empty:
-            if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
-                await asyncio.sleep(60)
+            # If there are no jobs in the queue and it hasn't been refreshed recently
+            recently = datetime.now() - timedelta(minutes=1)
+            if (
+                not job_q_lock
+                and job_q.qsize() == 0
+                and (
+                    (not job_q_last_refresh or job_q_last_refresh < recently)
+                    or os.environ.get("DEPLOY_ENVIRONMENT") == "staging"
+                )
+            ):
+                job_q_lock = True
+
+                if os.environ.get("DEPLOY_ENVIRONMENT") != "staging":
+                    print(
+                        f"#{job_runner_id} Job queue is empty, replenishing from the database"
+                    )
+
+                # Add all pending job_ids to the queue
+                async with gino_db.acquire() as conn:
+                    now = datetime.now()
+
+                    await conn.all("BEGIN")
+                    r = await conn.all(
+                        text(
+                            "SELECT id FROM jobs WHERE status='pending' AND scheduled_timestamp <= :scheduled_timestamp ORDER BY scheduled_timestamp FOR UPDATE SKIP LOCKED"
+                        ),
+                        scheduled_timestamp=now,
+                    )
+
+                    for row in r:
+                        job_id = row[0]
+                        job_q.put(job_id)
+
+                    await conn.all(
+                        text(
+                            "UPDATE jobs SET status='queued' WHERE status='pending' AND scheduled_timestamp <= :scheduled_timestamp"
+                        ),
+                        scheduled_timestamp=now,
+                    )
+                    await conn.all("COMMIT")
+
+                print(
+                    f"#{job_runner_id} There are {job_q.qsize()} pending jobs in the queue"
+                )
+
+                job_q_lock = False
+                job_q_last_refresh = datetime.now()
+
             else:
-                await asyncio.sleep(60 * 5)
+                print(f"#{job_runner_id} Job queue is empty and locked, waiting 60s")
+                await asyncio.sleep(60)
 
 
 async def start_jobs(gino_db):
