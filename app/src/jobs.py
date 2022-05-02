@@ -1230,14 +1230,17 @@ async def start_jobs(gino_db):
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         job_runner_count = 2
     else:
-        job_runner_count = 1
+        job_runner_count = 10
 
-    await asyncio.gather(
+    exceptions = await asyncio.gather(
         *[
             job_runner(gino_db, job_runner_id)
             for job_runner_id in range(job_runner_count)
-        ]
+        ],
+        return_exceptions=True,
     )
+    if exceptions:
+        print(f"Exceptions in job runners: {exceptions}")
 
 
 async def start_dm_jobs():
@@ -1279,7 +1282,9 @@ async def start_dm_jobs():
 
         if len(tasks) > 0:
             print(f"Running {len(tasks)} DM/block/unblock jobs")
-            await asyncio.gather(*tasks)
+            exceptions = await asyncio.gather(*tasks, return_exceptions=True)
+            if exceptions:
+                print(f"Exceptions: {exceptions}")
 
         print(f"Waiting 60s")
         await asyncio.sleep(60)
