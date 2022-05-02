@@ -23,6 +23,14 @@
     owner: "1000"
     mode: 0700
 
+- name: ensure redis volume directory has the right permissions
+  file:
+    path: /opt/semiphemeral/data/redis
+    state: directory
+    owner: "999"
+    group: "1000"
+    mode: 0700
+
 - name: ensure bulk_dms volume directory has the right permissions
   file:
     path: /opt/semiphemeral/data/bulk_dms

@@ -88,6 +88,12 @@ services:
     depends_on:
       - web
 
+  redis:
+    image: redis:alpine
+    command: [ "redis-server", "--save", "3600", "10" ]
+    volumes:
+      - /opt/semiphemeral/data/redis:/data
+
 networks:
   default:
     driver: bridge
