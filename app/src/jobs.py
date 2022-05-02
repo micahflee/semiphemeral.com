@@ -9,10 +9,8 @@ import peony
 from common import (
     log,
     update_progress,
-    update_progress_rate_limit,
-    peony_client,
-    peony_dms_client,
-    peony_semiphemeral_dm_client,
+    SemiphemeralPeonyClient,
+    SemiphemeralAppPeonyClient,
     tweets_to_delete,
     send_admin_notification,
 )
@@ -57,18 +55,16 @@ def test_api_creds(func):
         Make sure the API creds work, and if not pause semiphemeral for the user
         """
         user = await User.query.where(User.id == job.user_id).gino.first()
-        client = await peony_client(user)
-        try:
-            twitter_user = await client.user
-            await client.close()
-        except (
-            peony.exceptions.InvalidOrExpiredToken,
-            peony.exceptions.NotAuthenticated,
-        ) as e:
-            print(f"user_id={user.id} API creds failed, canceling job and pausing user")
-            await user.update(paused=True).apply()
-            await job.update(status="canceled").apply()
-            return False
+        async with SemiphemeralPeonyClient(user) as client:
+            try:
+                twitter_user = await client.user
+            except Exception as e:
+                print(
+                    f"user_id={user.id} API creds failed, canceling job and pausing user"
+                )
+                await user.update(paused=True).apply()
+                await job.update(status="canceled").apply()
+                return False
 
         return await func(gino_db, job, job_runner_id)
 
@@ -83,30 +79,28 @@ def ensure_user_follows_us(func):
         if user.twitter_screen_name == "semiphemeral":
             return await func(gino_db, job, job_runner_id)
 
-        client = await peony_client(user)
-
-        # Is the user following us?
-        friendship = await client.api.friendships.show.get(
-            source_screen_name=user.twitter_screen_name,
-            target_screen_name="semiphemeral",
-        )
-
-        if friendship["relationship"]["source"]["blocked_by"]:
-            # The semiphemeral user has blocked this user, so they're not allowed
-            # to use this service
-            print(f"user_id={user.id} is blocked, canceling job and updating user")
-            await job.update(status="canceled").apply()
-            await user.update(paused=True, blocked=True).apply()
-            return False
-
-        elif not friendship["relationship"]["source"]["following"]:
-            # Make follow request
-            print(f"user_id={user.id} not following, making follow request")
-            await client.api.friendships.create.post(
-                screen_name="semiphemeral",
+        async with SemiphemeralPeonyClient(user) as client:
+            # Is the user following us?
+            friendship = await client.api.friendships.show.get(
+                source_screen_name=user.twitter_screen_name,
+                target_screen_name="semiphemeral",
             )
 
-        await client.close()
+            if friendship["relationship"]["source"]["blocked_by"]:
+                # The semiphemeral user has blocked this user, so they're not allowed
+                # to use this service
+                print(f"user_id={user.id} is blocked, canceling job and updating user")
+                await job.update(status="canceled").apply()
+                await user.update(paused=True, blocked=True).apply()
+                return False
+
+            elif not friendship["relationship"]["source"]["following"]:
+                # Make follow request
+                print(f"user_id={user.id} not following, making follow request")
+                await client.api.friendships.create.post(
+                    screen_name="semiphemeral",
+                )
+
         return await func(gino_db, job, job_runner_id)
 
     return wrapper
@@ -278,158 +272,155 @@ async def calculate_excluded_threads(user):
 @ensure_user_follows_us
 async def fetch(gino_db, job, job_runner_id):
     user = await User.query.where(User.id == job.user_id).gino.first()
-    client = await peony_client(user)
+    async with SemiphemeralPeonyClient(user) as client:
+        since_id = user.since_id
 
-    since_id = user.since_id
+        await log(job, f"#{job_runner_id} Fetch started")
 
-    await log(job, f"#{job_runner_id} Fetch started")
-
-    # Start the progress
-    progress = {"tweets_fetched": 0, "likes_fetched": 0}
-    if since_id:
-        progress["status"] = "Downloading all recent tweets"
-    else:
-        progress[
-            "status"
-        ] = "Downloading all tweets, this first run may take a long time"
-    await update_progress(job, progress)
-
-    # Fetch tweets
-    params = {
-        "screen_name": user.twitter_screen_name,
-        "tweet_mode": "extended",
-        "count": 200,
-    }
-    if since_id:
-        params["since_id"] = since_id
-
-    # Fetch 200 at a time until we run out
-    while True:
-        try:
-            statuses = await client.api.statuses.user_timeline.get(**params)
-        except peony.exceptions.DoesNotExist:
-            await log(
-                job,
-                f"#{job_runner_id} DoesNotExist, account seems deleted, canceling job and pausing user",
-            )
-            await user.update(paused=True).apply()
-            await job.update(status="canceled").apply()
-            raise JobCanceled()
-        except peony.exceptions.HTTPUnauthorized:
-            await log(
-                job,
-                f"#{job_runner_id} HTTPUnauthorized, account seems broken, canceling job and pausing user",
-            )
-            await user.update(paused=True).apply()
-            await job.update(status="canceled").apply()
-            raise JobCanceled()
-
-        if len(statuses) == 0:
-            break
-        await log(job, f"#{job_runner_id} Importing {len(statuses)} tweets")
-
-        # Next loop, set max_id to one less than the oldest status batch
-        params["max_id"] = statuses[-1].id - 1
-
-        # Import these tweets
-        for status in statuses:
-            await import_tweet_and_thread(
-                user, client, job, progress, status, job_runner_id
-            )
-            progress["tweets_fetched"] += 1
-
+        # Start the progress
+        progress = {"tweets_fetched": 0, "likes_fetched": 0}
+        if since_id:
+            progress["status"] = "Downloading all recent tweets"
+        else:
+            progress[
+                "status"
+            ] = "Downloading all tweets, this first run may take a long time"
         await update_progress(job, progress)
 
-        # Hunt for threads. This is a dict that maps the root status_id to a list
-        # of status_ids in the thread
-        threads = {}
-        for status in statuses:
-            if status.in_reply_to_status_id:
-                status_ids = await calculate_thread(user, status.id_str)
-                root_status_id = status_ids[0]
-                if root_status_id in threads:
-                    for status_id in status_ids:
-                        if status_id not in threads[root_status_id]:
-                            threads[root_status_id].append(status_id)
-                else:
-                    threads[root_status_id] = status_ids
+        # Fetch tweets
+        params = {
+            "screen_name": user.twitter_screen_name,
+            "tweet_mode": "extended",
+            "count": 200,
+        }
+        if since_id:
+            params["since_id"] = since_id
 
-        # For each thread, does this thread already exist, or do we create a new one?
-        for root_status_id in threads:
-            status_ids = threads[root_status_id]
-            thread = (
-                await Thread.query.where(Thread.user_id == user.id)
-                .where(Thread.root_status_id == root_status_id)
-                .gino.first()
-            )
-            if not thread:
-                thread = await Thread.create(
-                    user_id=user.id,
-                    root_status_id=root_status_id,
-                    should_exclude=False,
+        # Fetch 200 at a time until we run out
+        while True:
+            try:
+                statuses = await client.api.statuses.user_timeline.get(**params)
+            except peony.exceptions.DoesNotExist:
+                await log(
+                    job,
+                    f"#{job_runner_id} DoesNotExist, account seems deleted, canceling job and pausing user",
                 )
+                await user.update(paused=True).apply()
+                await job.update(status="canceled").apply()
+                raise JobCanceled()
+            except peony.exceptions.HTTPUnauthorized:
+                await log(
+                    job,
+                    f"#{job_runner_id} HTTPUnauthorized, account seems broken, canceling job and pausing user",
+                )
+                await user.update(paused=True).apply()
+                await job.update(status="canceled").apply()
+                raise JobCanceled()
 
-            # Add all of the thread's tweets to the thread
-            for status_id in status_ids:
-                tweet = (
-                    await Tweet.query.where(Tweet.user_id == user.id)
-                    .where(Tweet.status_id == status_id)
+            if len(statuses) == 0:
+                break
+            await log(job, f"#{job_runner_id} Importing {len(statuses)} tweets")
+
+            # Next loop, set max_id to one less than the oldest status batch
+            params["max_id"] = statuses[-1].id - 1
+
+            # Import these tweets
+            for status in statuses:
+                await import_tweet_and_thread(
+                    user, client, job, progress, status, job_runner_id
+                )
+                progress["tweets_fetched"] += 1
+
+            await update_progress(job, progress)
+
+            # Hunt for threads. This is a dict that maps the root status_id to a list
+            # of status_ids in the thread
+            threads = {}
+            for status in statuses:
+                if status.in_reply_to_status_id:
+                    status_ids = await calculate_thread(user, status.id_str)
+                    root_status_id = status_ids[0]
+                    if root_status_id in threads:
+                        for status_id in status_ids:
+                            if status_id not in threads[root_status_id]:
+                                threads[root_status_id].append(status_id)
+                    else:
+                        threads[root_status_id] = status_ids
+
+            # For each thread, does this thread already exist, or do we create a new one?
+            for root_status_id in threads:
+                status_ids = threads[root_status_id]
+                thread = (
+                    await Thread.query.where(Thread.user_id == user.id)
+                    .where(Thread.root_status_id == root_status_id)
                     .gino.first()
                 )
-                if tweet:
-                    await tweet.update(thread_id=thread.id).apply()
+                if not thread:
+                    thread = await Thread.create(
+                        user_id=user.id,
+                        root_status_id=root_status_id,
+                        should_exclude=False,
+                    )
 
+                # Add all of the thread's tweets to the thread
+                for status_id in status_ids:
+                    tweet = (
+                        await Tweet.query.where(Tweet.user_id == user.id)
+                        .where(Tweet.status_id == status_id)
+                        .gino.first()
+                    )
+                    if tweet:
+                        await tweet.update(thread_id=thread.id).apply()
+
+            await update_progress(job, progress)
+
+        # Update progress
+        progress["status"] = "Downloading tweets that you liked"
         await update_progress(job, progress)
 
-    # Update progress
-    progress["status"] = "Downloading tweets that you liked"
-    await update_progress(job, progress)
+        # Fetch likes
+        params = {
+            "screen_name": user.twitter_screen_name,
+            "tweet_mode": "extended",
+            "count": 200,
+        }
+        if since_id:
+            params["since_id"] = since_id
 
-    # Fetch likes
-    params = {
-        "screen_name": user.twitter_screen_name,
-        "tweet_mode": "extended",
-        "count": 200,
-    }
-    if since_id:
-        params["since_id"] = since_id
+        # Fetch 200 at a time until we run out
+        while True:
+            try:
+                statuses = await client.api.favorites.list.get(**params)
+            except peony.exceptions.HTTPUnauthorized:
+                await log(
+                    job,
+                    f"#{job_runner_id} HTTPUnauthorized, account seems broken, canceling job and pausing user",
+                )
+                await user.update(paused=True).apply()
+                await job.update(status="canceled").apply()
+                raise JobCanceled()
 
-    # Fetch 200 at a time until we run out
-    while True:
-        try:
-            statuses = await client.api.favorites.list.get(**params)
-        except peony.exceptions.HTTPUnauthorized:
-            await log(
-                job,
-                f"#{job_runner_id} HTTPUnauthorized, account seems broken, canceling job and pausing user",
-            )
-            await user.update(paused=True).apply()
-            await job.update(status="canceled").apply()
-            raise JobCanceled()
+            if len(statuses) == 0:
+                break
+            await log(job, f"#{job_runner_id} Importing {len(statuses)} likes")
 
-        if len(statuses) == 0:
-            break
-        await log(job, f"#{job_runner_id} Importing {len(statuses)} likes")
+            # Next loop, set max_id to one less than the oldest status batch
+            params["max_id"] = statuses[-1].id - 1
 
-        # Next loop, set max_id to one less than the oldest status batch
-        params["max_id"] = statuses[-1].id - 1
+            # Import these likes
+            for status in statuses:
+                # Is the tweet already saved?
+                tweet = await (
+                    Tweet.query.where(Tweet.user_id == user.id)
+                    .where(Tweet.status_id == status.id_str)
+                    .gino.first()
+                )
+                if not tweet:
+                    # Save the tweet
+                    await save_tweet(user, status)
+                    progress["likes_fetched"] += 1
 
-        # Import these likes
-        for status in statuses:
-            # Is the tweet already saved?
-            tweet = await (
-                Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.status_id == status.id_str)
-                .gino.first()
-            )
-            if not tweet:
-                # Save the tweet
-                await save_tweet(user, status)
-                progress["likes_fetched"] += 1
-
-        await update_progress(job, progress)
-
-    await client.close()
+            await update_progress(job, progress)
 
     # All done, update the since_id
     async with gino_db.acquire() as conn:
@@ -505,203 +496,170 @@ async def delete(gino_db, job, job_runner_id):
         return
 
     user = await User.query.where(User.id == job.user_id).gino.first()
-    client = await peony_client(user)
+    async with SemiphemeralPeonyClient(user) as client:
+        await log(job, f"#{job_runner_id} Delete started")
 
-    await log(job, f"#{job_runner_id} Delete started")
+        # Start the progress
+        progress = json.loads(job.progress)
+        progress["tweets_deleted"] = 0
+        progress["retweets_deleted"] = 0
+        progress["likes_deleted"] = 0
+        progress["dms_deleted"] = 0
 
-    # Start the progress
-    progress = json.loads(job.progress)
-    progress["tweets_deleted"] = 0
-    progress["retweets_deleted"] = 0
-    progress["likes_deleted"] = 0
-    progress["dms_deleted"] = 0
+        # Unretweet and unlike tweets
+        if user.retweets_likes:
 
-    # Unretweet and unlike tweets
-    if user.retweets_likes:
+            # Unretweet
+            if user.retweets_likes_delete_retweets:
+                days = user.retweets_likes_retweets_threshold
+                if days > 99999:
+                    days = 99999
+                datetime_threshold = datetime.utcnow() - timedelta(days=days)
+                tweets = (
+                    await Tweet.query.where(Tweet.user_id == user.id)
+                    .where(Tweet.twitter_user_id == user.twitter_id)
+                    .where(Tweet.is_deleted == False)
+                    .where(Tweet.is_retweet == True)
+                    .where(Tweet.created_at < datetime_threshold)
+                    .order_by(Tweet.created_at)
+                    .gino.all()
+                )
 
-        # Unretweet
-        if user.retweets_likes_delete_retweets:
-            days = user.retweets_likes_retweets_threshold
-            if days > 99999:
-                days = 99999
-            datetime_threshold = datetime.utcnow() - timedelta(days=days)
-            tweets = (
-                await Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.twitter_user_id == user.twitter_id)
-                .where(Tweet.is_deleted == False)
-                .where(Tweet.is_retweet == True)
-                .where(Tweet.created_at < datetime_threshold)
-                .order_by(Tweet.created_at)
-                .gino.all()
-            )
-
-            progress[
-                "status"
-            ] = f"Deleting {len(tweets)} retweets, starting with the earliest"
-            await update_progress(job, progress)
-
-            for tweet in tweets:
-                # Delete retweet
-                try:
-                    await client.api.statuses.unretweet[tweet.status_id].post()
-                    # await log(
-                    #     job, f"#{job_runner_id} Deleted retweet {tweet.status_id}"
-                    # )
-                    await tweet.update(is_deleted=True).apply()
-                except peony.exceptions.StatusNotFound:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting retweet, StatusNotFound {tweet.status_id}",
-                    )
-                    await tweet.update(is_deleted=True).apply()
-                except peony.exceptions.UserSuspended:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting retweet, UserSuspended {tweet.status_id}",
-                    )
-                    await tweet.update(is_deleted=True).apply()
-                except peony.exceptions.DoesNotExist:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting retweet, DoesNotExist {tweet.status_id}",
-                    )
-                    await tweet.update(is_deleted=True).apply()
-                except peony.exceptions.ProtectedTweet:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting retweet, ProtectedTweet {tweet.status_id}",
-                    )
-                    await tweet.update(is_deleted=True).apply()
-                except peony.exceptions.HTTPForbidden:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting retweet, HTTPForbidden {tweet.status_id}",
-                    )
-                    await tweet.update(is_deleted=True).apply()
-
-        # Unlike
-        if user.retweets_likes_delete_likes:
-            days = user.retweets_likes_likes_threshold
-            if days > 99999:
-                days = 99999
-            datetime_threshold = datetime.utcnow() - timedelta(days=days)
-            tweets = (
-                await Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.twitter_user_id != user.twitter_id)
-                .where(Tweet.is_unliked == False)
-                .where(Tweet.favorited == True)
-                .where(Tweet.created_at < datetime_threshold)
-                .order_by(Tweet.created_at)
-                .gino.all()
-            )
-
-            progress[
-                "status"
-            ] = f"Unliking {len(tweets)} tweets, starting with the earliest"
-            await update_progress(job, progress)
-
-            for tweet in tweets:
-                # Delete like
-
-                try:
-                    await client.api.favorites.destroy.post(id=tweet.status_id)
-                    await tweet.update(is_unliked=True).apply()
-                    await log(job, f"#{job_runner_id} Deleted like {tweet.status_id}")
-                except peony.exceptions.StatusNotFound:
-                    await log(
-                        job,
-                        f"#{job_runner_id} Skipped deleting like, StatusNotFound {tweet.status_id}",
-                    )
-                    await tweet.update(is_unliked=True).apply()
-
-                progress["likes_deleted"] += 1
+                progress[
+                    "status"
+                ] = f"Deleting {len(tweets)} retweets, starting with the earliest"
                 await update_progress(job, progress)
 
-    # Deleting tweets
-    if user.delete_tweets:
-        tweets = tweets = await tweets_to_delete(user)
+                for tweet in tweets:
+                    # Delete retweet
+                    try:
+                        await client.api.statuses.unretweet[tweet.status_id].post()
+                        await tweet.update(is_deleted=True).apply()
+                    except Exception as e:
+                        await log(
+                            job,
+                            f"#{job_runner_id} Skipped deleting retweet {tweet.status_id} {e}",
+                        )
+                        await tweet.update(is_deleted=True).apply()
 
-        progress[
-            "status"
-        ] = f"Deleting {len(tweets)} tweets, starting with the earliest"
-        await update_progress(job, progress)
-
-        for tweet in tweets:
-            # Delete tweet
-            try:
-                await client.api.statuses.destroy.post(id=tweet.status_id)
-                await tweet.update(is_deleted=True).apply()
-            except peony.exceptions.StatusNotFound:
-                await log(
-                    job,
-                    f"#{job_runner_id} Skipped deleting retweet, StatusNotFound {tweet.status_id}",
+            # Unlike
+            if user.retweets_likes_delete_likes:
+                days = user.retweets_likes_likes_threshold
+                if days > 99999:
+                    days = 99999
+                datetime_threshold = datetime.utcnow() - timedelta(days=days)
+                tweets = (
+                    await Tweet.query.where(Tweet.user_id == user.id)
+                    .where(Tweet.twitter_user_id != user.twitter_id)
+                    .where(Tweet.is_unliked == False)
+                    .where(Tweet.favorited == True)
+                    .where(Tweet.created_at < datetime_threshold)
+                    .order_by(Tweet.created_at)
+                    .gino.all()
                 )
-                await tweet.update(is_deleted=True).apply()
 
-            progress["tweets_deleted"] += 1
+                progress[
+                    "status"
+                ] = f"Unliking {len(tweets)} tweets, starting with the earliest"
+                await update_progress(job, progress)
+
+                for tweet in tweets:
+                    # Delete like
+
+                    try:
+                        await client.api.favorites.destroy.post(id=tweet.status_id)
+                        await tweet.update(is_unliked=True).apply()
+                        await log(
+                            job, f"#{job_runner_id} Deleted like {tweet.status_id}"
+                        )
+                    except Exception as e:
+                        await log(
+                            job,
+                            f"#{job_runner_id} Skipped deleting like {tweet.status_id} {e}",
+                        )
+                        await tweet.update(is_unliked=True).apply()
+
+                    progress["likes_deleted"] += 1
+                    await update_progress(job, progress)
+
+        # Deleting tweets
+        if user.delete_tweets:
+            tweets = tweets = await tweets_to_delete(user)
+
+            progress[
+                "status"
+            ] = f"Deleting {len(tweets)} tweets, starting with the earliest"
             await update_progress(job, progress)
 
-    await client.close()
+            for tweet in tweets:
+                # Delete tweet
+                try:
+                    await client.api.statuses.destroy.post(id=tweet.status_id)
+                    await tweet.update(is_deleted=True).apply()
+                except Exception as e:
+                    await log(
+                        job,
+                        f"#{job_runner_id} Skipped deleting retweet {tweet.status_id} {e}",
+                    )
+                    await tweet.update(is_deleted=True).apply()
+
+                progress["tweets_deleted"] += 1
+                await update_progress(job, progress)
 
     # Deleting direct messages
     if user.direct_messages:
         # Make sure the DMs API authenticates successfully
         proceed = False
-        dms_client = await peony_dms_client(user)
-        try:
-            twitter_user = await dms_client.user
-            proceed = True
-        except (
-            peony.exceptions.InvalidOrExpiredToken,
-            peony.exceptions.NotAuthenticated,
-        ) as e:
-            # It doesn't, so disable deleting direct messages
-            await user.update(
-                direct_messages=False,
-                twitter_dms_access_token="",
-                twitter_dms_access_token_secret="",
-            ).apply()
+        async with SemiphemeralPeonyClient(user, dms=True) as dms_client:
+            try:
+                twitter_user = await dms_client.user
+                proceed = True
+            except Exception as e:
+                # It doesn't, so disable deleting direct messages
+                await user.update(
+                    direct_messages=False,
+                    twitter_dms_access_token="",
+                    twitter_dms_access_token_secret="",
+                ).apply()
 
-        if proceed:
-            progress["status"] = f"Deleting direct messages"
-            await update_progress(job, progress)
+            if proceed:
+                progress["status"] = f"Deleting direct messages"
+                await update_progress(job, progress)
 
-            # Delete DMs
-            datetime_threshold = datetime.utcnow() - timedelta(
-                days=user.direct_messages_threshold
-            )
-
-            # Fetch DMs
-            dms = []
-            cursor = None
-            while True:
-                dms_request = await dms_client.api.direct_messages.events.list.get(
-                    count=50, cursor=cursor
+                # Delete DMs
+                datetime_threshold = datetime.utcnow() - timedelta(
+                    days=user.direct_messages_threshold
                 )
-                dms.extend(dms_request["events"])
-                if "next_cursor" in dms_request:
-                    cursor = dms_request["next_cursor"]
-                else:
-                    break
 
-            for dm in dms:
-                created_timestamp = datetime.fromtimestamp(
-                    int(dm.created_timestamp) / 1000
-                )
-                if created_timestamp <= datetime_threshold:
-                    # Delete the DM
-                    await log(job, f"Deleted DM {dm.id}")
-                    try:
-                        await dms_client.api.direct_messages.events.destroy.delete(
-                            id=dm.id
-                        )
-                    except peony.exceptions.DoesNotExist as e:
-                        await log(job, f"Skipping DM {dm.id}, {e}")
+                # Fetch DMs
+                dms = []
+                cursor = None
+                while True:
+                    dms_request = await dms_client.api.direct_messages.events.list.get(
+                        count=50, cursor=cursor
+                    )
+                    dms.extend(dms_request["events"])
+                    if "next_cursor" in dms_request:
+                        cursor = dms_request["next_cursor"]
+                    else:
+                        break
 
-                    progress["dms_deleted"] += 1
-                    await update_progress(job, progress)
+                for dm in dms:
+                    created_timestamp = datetime.fromtimestamp(
+                        int(dm.created_timestamp) / 1000
+                    )
+                    if created_timestamp <= datetime_threshold:
+                        # Delete the DM
+                        await log(job, f"Deleted DM {dm.id}")
+                        try:
+                            await dms_client.api.direct_messages.events.destroy.delete(
+                                id=dm.id
+                            )
+                        except Exception as e:
+                            await log(job, f"Skipping DM {dm.id}, {e}")
 
-        await dms_client.close()
+                        progress["dms_deleted"] += 1
+                        await update_progress(job, progress)
 
     progress["status"] = "Finished"
     await update_progress(job, progress)
@@ -845,86 +803,94 @@ async def delete_dm_groups(gino_db, job, job_runner_id):
 async def delete_dms_job(job, dm_type, job_runner_id):
     user = await User.query.where(User.id == job.user_id).gino.first()
 
-    dms_client = await peony_dms_client(user)
-    try:
-        twitter_user = await dms_client.user
-    except (
-        peony.exceptions.InvalidOrExpiredToken,
-        peony.exceptions.NotAuthenticated,
-    ) as e:
-        await log(
-            job, f"#{job_runner_id} DMs Twitter API creds don't work, canceling job"
-        )
-        await job.update(status="canceled", started_timestamp=datetime.now()).apply()
-        raise JobCanceled()
-
-    if dm_type == "dms":
-        await log(job, f"#{job_runner_id} Delete DMs started")
-    elif dm_type == "groups":
-        await log(job, f"#{job_runner_id} Delete group DMs started")
-
-    # Start the progress
-    progress = {"dms_deleted": 0, "dms_skipped": 0, "status": "Verifying permissions"}
-    await update_progress(job, progress)
-
-    # Make sure deleting DMs is enabled
-    if not user.direct_messages:
-        await log(job, f"#{job_runner_id} Deleting DMs is not enabled, canceling job")
-        await job.update(status="canceled", started_timestamp=datetime.now()).apply()
-        raise JobCanceled()
-
-    # Load the DM metadata
-    if dm_type == "dms":
-        filename = os.path.join("/var/bulk_dms", f"dms-{user.id}.json")
-    elif dm_type == "groups":
-        filename = os.path.join("/var/bulk_dms", f"groups-{user.id}.json")
-    if not os.path.exists(filename):
-        await log(
-            job, f"#{job_runner_id} Filename {filename} does not exist, canceling job"
-        )
-        await job.update(status="canceled", started_timestamp=datetime.now()).apply()
-        raise JobCanceled()
-    with open(filename) as f:
+    async with SemiphemeralPeonyClient(userdms=True) as dms_client:
         try:
-            conversations = json.loads(f.read())
-        except:
-            await log(job, f"#{job_runner_id} Cannot decode JSON, canceling job")
+            twitter_user = await dms_client.user
+        except Exception as e:
+            await log(
+                job, f"#{job_runner_id} DMs Twitter API creds don't work, canceling job"
+            )
             await job.update(
                 status="canceled", started_timestamp=datetime.now()
             ).apply()
             raise JobCanceled()
 
-    # Delete DMs
-    progress["status"] = "Deleting old direct messages"
-    await update_progress(job, progress)
+        if dm_type == "dms":
+            await log(job, f"#{job_runner_id} Delete DMs started")
+        elif dm_type == "groups":
+            await log(job, f"#{job_runner_id} Delete group DMs started")
 
-    datetime_threshold = datetime.utcnow() - timedelta(
-        days=user.direct_messages_threshold
-    )
-    for obj in conversations:
-        conversation = obj["dmConversation"]
-        for message in conversation["messages"]:
-            if "messageCreate" in message:
-                created_str = message["messageCreate"]["createdAt"]
-                created_timestamp = datetime.strptime(
-                    created_str, "%Y-%m-%dT%H:%M:%S.%fZ"
-                )
-                if created_timestamp <= datetime_threshold:
-                    dm_id = message["messageCreate"]["id"]
+        # Start the progress
+        progress = {
+            "dms_deleted": 0,
+            "dms_skipped": 0,
+            "status": "Verifying permissions",
+        }
+        await update_progress(job, progress)
 
-                    # Delete the DM
-                    try:
-                        await dms_client.api.direct_messages.events.destroy.delete(
-                            id=dm_id
-                        )
-                        progress["dms_deleted"] += 1
-                        await update_progress(job, progress)
-                    except peony.exceptions.DoesNotExist as e:
-                        await log(job, f"Error deleting DM {dm_id}, {e}")
-                        progress["dms_skipped"] += 1
-                        await update_progress(job, progress)
+        # Make sure deleting DMs is enabled
+        if not user.direct_messages:
+            await log(
+                job, f"#{job_runner_id} Deleting DMs is not enabled, canceling job"
+            )
+            await job.update(
+                status="canceled", started_timestamp=datetime.now()
+            ).apply()
+            raise JobCanceled()
 
-    await dms_client.close()
+        # Load the DM metadata
+        if dm_type == "dms":
+            filename = os.path.join("/var/bulk_dms", f"dms-{user.id}.json")
+        elif dm_type == "groups":
+            filename = os.path.join("/var/bulk_dms", f"groups-{user.id}.json")
+        if not os.path.exists(filename):
+            await log(
+                job,
+                f"#{job_runner_id} Filename {filename} does not exist, canceling job",
+            )
+            await job.update(
+                status="canceled", started_timestamp=datetime.now()
+            ).apply()
+            raise JobCanceled()
+        with open(filename) as f:
+            try:
+                conversations = json.loads(f.read())
+            except:
+                await log(job, f"#{job_runner_id} Cannot decode JSON, canceling job")
+                await job.update(
+                    status="canceled", started_timestamp=datetime.now()
+                ).apply()
+                raise JobCanceled()
+
+        # Delete DMs
+        progress["status"] = "Deleting old direct messages"
+        await update_progress(job, progress)
+
+        datetime_threshold = datetime.utcnow() - timedelta(
+            days=user.direct_messages_threshold
+        )
+        for obj in conversations:
+            conversation = obj["dmConversation"]
+            for message in conversation["messages"]:
+                if "messageCreate" in message:
+                    created_str = message["messageCreate"]["createdAt"]
+                    created_timestamp = datetime.strptime(
+                        created_str, "%Y-%m-%dT%H:%M:%S.%fZ"
+                    )
+                    if created_timestamp <= datetime_threshold:
+                        dm_id = message["messageCreate"]["id"]
+
+                        # Delete the DM
+                        try:
+                            await dms_client.api.direct_messages.events.destroy.delete(
+                                id=dm_id
+                            )
+                            progress["dms_deleted"] += 1
+                            await update_progress(job, progress)
+                        except peony.exceptions.DoesNotExist as e:
+                            await log(job, f"Error deleting DM {dm_id}, {e}")
+                            progress["dms_skipped"] += 1
+                            await update_progress(job, progress)
 
     # Delete the DM metadata file
     try:
@@ -1002,146 +968,111 @@ async def start_job(gino_db, job, job_runner_id):
 
 
 async def start_dm_job(dm_job):
-    client = await peony_semiphemeral_dm_client()
-
-    # Send the DM
-    message = {
-        "event": {
-            "type": "message_create",
-            "message_create": {
-                "target": {"recipient_id": int(dm_job.dest_twitter_id)},
-                "message_data": {"text": dm_job.message},
-            },
+    async with SemiphemeralAppPeonyClient() as client:
+        # Send the DM
+        message = {
+            "event": {
+                "type": "message_create",
+                "message_create": {
+                    "target": {"recipient_id": int(dm_job.dest_twitter_id)},
+                    "message_data": {"text": dm_job.message},
+                },
+            }
         }
-    }
 
-    # TODO: error handling
-    # Send the DM
-    await client.api.direct_messages.events.new.post(_json=message)
-    await dm_job.update(status="sent", sent_timestamp=datetime.now()).apply()
-    print(
-        f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sent DM to twitter_id={dm_job.dest_twitter_id}"
-    )
-
-    # # 150: You cannot send messages to users who are not following you.
-    # # 349: You cannot send messages to this user.
-    # # 108: Cannot find specified user.
-    # # 89: Invalid or expired token.
-    # # 389: You cannot send messages to users you have blocked.
-    # if (
-    #     error_code == 150
-    #     or error_code == 349
-    #     or error_code == 108
-    #     or error_code == 89
-    #     or error_code == 389
-    # ):
-    #     print(
-    #         f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}) error code {error_code}, marking as failure"
-    #     )
-    #     await dm_job.update(status="failed").apply()
-    # elif error_code == 226 or error_code == 420:
-    #     # 226: This request looks like it might be automated. To protect our users from spam and
-    #     # other malicious activity, we can't complete this action right now. Please try again later.
-    #     # 420: Enhance Your Calm
-    #     await dm_job.update(
-    #         status="pending",
-    #         scheduled_timestamp=datetime.now() + timedelta(minutes=10),
-    #     ).apply()
-    #     print(
-    #         f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sending DMs too fast, rescheduling and cooling off on DM sending for 10 minutes"
-    #     )
-    #     await asyncio.sleep(10 * 60)
-    # else:
-    #     # If sending the DM failed, try again in 5 minutes
-    #     await dm_job.update(
-    #         status="pending",
-    #         scheduled_timestamp=datetime.now() + timedelta(minutes=5),
-    #     ).apply()
-    #     print(f"{type(e)}, {dir(e)}")
-    #     print(f"api_code={e.api_code}, reason={e.reason}")
-    #     print(
-    #         f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM ({e}), delaying 5 minutes"
-    #     )
+        # TODO: error handling
+        try:
+            await client.api.direct_messages.events.new.post(_json=message)
+            await dm_job.update(status="sent", sent_timestamp=datetime.now()).apply()
+            print(
+                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} sent DM to twitter_id={dm_job.dest_twitter_id}"
+            )
+        except Exception as e:
+            print(
+                f"[{datetime.now().strftime('%c')}] dm_job_id={dm_job.id} failed to send DM, marking as failure: ({e})"
+            )
+            await dm_job.update(status="failed").apply()
 
 
 async def start_block_job(block_job):
-    client = await peony_semiphemeral_dm_client()
-
-    # Are they already blocked?
-    friendship = await client.api.friendships.show.get(
-        source_screen_name="semiphemeral",
-        target_screen_name=block_job.twitter_username,
-    )
-    if friendship["relationship"]["source"]["blocking"]:
-        # Already blocked, so our work here is done
-        await block_job.update(
-            status="blocked", blocked_timestamp=datetime.now()
-        ).apply()
-        print(
-            f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} already blocked {block_job.twitter_username}"
+    async with SemiphemeralAppPeonyClient() as client:
+        # Are they already blocked?
+        friendship = await client.api.friendships.show.get(
+            source_screen_name="semiphemeral",
+            target_screen_name=block_job.twitter_username,
         )
-        return
-
-    # If we're blocking a semiphemeral user, and not just a fascist influencer
-    if block_job.user_id:
-        user = await User.query.where(User.id == block_job.user_id).gino.first()
-        if user and not user.blocked:
-            # Update the user
-            await user.update(paused=True, blocked=True).apply()
-
-            # Get all the recent fascist tweets
-            six_months_ago = datetime.now() - timedelta(days=180)
-            fascist_tweets = (
-                await Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.favorited == True)
-                .where(Tweet.is_fascist == True)
-                .where(Tweet.created_at > six_months_ago)
-                .gino.all()
-            )
-
-            # When do we unblock them?
-            last_fascist_tweet = (
-                await Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.is_fascist == True)
-                .order_by(Tweet.created_at.desc())
-                .gino.first()
-            )
-            if last_fascist_tweet:
-                unblock_timestamp = last_fascist_tweet.created_at + timedelta(days=180)
-            else:
-                unblock_timestamp = datetime.now() + timedelta(days=180)
-            unblock_timestamp_formatted = unblock_timestamp.strftime("%B %-d, %Y")
-
-            # Send the DM
-            message_text = f"You have liked {len(fascist_tweets)} tweets from a prominent fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated.\n\nTo see which tweets you liked and learn how to get yourself unblocked, see https://{os.environ.get('DOMAIN')}/dashboard.\n\nOr you can wait until {unblock_timestamp_formatted} when you will get automatically unblocked, at which point you can login to reactivate your account so long as you've stop liking tweets from fascists."
-
-            message = {
-                "event": {
-                    "type": "message_create",
-                    "message_create": {
-                        "target": {"recipient_id": int(user.twitter_id)},
-                        "message_data": {"text": message_text},
-                    },
-                }
-            }
-            await client.api.direct_messages.events.new.post(_json=message)
+        if friendship["relationship"]["source"]["blocking"]:
+            # Already blocked, so our work here is done
+            await block_job.update(
+                status="blocked", blocked_timestamp=datetime.now()
+            ).apply()
             print(
-                f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} sent DM to {block_job.twitter_username}"
+                f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} already blocked {block_job.twitter_username}"
             )
+            return
 
-            # Create the unblock job
-            await UnblockJob.create(
-                user_id=block_job.user_id,
-                twitter_username=block_job.twitter_username,
-                status="pending",
-                scheduled_timestamp=unblock_timestamp,
-            )
+        # If we're blocking a semiphemeral user, and not just a fascist influencer
+        if block_job.user_id:
+            user = await User.query.where(User.id == block_job.user_id).gino.first()
+            if user and not user.blocked:
+                # Update the user
+                await user.update(paused=True, blocked=True).apply()
 
-            # Wait 10 seconds before blocking, to ensure they receive the DM
-            await asyncio.sleep(10)
+                # Get all the recent fascist tweets
+                six_months_ago = datetime.now() - timedelta(days=180)
+                fascist_tweets = (
+                    await Tweet.query.where(Tweet.user_id == user.id)
+                    .where(Tweet.favorited == True)
+                    .where(Tweet.is_fascist == True)
+                    .where(Tweet.created_at > six_months_ago)
+                    .gino.all()
+                )
 
-    # Block the user
-    await client.api.blocks.create.post(screen_name=block_job.twitter_username)
+                # When do we unblock them?
+                last_fascist_tweet = (
+                    await Tweet.query.where(Tweet.user_id == user.id)
+                    .where(Tweet.is_fascist == True)
+                    .order_by(Tweet.created_at.desc())
+                    .gino.first()
+                )
+                if last_fascist_tweet:
+                    unblock_timestamp = last_fascist_tweet.created_at + timedelta(
+                        days=180
+                    )
+                else:
+                    unblock_timestamp = datetime.now() + timedelta(days=180)
+                unblock_timestamp_formatted = unblock_timestamp.strftime("%B %-d, %Y")
+
+                # Send the DM
+                message_text = f"You have liked {len(fascist_tweets)} tweets from a prominent fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated.\n\nTo see which tweets you liked and learn how to get yourself unblocked, see https://{os.environ.get('DOMAIN')}/dashboard.\n\nOr you can wait until {unblock_timestamp_formatted} when you will get automatically unblocked, at which point you can login to reactivate your account so long as you've stop liking tweets from fascists."
+
+                message = {
+                    "event": {
+                        "type": "message_create",
+                        "message_create": {
+                            "target": {"recipient_id": int(user.twitter_id)},
+                            "message_data": {"text": message_text},
+                        },
+                    }
+                }
+                await client.api.direct_messages.events.new.post(_json=message)
+                print(
+                    f"[{datetime.now().strftime('%c')}] block_job_id={block_job.id} sent DM to {block_job.twitter_username}"
+                )
+
+                # Create the unblock job
+                await UnblockJob.create(
+                    user_id=block_job.user_id,
+                    twitter_username=block_job.twitter_username,
+                    status="pending",
+                    scheduled_timestamp=unblock_timestamp,
+                )
+
+                # Wait 10 seconds before blocking, to ensure they receive the DM
+                await asyncio.sleep(10)
+
+        # Block the user
+        await client.api.blocks.create.post(screen_name=block_job.twitter_username)
 
     # Success, update block_job
     await block_job.update(status="blocked", blocked_timestamp=datetime.now()).apply()
@@ -1152,33 +1083,34 @@ async def start_block_job(block_job):
 
 
 async def start_unblock_job(unblock_job):
-    client = await peony_semiphemeral_dm_client()
-
-    # Are they already unblocked?
-    friendship = await client.api.friendships.show.get(
-        source_screen_name="semiphemeral",
-        target_screen_name=unblock_job.twitter_username,
-    )
-    if not friendship["relationship"]["source"]["blocking"]:
-        # Update the user
-        user = await User.query.where(User.id == unblock_job.user_id).gino.first()
-        if user and user.blocked:
-            await user.update(paused=True, blocked=False).apply()
-
-        # Already unblocked, so our work here is done
-        await unblock_job.update(
-            status="unblocked", unblocked_timestamp=datetime.now()
-        ).apply()
-        print(
-            f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} already unblocked {unblock_job.twitter_username}"
+    async with SemiphemeralAppPeonyClient() as client:
+        # Are they already unblocked?
+        friendship = await client.api.friendships.show.get(
+            source_screen_name="semiphemeral",
+            target_screen_name=unblock_job.twitter_username,
         )
-        return
+        if not friendship["relationship"]["source"]["blocking"]:
+            # Update the user
+            user = await User.query.where(User.id == unblock_job.user_id).gino.first()
+            if user and user.blocked:
+                await user.update(paused=True, blocked=False).apply()
 
-    # Unblock them
-    try:
-        await client.api.blocks.destroy.post(screen_name=unblock_job.twitter_username)
-    except peony.exceptions.DoesNotExist:
-        pass
+            # Already unblocked, so our work here is done
+            await unblock_job.update(
+                status="unblocked", unblocked_timestamp=datetime.now()
+            ).apply()
+            print(
+                f"[{datetime.now().strftime('%c')}] unblock_job_id={unblock_job.id} already unblocked {unblock_job.twitter_username}"
+            )
+            return
+
+        # Unblock them
+        try:
+            await client.api.blocks.destroy.post(
+                screen_name=unblock_job.twitter_username
+            )
+        except peony.exceptions.DoesNotExist:
+            pass
 
     # If we're unblocking a semiphemeral user
     if unblock_job.user_id:
@@ -1298,7 +1230,7 @@ async def start_jobs(gino_db):
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         job_runner_count = 2
     else:
-        job_runner_count = 10
+        job_runner_count = 1
 
     await asyncio.gather(
         *[

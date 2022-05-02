@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import peony
 from db import connect_db, User, Job, DirectMessageJob
-from common import send_admin_notification, peony_client, delete_user
+from common import send_admin_notification, SemiphemeralPeonyClient, delete_user
 
 
 async def _send_reminders():
@@ -84,20 +84,18 @@ async def _cleanup_users():
             f"\r[{i}/{count}] checking @{user.twitter_screen_name} ..." + " " * 20,
             end="",
         )
-        client = await peony_client(user)
-        try:
-            twitter_user = await client.user
-        except (
-            peony.exceptions.InvalidOrExpiredToken,
-            peony.exceptions.NotAuthenticated,
-        ) as e:
-            print(
-                f"\r[{i}/{count}, deleted {users_deleted}] deleting @{user.twitter_screen_name}: {e}"
-            )
-            await delete_user(user)
-            users_deleted += 1
-
-        await client.close()
+        async with SemiphemeralPeonyClient(user) as client:
+            try:
+                twitter_user = await client.user
+            except (
+                peony.exceptions.InvalidOrExpiredToken,
+                peony.exceptions.NotAuthenticated,
+            ) as e:
+                print(
+                    f"\r[{i}/{count}, deleted {users_deleted}] deleting @{user.twitter_screen_name}: {e}"
+                )
+                await delete_user(user)
+                users_deleted += 1
 
         i += 1
 
@@ -150,12 +148,11 @@ async def _unblock_users():
 
         # Are they already unblocked?
         try:
-            client = await peony_client(user)
-            friendship = await client.api.friendships.show.get(
-                source_screen_name=user.twitter_screen_name,
-                target_screen_name="semiphemeral",
-            )
-            await client.close()
+            async with SemiphemeralPeonyClient(user) as client:
+                friendship = await client.api.friendships.show.get(
+                    source_screen_name=user.twitter_screen_name,
+                    target_screen_name="semiphemeral",
+                )
 
             if not friendship["relationship"]["source"]["blocked_by"]:
                 unblocked_user_count += 1
