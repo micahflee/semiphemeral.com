@@ -58,23 +58,22 @@ async def peony_oauth_step3(
 class SemiphemeralPeonyClient:
     def __init__(self, user, dms=False):
         if dms:
-            self.semiphemeral_consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
-            self.semiphemeral_consumer_secret = os.environ.get(
-                "TWITTER_DM_CONSUMER_KEY"
-            )
+            self.consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
+            self.consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
+            self.access_token = user.twitter_dms_access_token
+            self.access_token_secret = user.twitter_dms_access_token_secret
         else:
-            self.semiphemeral_consumer_key = os.environ.get("TWITTER_CONSUMER_TOKEN")
-            self.semiphemeral_consumer_secret = os.environ.get("TWITTER_CONSUMER_KEY")
-
-        self.semiphemeral_access_token = user.twitter_access_token
-        self.semiphemeral_access_token_secret = user.twitter_access_token_secret
+            self.consumer_key = os.environ.get("TWITTER_CONSUMER_TOKEN")
+            self.consumer_secret = os.environ.get("TWITTER_CONSUMER_KEY")
+            self.access_token = user.twitter_access_token
+            self.access_token_secret = user.twitter_access_token_secret
 
     async def __aenter__(self):
         self.client = PeonyClient(
-            consumer_key=self.semiphemeral_consumer_key,
-            consumer_secret=self.semiphemeral_consumer_secret,
-            access_token=self.semiphemeral_access_token,
-            access_token_secret=self.semiphemeral_access_token_secret,
+            consumer_key=self.consumer_key,
+            consumer_secret=self.consumer_secret,
+            access_token=self.access_token,
+            access_token_secret=self.access_token_secret,
         )
         return self.client
 
@@ -87,17 +86,17 @@ class SemiphemeralPeonyClient:
 # For sending DMs from the @semiphemeral account
 class SemiphemeralAppPeonyClient:
     def __init__(self):
-        self.semiphemeral_consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
-        self.semiphemeral_consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
-        self.semiphemeral_access_token = os.environ.get("TWITTER_DM_ACCESS_TOKEN")
-        self.semiphemeral_access_token_secret = os.environ.get("TWITTER_DM_ACCESS_KEY")
+        self.consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
+        self.consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
+        self.access_token = os.environ.get("TWITTER_DM_ACCESS_TOKEN")
+        self.access_token_secret = os.environ.get("TWITTER_DM_ACCESS_KEY")
 
     async def __aenter__(self):
         self.client = PeonyClient(
-            consumer_key=self.semiphemeral_consumer_key,
-            consumer_secret=self.semiphemeral_consumer_secret,
-            access_token=self.semiphemeral_access_token,
-            access_token_secret=self.semiphemeral_access_token_secret,
+            consumer_key=self.consumer_key,
+            consumer_secret=self.consumer_secret,
+            access_token=self.access_token,
+            access_token_secret=self.access_token_secret,
         )
         return self.client
 

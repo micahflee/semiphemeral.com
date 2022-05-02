@@ -95,12 +95,10 @@ async def _api_validate_dms_authenticated(user):
             try:
                 twitter_user = await dms_client.user
                 return True
-            except (
-                peony.exceptions.InvalidOrExpiredToken,
-                peony.exceptions.HTTPForbidden,
-                peony.exceptions.NotAuthenticated,
-            ):
-                pass
+            except Exception as e:
+                print(
+                    f"DM permissions for @{user.twitter_screen_name} failed to validate: {e}"
+                )
 
     return False
 
@@ -239,6 +237,7 @@ async def auth_twitter_callback(request):
         )
     else:
         # Make sure to update the user's twitter access token and secret
+        print(f"Authenticating user @{user.twitter_screen_name}")
         await user.update(
             twitter_access_token=twitter_access_token,
             twitter_access_token_secret=twitter_access_token_secret,
@@ -269,8 +268,8 @@ async def auth_twitter_dms_callback(request):
 
     # Authenticate with twitter
     token = await peony_oauth_step3(
-        os.environ.get("TWITTER_CONSUMER_TOKEN"),
-        os.environ.get("TWITTER_CONSUMER_KEY"),
+        os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
+        os.environ.get("TWITTER_DM_CONSUMER_KEY"),
         session["dms_oauth_token"],
         session["dms_oauth_token_secret"],
         oauth_verifier,
@@ -283,9 +282,10 @@ async def auth_twitter_dms_callback(request):
     user = await User.query.where(User.twitter_id == str(twitter_id)).gino.first()
     if user is None:
         # Uh, that's weird, there really should already be a user... so just ignore in that case
-        pass
+        print(f"Authenticating DMs: user is None, this should never happen")
     else:
         # Update the user's DM twitter access token and secret
+        print(f"Authenticating DMs for user @{user.twitter_screen_name}")
         await user.update(
             twitter_dms_access_token=twitter_access_token,
             twitter_dms_access_token_secret=twitter_access_token_secret,
