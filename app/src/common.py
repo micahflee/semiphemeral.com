@@ -24,29 +24,6 @@ async def update_progress(job, progress):
     await job.update(progress=json.dumps(progress)).apply()
 
 
-async def update_progress_rate_limit(job, progress, job_runner_id=None, seconds=960):
-    await log(
-        job, f"#{job_runner_id} Hit twitter rate limit, pausing for {seconds}s ..."
-    )
-
-    old_status = progress["status"]
-
-    # Change status message
-    progress[
-        "status"
-    ] = f"I hit Twitter's rate limit, so I have to wait a bit before continuing ..."
-    await update_progress(job, progress)
-
-    # Sleep
-    await asyncio.sleep(seconds)
-
-    # Change status message back
-    progress["status"] = old_status
-    await update_progress(job, progress)
-
-    await log(job, f"#{job_runner_id} Finished waiting, resuming")
-
-
 async def peony_oauth_step1(
     twitter_consumer_token, twitter_consumer_key, callback_path
 ):
@@ -78,35 +55,56 @@ async def peony_oauth_step3(
     return token
 
 
-async def peony_client(user):
-    client = PeonyClient(
-        consumer_key=os.environ.get("TWITTER_CONSUMER_TOKEN"),
-        consumer_secret=os.environ.get("TWITTER_CONSUMER_KEY"),
-        access_token=user.twitter_access_token,
-        access_token_secret=user.twitter_access_token_secret,
-    )
-    return client
+class SemiphemeralPeonyClient:
+    def __init__(self, user, dms=False):
+        if dms:
+            self.semiphemeral_consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
+            self.semiphemeral_consumer_secret = os.environ.get(
+                "TWITTER_DM_CONSUMER_KEY"
+            )
+        else:
+            self.semiphemeral_consumer_key = os.environ.get("TWITTER_CONSUMER_TOKEN")
+            self.semiphemeral_consumer_secret = os.environ.get("TWITTER_CONSUMER_KEY")
+
+        self.semiphemeral_access_token = user.twitter_access_token
+        self.semiphemeral_access_token_secret = user.twitter_access_token_secret
+
+    async def __aenter__(self):
+        self.client = PeonyClient(
+            consumer_key=self.semiphemeral_consumer_key,
+            consumer_secret=self.semiphemeral_consumer_secret,
+            access_token=self.semiphemeral_access_token,
+            access_token_secret=self.semiphemeral_access_token_secret,
+        )
+        return self.client
+
+    async def __aexit__(self, exc_type, exc_value, exc_tb):
+        await self.client.close()
+        if exc_type:
+            print(f"Exception: {exc_type}, {exc_value}, {exc_tb}")
 
 
-async def peony_dms_client(user):
-    client = PeonyClient(
-        consumer_key=os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
-        consumer_secret=os.environ.get("TWITTER_DM_CONSUMER_KEY"),
-        access_token=user.twitter_dms_access_token,
-        access_token_secret=user.twitter_dms_access_token_secret,
-    )
-    return client
+# For sending DMs from the @semiphemeral account
+class SemiphemeralAppPeonyClient:
+    def __init__(self):
+        self.semiphemeral_consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
+        self.semiphemeral_consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
+        self.semiphemeral_access_token = os.environ.get("TWITTER_DM_ACCESS_TOKEN")
+        self.semiphemeral_access_token_secret = os.environ.get("TWITTER_DM_ACCESS_KEY")
 
+    async def __aenter__(self):
+        self.client = PeonyClient(
+            consumer_key=self.semiphemeral_consumer_key,
+            consumer_secret=self.semiphemeral_consumer_secret,
+            access_token=self.semiphemeral_access_token,
+            access_token_secret=self.semiphemeral_access_token_secret,
+        )
+        return self.client
 
-# The API to send DMs from the @semiphemeral account
-async def peony_semiphemeral_dm_client():
-    client = PeonyClient(
-        consumer_key=os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
-        consumer_secret=os.environ.get("TWITTER_DM_CONSUMER_KEY"),
-        access_token=os.environ.get("TWITTER_DM_ACCESS_TOKEN"),
-        access_token_secret=os.environ.get("TWITTER_DM_ACCESS_KEY"),
-    )
-    return client
+    async def __aexit__(self, exc_type, exc_value, exc_tb):
+        await self.client.close()
+        if exc_type:
+            print(f"Exception: {exc_type}, {exc_value}, {exc_tb}")
 
 
 async def tweets_to_delete(user, include_manually_excluded=False):

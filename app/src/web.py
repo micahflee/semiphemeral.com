@@ -22,8 +22,7 @@ from common import (
     delete_user,
     peony_oauth_step1,
     peony_oauth_step3,
-    peony_client,
-    peony_dms_client,
+    SemiphemeralPeonyClient,
 )
 from db import (
     User,
@@ -92,17 +91,16 @@ async def _api_validate_dms_authenticated(user):
         and user.twitter_dms_access_token_secret != ""
     ):
         # Check if user is authenticated with DMs twitter app
-        dms_client = await peony_dms_client(user)
-        try:
-            twitter_user = await dms_client.user
-            await dms_client.close()
-            return True
-        except (
-            peony.exceptions.InvalidOrExpiredToken,
-            peony.exceptions.HTTPForbidden,
-            peony.exceptions.NotAuthenticated,
-        ):
-            await dms_client.close()
+        async with SemiphemeralPeonyClient(user, dms=True) as dms_client:
+            try:
+                twitter_user = await dms_client.user
+                return True
+            except (
+                peony.exceptions.InvalidOrExpiredToken,
+                peony.exceptions.HTTPForbidden,
+                peony.exceptions.NotAuthenticated,
+            ):
+                pass
 
     return False
 
@@ -155,17 +153,16 @@ async def auth_login(request):
     user = await _logged_in_user(session)
     if user:
         # If we're already logged in, redirect
-        client = peony_client(user)
-        try:
-            twitter_user = await client.user
-            await client.close()
-            if twitter_user.id_str == str(User.twitter_id):
-                raise web.HTTPFound("/dashboard")
-        except (
-            peony.exceptions.InvalidOrExpiredToken,
-            peony.exceptions.NotAuthenticated,
-        ):
-            await client.close()
+        async with SemiphemeralPeonyClient(user) as client:
+            try:
+                twitter_user = await client.user
+                if twitter_user.id_str == str(User.twitter_id):
+                    raise web.HTTPFound("/dashboard")
+            except (
+                peony.exceptions.InvalidOrExpiredToken,
+                peony.exceptions.NotAuthenticated,
+            ):
+                pass
 
     # Otherwise, authorize with Twitter
     redirect_url, token = await peony_oauth_step1(
@@ -434,21 +431,20 @@ async def api_get_user(request):
         and "impersonating_twitter_id" in session
     ):
         # Load the API using the admin user
-        client = await peony_client(user)
-        # Load the impersonated user
-        user = await _logged_in_user(session)
-        twitter_user = await client.api.users.lookup.get(
-            screen_name=user.twitter_screen_name
-        )
+        async with SemiphemeralPeonyClient(user) as client:
+            # Load the impersonated user
+            user = await _logged_in_user(session)
+            twitter_user = await client.api.users.lookup.get(
+                screen_name=user.twitter_screen_name
+            )
     else:
         # Just a normal user
-        client = await peony_client(user)
-        twitter_user = await client.api.users.lookup.get(
-            screen_name=user.twitter_screen_name
-        )
+        async with SemiphemeralPeonyClient(user) as client:
+            twitter_user = await client.api.users.lookup.get(
+                screen_name=user.twitter_screen_name
+            )
 
     twitter_user = twitter_user[0]
-    await client.close()
 
     return web.json_response(
         {
@@ -1062,12 +1058,11 @@ async def api_post_dashboard(request):
             raise web.HTTPBadRequest(text="Can only 'unblock' if the user is blocked")
 
         # Are we still blocked?
-        client = await peony_client(user)
-        friendship = await client.api.friendships.show.get(
-            source_screen_name=user.twitter_screen_name,
-            target_screen_name="semiphemeral",
-        )
-        await client.close()
+        async with SemiphemeralPeonyClient(user) as client:
+            friendship = await client.api.friendships.show.get(
+                source_screen_name=user.twitter_screen_name,
+                target_screen_name="semiphemeral",
+            )
 
         if friendship["relationship"]["source"]["blocked_by"]:
             # Still blocked by semiphemeral. Should we unblock?
@@ -1110,12 +1105,11 @@ async def api_post_dashboard(request):
             )
 
         # Are we still blocked?
-        client = await peony_client(user)
-        friendship = await client.api.friendships.show.get(
-            source_screen_name=user.twitter_screen_name,
-            target_screen_name="semiphemeral",
-        )
-        await client.close()
+        async with SemiphemeralPeonyClient(user) as client:
+            friendship = await client.api.friendships.show.get(
+                source_screen_name=user.twitter_screen_name,
+                target_screen_name="semiphemeral",
+            )
 
         if friendship["relationship"]["source"]["blocked_by"]:
             return web.json_response({"unblocked": False})
