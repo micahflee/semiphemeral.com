@@ -1,11 +1,21 @@
 import os
+import json
 import asyncio
 import click
 from datetime import datetime, timedelta
 
 import peony
-from db import connect_db, User, Job, DirectMessageJob
+from db import connect_db, User, JobDetails
 from common import send_admin_notification, SemiphemeralPeonyClient, delete_user
+import worker_jobs
+
+import redis
+import rq
+from rq import Queue
+from rq.job import Job as RQJob
+
+conn = redis.from_url(os.environ.get("REDIS_URL"))
+dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
 
 
 async def _send_reminders():
@@ -28,9 +38,9 @@ async def _send_reminders():
     for user in users:
         # Get the last job they finished
         last_job = (
-            await Job.query.where(Job.user_id == user.id)
-            .where(Job.status == "finished")
-            .order_by(Job.finished_timestamp.desc())
+            await JobDetails.query.where(JobDetails.user_id == user.id)
+            .where(JobDetails.status == "finished")
+            .order_by(JobDetails.finished_timestamp.desc())
             .gino.first()
         )
         if last_job:
@@ -40,10 +50,10 @@ async def _send_reminders():
 
                 # Let's make sure we also haven't sent them a DM in the last 3 months
                 last_dm_job = (
-                    await DirectMessageJob.query.where(
-                        DirectMessageJob.dest_twitter_id == user.twitter_id
-                    )
-                    .order_by(DirectMessageJob.sent_timestamp.desc())
+                    await JobDetails.query.where(JobDetails.user_id == user.id)
+                    .where(JobDetails.job_type == "dm")
+                    .where(JobDetails.status == "finished")
+                    .order_by(JobDetails.finished_timestamp.desc())
                     .gino.first()
                 )
                 if last_dm_job:
@@ -55,13 +65,18 @@ async def _send_reminders():
                 if remind:
                     reminded_users.append(user.twitter_screen_name)
                     print(f"Reminding @{user.twitter_screen_name}")
-                    await DirectMessageJob.create(
-                        dest_twitter_id=user.twitter_id,
-                        message=message,
-                        status="pending",
-                        scheduled_timestamp=datetime.now(),
-                        priority=9,
+
+                    job_details = await JobDetails.create(
+                        job_type="dm",
+                        data=json.dumps(
+                            {
+                                "dest_twitter_id": user.twitter_id,
+                                "message": message,
+                            }
+                        ),
                     )
+                    redis_job = dm_jobs_low_q.enqueue(worker_jobs.dm, job_details.id)
+                    await job_details.update(redis_id=redis_job.id).apply()
 
     if len(reminded_users) > 0:
         admin_message = (
@@ -86,7 +101,7 @@ async def _cleanup_users():
         )
         async with SemiphemeralPeonyClient(user) as client:
             try:
-                twitter_user = await client.user
+                await client.user
             except (
                 peony.exceptions.InvalidOrExpiredToken,
                 peony.exceptions.NotAuthenticated,
@@ -107,10 +122,7 @@ async def _cleanup_users():
 async def _cleanup_dm_jobs():
     gino_db = await connect_db()
 
-    dm_jobs = await DirectMessageJob.query.where(
-        DirectMessageJob.status == "pending"
-    ).gino.all()
-
+    dm_jobs = await JobDetails.query.where(JobDetails.status == "pending").gino.all()
     print(f"there are {len(dm_jobs)} pending DM jobs")
 
     num_deleted = 0
@@ -120,12 +132,17 @@ async def _cleanup_dm_jobs():
         ).gino.first()
         if not user:
             print(f"deleting DM job id={dm_job.id}")
+            try:
+                redis_job = RQJob.fetch(dm_job.redis_id, connection=conn)
+                redis_job.cancel()
+                redis_job.delete()
+            except rq.exceptions.NoSuchJobError:
+                pass
+
             await dm_job.delete()
             num_deleted += 1
 
-    dm_jobs = await DirectMessageJob.query.where(
-        DirectMessageJob.status == "pending"
-    ).gino.all()
+    dm_jobs = await JobDetails.query.where(JobDetails.status == "pending").gino.all()
     print(f"now there are {len(dm_jobs)} pending DM jobs")
 
     admin_message = f"Deleted {num_deleted} pending DM jobs from deleted users"
