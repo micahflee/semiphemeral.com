@@ -234,7 +234,7 @@ export default {
     },
     getProgressVal: function (data, key) {
       var p = JSON.parse(data);
-      if (p) {
+      if (p && p["progress"]) {
         return p["progress"][key];
       } else {
         return "";
