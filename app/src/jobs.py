@@ -27,7 +27,7 @@ from asyncpg.exceptions import ForeignKeyViolationError
 import redis
 from rq import Queue
 
-conn = redis.from_url(os.environ.get("REDIS_URI"))
+conn = redis.from_url(os.environ.get("REDIS_URL"))
 jobs_q = Queue("jobs", connection=conn)
 dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
 dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
@@ -1182,8 +1182,11 @@ async def dm(job_details_id):
             ).apply()
             await log(job_details, f"DM sent")
         except Exception as e:
-
             await job_details.update(
                 status="canceled", finished_timestamp=datetime.now()
             ).apply()
-            await log(job_details, f"failed to send DM")
+            await log(job_details, f"Failed to send DM")
+
+    # Sleep a minute between sending each DM
+    await log(job_details, f"Sleeping 60s")
+    await asyncio.sleep(60)

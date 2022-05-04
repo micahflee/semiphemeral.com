@@ -39,7 +39,8 @@ import worker_jobs
 import redis
 from rq import Queue
 
-conn = redis.from_url(os.environ.get("REDIS_URI"))
+print(f"Connecting to redis at: {os.environ.get('REDIS_URL')}")
+conn = redis.from_url(os.environ.get("REDIS_URL"))
 jobs_q = Queue("jobs", connection=conn)
 
 
