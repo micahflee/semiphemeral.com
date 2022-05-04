@@ -89,6 +89,7 @@ class JobDetails(db.Model):
         db.String, default="pending"
     )  # "pending", "active", "finished", "canceled"
     data = db.Column(db.String, default="{}")  # JSON object
+    job_key = db.Column(db.String)  # redis id
     scheduled_timestamp = db.Column(db.DateTime)
     started_timestamp = db.Column(db.DateTime)
     finished_timestamp = db.Column(db.DateTime)
