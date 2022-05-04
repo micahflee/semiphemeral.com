@@ -249,7 +249,6 @@ export default {
     return {
       loading: false,
       activeJobs: [],
-      queuedJobs: [],
       pendingJobs: [],
       finishedJobs: [],
       settingPaused: null,
@@ -268,11 +267,7 @@ export default {
       // C: not paused
       // More info: https://github.com/micahflee/semiphemeral.com/issues/8
       if (this.settingPaused) {
-        if (
-          this.activeJobs.length > 0 ||
-          this.pendingJobs.length > 0 ||
-          this.queuedJobs.length > 0
-        ) {
+        if (this.activeJobs.length > 0 || this.pendingJobs.length > 0) {
           return "A";
         } else {
           return "B";
@@ -401,9 +396,6 @@ export default {
             that.loading = false;
             if (data["active_jobs"]) that.activeJobs = data["active_jobs"];
             else that.activeJobs = [];
-
-            if (data["queued_jobs"]) that.queuedJobs = data["queued_jobs"];
-            else that.queuedJobs = [];
 
             if (data["pending_jobs"]) that.pendingJobs = data["pending_jobs"];
             else that.pendingJobs = [];

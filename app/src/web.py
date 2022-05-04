@@ -942,30 +942,23 @@ async def api_get_dashboard(request):
     user = await _logged_in_user(session)
 
     pending_jobs = (
-        await Job.query.where(Job.user_id == user.id)
-        .where(Job.status == "pending")
-        .order_by(Job.scheduled_timestamp)
-        .gino.all()
-    )
-
-    queued_jobs = (
-        await Job.query.where(Job.user_id == user.id)
-        .where(Job.status == "queued")
-        .order_by(Job.scheduled_timestamp)
+        await JobDetails.query.where(JobDetails.user_id == user.id)
+        .where(JobDetails.status == "pending")
+        .order_by(JobDetails.scheduled_timestamp)
         .gino.all()
     )
 
     active_jobs = (
-        await Job.query.where(Job.user_id == user.id)
-        .where(Job.status == "active")
-        .order_by(Job.started_timestamp)
+        await JobDetails.query.where(JobDetails.user_id == user.id)
+        .where(JobDetails.status == "active")
+        .order_by(JobDetails.started_timestamp)
         .gino.all()
     )
 
     finished_jobs = (
-        await Job.query.where(Job.user_id == user.id)
-        .where(Job.status == "finished")
-        .order_by(Job.finished_timestamp.desc())
+        await JobDetails.query.where(JobDetails.user_id == user.id)
+        .where(JobDetails.status == "finished")
+        .order_by(JobDetails.finished_timestamp.desc())
         .gino.all()
     )
 
@@ -989,7 +982,7 @@ async def api_get_dashboard(request):
                 {
                     "id": job.id,
                     "job_type": job.job_type,
-                    "progress": job.progress,
+                    "data": job.data,
                     "status": job.status,
                     "scheduled_timestamp": scheduled_timestamp,
                     "started_timestamp": started_timestamp,
@@ -1021,7 +1014,6 @@ async def api_get_dashboard(request):
     return web.json_response(
         {
             "pending_jobs": to_client(pending_jobs),
-            "queued_jobs": to_client(queued_jobs),
             "active_jobs": to_client(active_jobs),
             "finished_jobs": to_client(finished_jobs),
             "setting_paused": user.paused,
@@ -1152,13 +1144,13 @@ async def api_post_dashboard(request):
     else:
         # Get pending and active jobs
         pending_jobs = (
-            await Job.query.where(Job.user_id == user.id)
-            .where(Job.status == "pending")
+            await JobDetails.query.where(JobDetails.user_id == user.id)
+            .where(JobDetails.status == "pending")
             .gino.all()
         )
         active_jobs = (
-            await Job.query.where(Job.user_id == user.id)
-            .where(Job.status == "active")
+            await JobDetails.query.where(JobDetails.user_id == user.id)
+            .where(JobDetails.status == "active")
             .gino.all()
         )
         jobs = pending_jobs + active_jobs
@@ -1290,9 +1282,14 @@ async def api_get_dms(request):
     is_dm_app_authenticated = await _api_validate_dms_authenticated(user)
 
     job = (
-        await Job.query.where(Job.user_id == user.id)
-        .where(or_(Job.job_type == "delete_dms", Job.job_type == "delete_dm_groups"))
-        .where(or_(Job.status == "pending", Job.status == "active"))
+        await JobDetails.query.where(JobDetails.user_id == user.id)
+        .where(
+            or_(
+                JobDetails.job_type == "delete_dms",
+                JobDetails.job_type == "delete_dm_groups",
+            )
+        )
+        .where(or_(JobDetails.status == "pending", JobDetails.status == "active"))
         .gino.first()
     )
     is_dm_job_ongoing = job is not None
@@ -1457,29 +1454,22 @@ async def app_admin_redirect(request):
 @admin_required
 async def admin_api_get_jobs(request):
     active_jobs = (
-        await Job.query.where(Job.status == "active")
-        .order_by(Job.started_timestamp)
-        .gino.all()
-    )
-
-    queued_jobs = (
-        await Job.query.where(Job.status == "queued")
-        .where(Job.scheduled_timestamp <= datetime.now())
-        .order_by(Job.scheduled_timestamp)
+        await JobDetails.query.where(JobDetails.status == "active")
+        .order_by(JobDetails.started_timestamp)
         .gino.all()
     )
 
     pending_jobs = (
-        await Job.query.where(Job.status == "pending")
-        .where(Job.scheduled_timestamp <= datetime.now())
-        .order_by(Job.scheduled_timestamp)
+        await JobDetails.query.where(JobDetails.status == "pending")
+        .where(JobDetails.scheduled_timestamp <= datetime.now())
+        .order_by(JobDetails.scheduled_timestamp)
         .gino.all()
     )
 
     future_jobs = (
-        await Job.query.where(Job.status == "pending")
-        .where(Job.scheduled_timestamp > datetime.now())
-        .order_by(Job.scheduled_timestamp)
+        await JobDetails.query.where(JobDetails.status == "pending")
+        .where(JobDetails.scheduled_timestamp > datetime.now())
+        .order_by(JobDetails.scheduled_timestamp)
         .gino.all()
     )
 
@@ -1494,14 +1484,6 @@ async def admin_api_get_jobs(request):
                 started_timestamp = job.started_timestamp.timestamp()
             else:
                 started_timestamp = None
-            if job.finished_timestamp:
-                finished_timestamp = job.finished_timestamp.timestamp()
-            else:
-                finished_timestamp = None
-            if job.container_name:
-                container_name = job.container_name
-            else:
-                container_name = "null"
 
             user = await User.query.where(User.id == job.user_id).gino.first()
             if user:
@@ -1518,11 +1500,10 @@ async def admin_api_get_jobs(request):
                     "twitter_username": twitter_username,
                     "twitter_link": twitter_link,
                     "job_type": job.job_type,
-                    "progress": job.progress,
+                    "data": job.data,
                     "status": job.status,
                     "scheduled_timestamp": scheduled_timestamp,
                     "started_timestamp": started_timestamp,
-                    "container_name": container_name,
                 }
             )
         return jobs_json
@@ -1530,7 +1511,6 @@ async def admin_api_get_jobs(request):
     return web.json_response(
         {
             "active_jobs": await to_client(active_jobs),
-            "queued_jobs": await to_client(queued_jobs),
             "pending_jobs": await to_client(pending_jobs),
             "future_jobs": await to_client(future_jobs),
         }

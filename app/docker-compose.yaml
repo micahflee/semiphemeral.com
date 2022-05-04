@@ -111,8 +111,8 @@ services:
         "--url",
         "redis://redis:6379",
         "--with-scheduler",
-        "dms_jobs_high",
-        "dms_jobs_low"
+        "dm_jobs_high",
+        "dm_jobs_low"
       ]
 
 networks:
