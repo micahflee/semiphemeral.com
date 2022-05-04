@@ -81,6 +81,7 @@ li .job-progress {
           <span class="job-date"
             >started {{ formatJobDate(job.started_timestamp) }} UTC</span
           >
+          <span class="job-redis-status">{{ job.redis_status }}</span>
           <span class="job-progress">{{ job.progress }}</span>
         </li>
       </ul>
@@ -103,6 +104,7 @@ li .job-progress {
           <span class="job-date"
             >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
           >
+          <span class="job-redis-status">{{ job.redis_status }}</span>
         </li>
       </ul>
     </div>
@@ -124,6 +126,7 @@ li .job-progress {
           <span class="job-date"
             >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
           >
+          <span class="job-redis-status">{{ job.redis_status }}</span>
         </li>
       </ul>
     </div>
