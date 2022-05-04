@@ -13,15 +13,11 @@ from peony.oauth_dance import get_oauth_token, get_access_token
 from db import Tweet, Thread, Nag, Job, Tip
 
 
-async def log(job, s):
+async def log(job_details, s):
     if job:
-        print(f"[{datetime.now().strftime('%c')}] job_id={job.id} {s}")
+        print(f"[{datetime.now().strftime('%c')}] job_details={job_details.id} {s}")
     else:
         print(f"[{datetime.now().strftime('%c')}] {s}")
-
-
-async def update_progress(job, progress):
-    await job.update(progress=json.dumps(progress)).apply()
 
 
 async def peony_oauth_step1(

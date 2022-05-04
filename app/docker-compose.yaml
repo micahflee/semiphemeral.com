@@ -4,7 +4,7 @@ services:
     restart: always
     build: "src"
     environment:
-      - SEMIPHEMERAL_WEB=1
+      - REDIS_URI=conn=redis://redis:6379
       - DEPLOY_ENVIRONMENT={{ deploy_environment }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
@@ -42,57 +42,78 @@ services:
     depends_on:
       - web
 
-  dm_jobs:
-    restart: always
-    build: "src"
-    environment:
-      - SEMIPHEMERAL_DM_JOBS=1
-      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
-      - DOMAIN={{ domain }}
-      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
-      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
-      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
-      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
-      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
-      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
-      - DATABASE_URI=postgres://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
-      - ADMIN_USERNAME={{ admin_username }}
-      - ADMIN_WEBHOOK={{ admin_webhook }}
-    networks:
-      - default
-      - host_private
-    depends_on:
-      - web
-
-  jobs:
-    restart: always
-    build: "src"
-    environment:
-      - SEMIPHEMERAL_JOBS=1
-      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
-      - DOMAIN={{ domain }}
-      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
-      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
-      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
-      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
-      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
-      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
-      - DATABASE_URI=postgres://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
-      - ADMIN_USERNAME={{ admin_username }}
-      - ADMIN_WEBHOOK={{ admin_webhook }}
-    volumes:
-      - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
-    networks:
-      - default
-      - host_private
-    depends_on:
-      - web
-
   redis:
     image: redis:alpine
     command: [ "redis-server", "--save", "3600", "10" ]
     volumes:
       - /opt/semiphemeral/data/redis:/data
+
+  worker:
+    restart: always
+    build: "src"
+    environment:
+      - REDIS_URI=conn=redis://redis:6379
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI=postgres://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - redis
+    command:
+      [
+        "poetry",
+        "run",
+        "rq",
+        "worker",
+        "--url",
+        "redis://redis:6379",
+        "--with-scheduler",
+        "jobs"
+      ]
+
+  dms_worker:
+    restart: always
+    build: "src"
+    environment:
+      - REDIS_URI=conn=redis://redis:6379
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
+      - TWITTER_DM_ACCESS_KEY={{ twitter_dm_access_secret }}
+      - DATABASE_URI=postgres://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    networks:
+      - default
+      - host_private
+    depends_on:
+      - redis
+    command:
+      [
+        "poetry",
+        "run",
+        "rq",
+        "worker",
+        "--url",
+        "redis://redis:6379",
+        "--with-scheduler",
+        "dms_jobs_high",
+        "dms_jobs_low"
+      ]
 
 networks:
   default:
