@@ -16,6 +16,20 @@
     path: /opt/semiphemeral
     state: directory
 
+- name: /opt/semiphemeral/backup.sh template
+  template:
+    src: ../templates/opt/semiphemeral/backup.sh
+    dest: /opt/semiphemeral/backup.sh
+    owner: "root"
+    mode: 0700
+
+- name: /opt/semiphemeral/restore.sh template
+  template:
+    src: ../templates/opt/semiphemeral/restore.sh
+    dest: /opt/semiphemeral/restore.sh
+    owner: "root"
+    mode: 0700
+
 - name: ensure web volume directory has the right permissions
   file:
     path: /opt/semiphemeral/data/web
