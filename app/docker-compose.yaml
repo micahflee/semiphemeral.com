@@ -1,5 +1,11 @@
 version: "3"
 services:
+  redis:
+    image: redis:alpine
+    command: [ "redis-server", "--save", "3600", "10" ]
+    volumes:
+      - /opt/semiphemeral/data/redis:/data
+
   web:
     restart: always
     build: "src"
@@ -26,6 +32,8 @@ services:
     networks:
       - default
       - host_private
+    depends_on:
+      - redis
 
   proxy:
     restart: always
@@ -41,12 +49,6 @@ services:
       - default
     depends_on:
       - web
-
-  redis:
-    image: redis:alpine
-    command: [ "redis-server", "--save", "3600", "10" ]
-    volumes:
-      - /opt/semiphemeral/data/redis:/data
 
   worker:
     restart: always

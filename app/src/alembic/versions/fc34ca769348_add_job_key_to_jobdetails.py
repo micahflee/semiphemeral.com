@@ -17,8 +17,8 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("job_details", sa.Column("job_key", sa.String))
+    op.add_column("job_details", sa.Column("redis_id", sa.String))
 
 
 def downgrade():
-    op.drop_column("job_details", "job_key")
+    op.drop_column("job_details", "redis_id")

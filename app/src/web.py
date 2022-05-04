@@ -37,7 +37,9 @@ from db import (
 import worker_jobs
 
 import redis
-from rq import Queue, Job as RQJob
+import rq
+from rq import Queue
+from rq.job import Job as RQJob
 
 print(f"Connecting to redis at: {os.environ.get('REDIS_URL')}")
 conn = redis.from_url(os.environ.get("REDIS_URL"))
@@ -244,7 +246,7 @@ async def auth_twitter_callback(request):
             user_id=user.id,
         )
         redis_job = jobs_q.enqueue(worker_jobs.fetch, job_details.id)
-        await job_details.update(job_key=redis_job.id()).apply()
+        await job_details.update(redis_id=redis_job.id).apply()
     else:
         # Make sure to update the user's twitter access token and secret
         await log(None, f"Authenticating user @{user.twitter_screen_name}")
@@ -1100,7 +1102,7 @@ async def api_post_dashboard(request):
                     data=json.dumps({"twitter_username": user.twitter_screen_name}),
                 )
                 redis_job = jobs_q.enqueue(worker_jobs.unblock, job_details.id)
-                await job_details.update(job_key=redis_job.id()).apply()
+                await job_details.update(redis_id=redis_job.id).apply()
                 return web.json_response(
                     {"message": "You should be unblocked in the next few minutes"}
                 )
@@ -1140,7 +1142,7 @@ async def api_post_dashboard(request):
                 user_id=user.id,
             )
             redis_job = jobs_q.enqueue(worker_jobs.fetch, job_details.id)
-            await job_details.update(job_key=redis_job.id()).apply()
+            await job_details.update(redis_id=redis_job.id).apply()
 
             return web.json_response({"unblocked": True})
 
@@ -1177,7 +1179,7 @@ async def api_post_dashboard(request):
                 user_id=user.id,
             )
             redis_job = jobs_q.enqueue(worker_jobs.delete, job_details.id)
-            await job_details.update(job_key=redis_job.id()).apply()
+            await job_details.update(redis_id=redis_job.id).apply()
 
         elif data["action"] == "pause":
             if user.paused:
@@ -1187,6 +1189,12 @@ async def api_post_dashboard(request):
 
             # Cancel jobs
             for job in jobs:
+                try:
+                    redis_job = RQJob.fetch(job.redis_id, connection=conn)
+                    redis_job.cancel()
+                    redis_job.delete()
+                except rq.exceptions.NoSuchJobError:
+                    pass
                 await job.update(status="canceled").apply()
 
             # Pause
@@ -1209,7 +1217,7 @@ async def api_post_dashboard(request):
                 user_id=user.id,
             )
             redis_job = jobs_q.enqueue(worker_jobs.fetch, job_details.id)
-            await job_details.update(job_key=redis_job.id()).apply()
+            await job_details.update(redis_id=redis_job.id).apply()
 
         return web.json_response(True)
 
@@ -1420,10 +1428,10 @@ async def api_post_dms(request):
     )
     if dm_type == "dms":
         redis_job = jobs_q.enqueue(worker_jobs.delete_dms, job_details.id)
-        await job_details.update(job_key=redis_job.id()).apply()
+        await job_details.update(redis_id=redis_job.id).apply()
     elif dm_type == "groups":
         redis_job = jobs_q.enqueue(worker_jobs.delete_dm_groups, job_details.id)
-        await job_details.update(job_key=redis_job.id()).apply()
+        await job_details.update(redis_id=redis_job.id).apply()
 
     return web.json_response({"error": False})
 
@@ -1500,6 +1508,12 @@ async def admin_api_get_jobs(request):
                 twitter_username = None
                 twitter_link = None
 
+            try:
+                redis_job = RQJob.fetch(job.redis_id, connection=conn)
+                redis_status = redis_job.get_status(refresh=True)
+            except rq.exceptions.NoSuchJobError:
+                redis_status = "N/A"
+
             jobs_json.append(
                 {
                     "id": job.id,
@@ -1511,6 +1525,7 @@ async def admin_api_get_jobs(request):
                     "status": job.status,
                     "scheduled_timestamp": scheduled_timestamp,
                     "started_timestamp": started_timestamp,
+                    "redis_status": redis_status,
                 }
             )
         return jobs_json
@@ -1678,8 +1693,8 @@ async def admin_api_post_fascists(request):
         job_details = await JobDetails.create(
             job_type="block", data=json.dumps({"twitter_username": data["username"]})
         )
-        redis_jobs = jobs_q.enqueue(worker_jobs.block, job_details.id)
-        await job_details.update(job_key=redis_job.id()).apply()
+        redis_job = jobs_q.enqueue(worker_jobs.block, job_details.id)
+        await job_details.update(redis_id=redis_job.id).apply()
 
         return web.json_response(True)
 
