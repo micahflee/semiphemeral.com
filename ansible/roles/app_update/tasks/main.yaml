@@ -48,3 +48,5 @@
   docker_compose:
     state: present
     project_src: /opt/semiphemeral/app
+    scale:
+      worker: 6
