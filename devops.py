@@ -399,16 +399,25 @@ def backup_save(deploy_environment):
     if not _validate_env(deploy_environment):
         return
 
-    _, db_ip, _ = _get_ips(deploy_environment)
+    app_ip, db_ip, _ = _get_ips(deploy_environment)
 
     # Save the backup
     _ssh(deploy_environment, "db", cmds=["/db/backup.sh"])
+    _ssh(deploy_environment, "app", cmds=["/db/backup.sh"])
 
     # Download the backup
     subprocess.run(["scp", f"root@{db_ip}:/db/mnt/semiphemeral-*.sql.gz", "./backups"])
+    subprocess.run(
+        ["scp", f"root@{app_ip}:/opt/semiphemeral/semiphemeral-*.tar.gz", "./backups"]
+    )
 
     # Delete the backup
     _ssh(deploy_environment, "db", cmds=["rm", "/db/mnt/semiphemeral-*.sql.gz"])
+    _ssh(
+        deploy_environment,
+        "app",
+        cmds=["rm", "/opt/semiphemeral/semiphemeral-*.tar.gz"],
+    )
 
 
 @main.command()
@@ -419,20 +428,33 @@ def backup_restore(deploy_environment, backup_filename):
     if not _validate_env(deploy_environment):
         return
 
-    _, db_ip, _ = _get_ips(deploy_environment)
+    app_ip, db_ip, _ = _get_ips(deploy_environment)
 
     # Validate
-    if not backup_filename.endswith(".sql.gz"):
-        click.echo("Backup must be a .sql.gz file")
+    backup_type = None
+    if backup_filename.endswith(".sql.gz"):
+        backup_type = "db"
+    elif backup_filename.endswith(".tar.gz"):
+        backup_type = "app"
+    else:
+        click.echo("Backup must be a .sql.gz or .tar.gz file")
         return
 
     basename = os.path.basename(backup_filename)
 
-    # Upload the backup
-    subprocess.run(["scp", backup_filename, f"root@{db_ip}:/db/mnt/"])
+    if backup_type == "db":
+        # Upload the backup
+        subprocess.run(["scp", backup_filename, f"root@{db_ip}:/db/mnt/"])
 
-    # Restore the backup
-    _ssh(deploy_environment, "db", cmds=["/db/restore.sh", basename])
+        # Restore the backup
+        _ssh(deploy_environment, "db", cmds=["/db/restore.sh", basename])
+
+    elif backup_type == "app":
+        # Upload the backup
+        subprocess.run(["scp", backup_filename, f"root@{db_ip}:/opt/semiphemeral/"])
+
+        # Restore the backup
+        _ssh(deploy_environment, "db", cmds=["/opt/semiphemeral/restore.sh", basename])
 
 
 if __name__ == "__main__":
