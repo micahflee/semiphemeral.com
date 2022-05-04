@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import json
 import asyncio
@@ -5,6 +6,7 @@ import click
 from datetime import datetime, timedelta
 
 import peony
+import db
 from db import connect_db, User, JobDetails
 from common import send_admin_notification, SemiphemeralPeonyClient, delete_user
 import worker_jobs
@@ -15,6 +17,8 @@ from rq import Queue
 from rq.job import Job as RQJob
 
 conn = redis.from_url(os.environ.get("REDIS_URL"))
+jobs_q = Queue("jobs", connection=conn)
+dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
 dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
 
 
@@ -186,6 +190,171 @@ async def _unblock_users():
     print("")
 
 
+async def _onetime_2022_05_add_redis_jobs():
+    await connect_db()
+    count = 0
+
+    # Convert Jobs
+    jobs = await db.Job.query.gino.all()
+    print(f"Found {len(jobs)} Jobs")
+    for job in jobs:
+        try:
+            progress = json.loads(job.progress)
+            data = {"progress": progress}
+        except:
+            data = {}
+
+        job_details = await JobDetails.create(
+            user_id=job.user_id,
+            job_type=job.job_type,
+            status=job.status,
+            data=json.dumps(data),
+            scheduled_timestamp=job.scheduled_timestamp,
+            started_timestamp=job.started_timestamp,
+            finished_timestamp=job.finished_timestamp,
+        )
+
+        # Create redis jobs for pending an active jobs, and make them all pending
+        if job.status == "pending" or job.status == "active":
+            if job_details.job_type == "fetch":
+                redis_job = jobs_q.enqueue_at(
+                    job.scheduled_timestamp, worker_jobs.fetch, job_details.id
+                )
+            elif job_details.job_type == "delete":
+                redis_job = jobs_q.enqueue_at(
+                    job.scheduled_timestamp, worker_jobs.delete, job_details.id
+                )
+            elif job_details.job_type == "delete_dms":
+                redis_job = jobs_q.enqueue_at(
+                    job.scheduled_timestamp, worker_jobs.delete_dms, job_details.id
+                )
+            elif job_details.job_type == "delete_dm_groups":
+                redis_job = jobs_q.enqueue_at(
+                    job.scheduled_timestamp,
+                    worker_jobs.delete_dm_groups,
+                    job_details.id,
+                )
+            await job_details.update(status="pending", redis_id=redis_job.id).apply()
+
+        count += 1
+        print(f"\rConverted {count}/{len(jobs)} Jobs     ", end="")
+
+    print()
+
+    # Convert DirectMessageJobs
+    dm_jobs = await db.DirectMessageJob.query.gino.all()
+    print(f"Found {len(dm_jobs)} DirectMessageJobs")
+    for dm_job in dm_jobs:
+        data = {
+            "dest_twitter_id": dm_job.dest_twitter_id,
+            "message": dm_job.message,
+        }
+
+        if dm_job.status == "pending":
+            status = "pending"
+        elif dm_job.status == "sent":
+            status = "finished"
+        else:
+            status = "canceled"
+
+        if dm_job.priority == 0:
+            q = dm_jobs_high_q
+        else:
+            q = dm_jobs_low_q
+
+        job_details = await JobDetails.create(
+            job_type="dm",
+            status=status,
+            data=json.dumps(data),
+            scheduled_timestamp=dm_job.scheduled_timestamp,
+            started_timestamp=dm_job.sent_timestamp,
+            finished_timestamp=dm_job.sent_timestamp,
+        )
+
+        # # Create redis jobs for pending jobs
+        # if dm_job.status == "pending":
+        #     redis_job = q.enqueue_at(
+        #         dm_job.scheduled_timestamp, worker_jobs.dm, job_details.id
+        #     )
+        #     await job_details.update(redis_id=redis_job.id).apply()
+
+        count += 1
+        print(
+            "Skipped actually sending any pending DMs, because rewards are low and risks are high"
+        )
+        print(f"\rConverted {count}/{len(jobs)} DirectMessageJobs     ", end="")
+
+    print()
+
+    # Convert BlockJob
+    block_jobs = await db.BlockJob.query.gino.all()
+    print(f"Found {len(block_jobs)} BlockJobs")
+    for block_job in block_jobs:
+        data = {"twitter_username": block_job.twitter_username}
+        if block_job.status == "pending":
+            status = "pending"
+        elif block_job.status == "blocked":
+            status = "finished"
+        else:
+            status = "canceled"
+
+        job_details = await JobDetails.create(
+            user_id=block_job.user_id,
+            job_type="block",
+            status=status,
+            data=json.dumps(data),
+            scheduled_timestamp=block_job.scheduled_timestamp,
+            started_timestamp=block_job.blocked_timestamp,
+            finished_timestamp=block_job.blocked_timestamp,
+        )
+
+        # Create redis jobs for pending jobs
+        if block_job.status == "pending":
+            redis_job = q.enqueue_at(
+                block_job.scheduled_timestamp, worker_jobs.block, job_details.id
+            )
+            await job_details.update(redis_id=redis_job.id).apply()
+
+        count += 1
+        print(f"\rConverted {count}/{len(jobs)} Jobs     ", end="")
+
+    print()
+
+    # Convert UnblockJob
+    unblock_jobs = await db.UnblockJob.query.gino.all()
+    print(f"Found {len(unblock_jobs)} UnblockJobs")
+    for unblock_job in unblock_jobs:
+        data = {"twitter_username": unblock_job.twitter_username}
+        if unblock_job.status == "pending":
+            status = "pending"
+        elif unblock_job.status == "unblocked":
+            status = "finished"
+        else:
+            status = "canceled"
+
+        job_details = await JobDetails.create(
+            user_id=unblock_job.user_id,
+            job_type="unblock",
+            status=status,
+            data=json.dumps(data),
+            scheduled_timestamp=unblock_job.scheduled_timestamp,
+            started_timestamp=unblock_job.blocked_timestamp,
+            finished_timestamp=unblock_job.blocked_timestamp,
+        )
+
+        # Create redis jobs for pending jobs
+        if unblock_job.status == "pending":
+            redis_job = q.enqueue_at(
+                unblock_job.scheduled_timestamp, worker_jobs.unblock, job_details.id
+            )
+            await job_details.update(redis_id=redis_job.id).apply()
+
+        count += 1
+        print(f"\rConverted {count}/{len(jobs)} Jobs     ", end="")
+
+    print()
+
+
 @click.group()
 def main():
     """semiphemeral.com tasks"""
@@ -221,6 +390,14 @@ def cleanup_dm_jobs():
 )
 def unblock_users():
     asyncio.run(_unblock_users())
+
+
+@main.command(
+    "2022-05-add-redis-jobs",
+    short_help="Convert old jobs into JobDetails and redis jobs",
+)
+def onetime_2022_05_add_redis_jobs():
+    asyncio.run(_onetime_2022_05_add_redis_jobs())
 
 
 if __name__ == "__main__":
