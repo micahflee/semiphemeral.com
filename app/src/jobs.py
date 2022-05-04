@@ -49,19 +49,19 @@ gino_db = None
 
 
 def init_db(func):
-    async def wrapper(job_details_id):
+    async def wrapper(job_details_id, funcs):
         """
         Initialize the database
         """
         global gino_db
         gino_db = await connect_db()
-        return await func(job_details_id)
+        return await func(job_details_id, funcs)
 
     return wrapper
 
 
 def test_api_creds(func):
-    async def wrapper(job_details_id):
+    async def wrapper(job_details_id, funcs):
         """
         Make sure the API creds work, and if not pause semiphemeral for the user
         """
@@ -83,13 +83,13 @@ def test_api_creds(func):
                     ).apply()
                     return False
 
-        return await func(job_details_id)
+        return await func(job_details_id, funcs)
 
     return wrapper
 
 
 def ensure_user_follows_us(func):
-    async def wrapper(job_details_id):
+    async def wrapper(job_details_id, funcs):
         job_details = await JobDetails.query.where(
             JobDetails.id == job_details_id
         ).gino.first()
@@ -98,7 +98,7 @@ def ensure_user_follows_us(func):
         if user:
             # Make an exception for semiphemeral user, because semiphemeral can't follow semiphemeral
             if user.twitter_screen_name == "semiphemeral":
-                return await func(job_details_id)
+                return await func(job_details_id, funcs)
 
             async with SemiphemeralPeonyClient(user) as client:
                 # Is the user following us?
@@ -130,7 +130,7 @@ def ensure_user_follows_us(func):
                 except Exception as e:
                     await log(job_details, f"Exception in ensure_user_follows_us: {e}")
 
-        return await func(job_details_id)
+        return await func(job_details_id, funcs)
 
     return wrapper
 
@@ -271,7 +271,7 @@ async def calculate_excluded_threads(user):
 @init_db
 @test_api_creds
 @ensure_user_follows_us
-async def fetch(job_details_id, worker_jobs_block, worker_jobs_dm):
+async def fetch(job_details_id, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
     ).gino.first()
@@ -475,7 +475,7 @@ async def fetch(job_details_id, worker_jobs_block, worker_jobs_dm):
                 {"twitter_username": user.twitter_screen_name, "user_id": user.id}
             ),
         )
-        jobs_q.enqueue(worker_jobs_block, new_job_details.id)
+        jobs_q.enqueue(funcs["block"], new_job_details.id)
 
         # Don't send any DMs
         await log(job_details, f"Blocking user")
@@ -501,7 +501,7 @@ async def fetch(job_details_id, worker_jobs_block, worker_jobs_dm):
                 }
             ),
         )
-        dm_jobs_high_q.enqueue(worker_jobs_dm, new_job_details.id)
+        dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
 
     await job_details.update(
         status="finished", finished_timestamp=datetime.now()
@@ -515,7 +515,7 @@ async def fetch(job_details_id, worker_jobs_block, worker_jobs_dm):
 @init_db
 @test_api_creds
 @ensure_user_follows_us
-async def delete(job_details_id, worker_jobs_delete, worker_jobs_dm):
+async def delete(job_details_id, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
     ).gino.first()
@@ -708,7 +708,7 @@ async def delete(job_details_id, worker_jobs_delete, worker_jobs_dm):
     new_job_details = await JobDetails.create(
         job_type="delete", user_id=user.id, scheduled_timestamp=scheduled_timestamp
     )
-    jobs_q.enqueue_at(scheduled_timestamp, worker_jobs_delete, new_job_details.id)
+    jobs_q.enqueue_at(scheduled_timestamp, funcs["delete"], new_job_details.id)
 
     # Has the user tipped in the last year?
     one_year = timedelta(days=365)
@@ -757,7 +757,7 @@ async def delete(job_details_id, worker_jobs_delete, worker_jobs_dm):
                 }
             ),
         )
-        dm_jobs_high_q.enqueue(worker_jobs_dm, new_job_details.id)
+        dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
 
         message = f"Semiphemeral is free, but running this service costs money. Care to chip in?\n\nIf you tip any amount, even just $1, I will stop nagging you for a year. Otherwise, I'll gently remind you once a month.\n\n(It's fine if you want to ignore these DMs. I won't care. I'm a bot, so I don't have feelings).\n\nVisit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
 
@@ -770,7 +770,7 @@ async def delete(job_details_id, worker_jobs_delete, worker_jobs_dm):
                 }
             ),
         )
-        dm_jobs_high_q.enqueue(worker_jobs_dm, new_job_details.id)
+        dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
 
     else:
         if should_nag:
@@ -845,7 +845,7 @@ async def delete(job_details_id, worker_jobs_delete, worker_jobs_dm):
                     }
                 ),
             )
-            dm_jobs_high_q.enqueue(worker_jobs_dm, new_job_details.id)
+            dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
 
 
 # Delete DMs and DM Groups jobs
@@ -854,18 +854,18 @@ async def delete(job_details_id, worker_jobs_delete, worker_jobs_dm):
 @init_db
 @test_api_creds
 @ensure_user_follows_us
-async def delete_dms(job_details_id, worker_jobs_dm):
-    await delete_dms_job(job_details_id, "dms", worker_jobs_dm)
+async def delete_dms(job_details_id, funcs):
+    await delete_dms_job(job_details_id, "dms", funcs)
 
 
 @init_db
 @test_api_creds
 @ensure_user_follows_us
-async def delete_dm_groups(job_details_id, worker_jobs_dm):
-    await delete_dms_job(job_details_id, "groups", worker_jobs_dm)
+async def delete_dm_groups(job_details_id, funcs):
+    await delete_dms_job(job_details_id, "groups", funcs)
 
 
-async def delete_dms_job(job_details_id, dm_type, worker_jobs_dm):
+async def delete_dms_job(job_details_id, dm_type, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
     ).gino.first()
@@ -990,7 +990,7 @@ async def delete_dms_job(job_details_id, dm_type, worker_jobs_dm):
             }
         ),
     )
-    dm_jobs_high_q.enqueue(worker_jobs_dm, new_job_details.id)
+    dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
 
     await job_details.update(
         status="finished", finished_timestamp=datetime.now()
@@ -1002,7 +1002,7 @@ async def delete_dms_job(job_details_id, dm_type, worker_jobs_dm):
 
 
 @init_db
-async def block(job_details_id, worker_jobs_unblock, worker_jobs_dm):
+async def block(job_details_id, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
     ).gino.first()
@@ -1069,7 +1069,7 @@ async def block(job_details_id, worker_jobs_unblock, worker_jobs_dm):
                         }
                     ),
                 )
-                dm_jobs_high_q.enqueue(worker_jobs_dm, new_job_details.id)
+                dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
 
                 # Wait 65 seconds before blocking, to ensure they receive the DM
                 await asyncio.sleep(65)
@@ -1085,7 +1085,7 @@ async def block(job_details_id, worker_jobs_unblock, worker_jobs_dm):
                     ),
                 )
                 jobs_q.enqueue_at(
-                    unblock_timestamp, worker_jobs_unblock, new_job_details.id
+                    unblock_timestamp, funcs["unblock"], new_job_details.id
                 )
 
         # Block the user
@@ -1102,7 +1102,7 @@ async def block(job_details_id, worker_jobs_unblock, worker_jobs_dm):
 
 
 @init_db
-async def unblock(job_details_id):
+async def unblock(job_details_id, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
     ).gino.first()
@@ -1154,7 +1154,7 @@ async def unblock(job_details_id):
 
 
 @init_db
-async def dm(job_details_id):
+async def dm(job_details_id, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
     ).gino.first()

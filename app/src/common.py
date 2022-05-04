@@ -14,7 +14,7 @@ from db import Tweet, Thread, Nag, Job, Tip
 
 
 async def log(job_details, s):
-    if job:
+    if job_details:
         print(f"[{datetime.now().strftime('%c')}] job_details={job_details.id} {s}")
     else:
         print(f"[{datetime.now().strftime('%c')}] {s}")
