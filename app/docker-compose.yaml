@@ -4,7 +4,7 @@ services:
     restart: always
     build: "src"
     environment:
-      - REDIS_URI=conn=redis://redis:6379
+      - REDIS_URL=redis://redis:6379
       - DEPLOY_ENVIRONMENT={{ deploy_environment }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
@@ -52,7 +52,7 @@ services:
     restart: always
     build: "src"
     environment:
-      - REDIS_URI=conn=redis://redis:6379
+      - REDIS_URL=redis://redis:6379
       - DEPLOY_ENVIRONMENT={{ deploy_environment }}
       - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
@@ -85,7 +85,7 @@ services:
     restart: always
     build: "src"
     environment:
-      - REDIS_URI=conn=redis://redis:6379
+      - REDIS_URL=redis://redis:6379
       - DEPLOY_ENVIRONMENT={{ deploy_environment }}
       - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
