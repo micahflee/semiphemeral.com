@@ -37,10 +37,6 @@ class JobCanceled(Exception):
     pass
 
 
-class UserBlocked(Exception):
-    pass
-
-
 # Global variables
 
 gino_db = None
@@ -317,7 +313,7 @@ async def fetch(job_details_id, funcs):
                 await job_details.update(
                     status="canceled", finished_timestamp=datetime.now()
                 ).apply()
-                raise JobCanceled()
+                return
             except peony.exceptions.HTTPUnauthorized:
                 await log(
                     job_details,
@@ -328,7 +324,7 @@ async def fetch(job_details_id, funcs):
                 await job_details.update(
                     status="canceled", finished_timestamp=datetime.now()
                 ).apply()
-                raise JobCanceled()
+                return
 
             if len(statuses) == 0:
                 break
@@ -409,7 +405,7 @@ async def fetch(job_details_id, funcs):
                 await job_details.update(
                     status="canceled", finished_timestamp=datetime.now()
                 ).apply()
-                raise JobCanceled()
+                return
 
             if len(statuses) == 0:
                 break
@@ -480,7 +476,10 @@ async def fetch(job_details_id, funcs):
 
         # Don't send any DMs
         await log(job_details, f"Blocking user")
-        raise UserBlocked
+        await job_details.update(
+            status="finished", finished_timestamp=datetime.now()
+        ).apply()
+        return
 
     # Fetch is done! If semiphemeral is paused, send a DM
     # (If it's not paused, then this should actually be a delete job, and delete will run next)
@@ -895,7 +894,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
             await job_details.update(
                 status="canceled", started_timestamp=datetime.now()
             ).apply()
-            raise JobCanceled()
+            return
 
         if dm_type == "dms":
             await log(job_details, f"Delete DMs started")
@@ -918,7 +917,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
             await job_details.update(
                 status="canceled", started_timestamp=datetime.now()
             ).apply()
-            raise JobCanceled()
+            return
 
         # Load the DM metadata
         if dm_type == "dms":
@@ -933,7 +932,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
             await job_details.update(
                 status="canceled", started_timestamp=datetime.now()
             ).apply()
-            raise JobCanceled()
+            return
         with open(filename) as f:
             try:
                 conversations = json.loads(f.read())
@@ -942,7 +941,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
                 await job_details.update(
                     status="canceled", started_timestamp=datetime.now()
                 ).apply()
-                raise JobCanceled()
+                return
 
         # Delete DMs
         data["progress"]["status"] = "Deleting old direct messages"
@@ -990,9 +989,9 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
 
     # Send a DM to the user
     if dm_type == "dms":
-        message = f"Congratulations, Semiphemeral just finished deleting {progress['dms_deleted']} of your old direct messages."
+        message = f"Congratulations, Semiphemeral just finished deleting {data['progress']['dms_deleted']} of your old direct messages."
     elif dm_type == "groups":
-        message = f"Congratulations, Semiphemeral just finished deleting {progress['dms_deleted']} of your old group direct messages."
+        message = f"Congratulations, Semiphemeral just finished deleting {data['progress']['dms_deleted']} of your old group direct messages."
 
     new_job_details = await JobDetails.create(
         job_type="dm",

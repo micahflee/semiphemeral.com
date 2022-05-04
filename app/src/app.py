@@ -1801,9 +1801,7 @@ async def main():
 
     # Start over all active jobs
     await log(None, "Make 'active' jobs 'pending', and start them")
-    active_jobs = await JobDetails.query.where(
-        JobDetails.status == "active"
-    ).gino.all()
+    active_jobs = await JobDetails.query.where(JobDetails.status == "active").gino.all()
     for job_details in active_jobs:
         if job_details.job_type == "fetch":
             redis_job = jobs_q.enqueue(worker_jobs.fetch, job_details.id)
@@ -1820,19 +1818,6 @@ async def main():
         elif job_details.job_type == "dm":
             redis_job = dm_jobs_high_q.enqueue(worker_jobs.dm, job_details.id)
         await job_details.update(status="pending", redis_id=redis_job.id).apply()
-
-    # Start new redis jobs for pending jobs
-    await log(None, "Create a new redis job for each pending JobDetail")
-    pending_jobs = await JobDetails.query.where(
-        JobDetails.status == "pending"
-    ).gino.all()
-    for job in pending_jobs:
-        try:
-            redis_job = RQJob.fetch(job.redis_id, connection=conn)
-            redis_job.cancel()
-            redis_job.delete()
-        except rq.exceptions.NoSuchJobError:
-            pass
 
     # Init stripe
     stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
