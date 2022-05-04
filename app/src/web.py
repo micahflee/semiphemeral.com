@@ -18,6 +18,7 @@ import peony
 from sqlalchemy import or_
 
 from common import (
+    log,
     send_admin_notification,
     delete_user,
     peony_oauth_step1,
@@ -28,12 +29,18 @@ from db import (
     User,
     Tip,
     RecurringTip,
-    Job,
-    BlockJob,
-    UnblockJob,
     Tweet,
     Fascist,
+    JobDetails,
 )
+
+import worker_jobs
+
+import redis
+from rq import Queue
+
+conn = redis.from_url(os.environ.get("REDIS_URI"))
+jobs_q = Queue("jobs", connection=conn)
 
 
 async def _logged_in_user(session):
@@ -54,8 +61,9 @@ async def _logged_in_user(session):
             user.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
             and "impersonating_twitter_id" in session
         ):
-            print(
-                f"Admin impersonating user with id {session['impersonating_twitter_id']}"
+            await log(
+                None,
+                f"Admin impersonating user with id {session['impersonating_twitter_id']}",
             )
             impersonating_user = await User.query.where(
                 User.twitter_id == session["impersonating_twitter_id"]
@@ -96,8 +104,9 @@ async def _api_validate_dms_authenticated(user):
                 twitter_user = await dms_client.user
                 return True
             except Exception as e:
-                print(
-                    f"DM permissions for @{user.twitter_screen_name} failed to validate: {e}"
+                await log(
+                    None,
+                    f"DM permissions for @{user.twitter_screen_name} failed to validate: {e}",
                 )
 
     return False
@@ -229,15 +238,14 @@ async def auth_twitter_callback(request):
         )
 
         # Create a new fetch job
-        await Job.create(
-            user_id=user.id,
+        job_details = await JobDetails.create(
             job_type="fetch",
-            status="pending",
-            scheduled_timestamp=datetime.now(),
+            user_id=user.id,
         )
+        jobs_q.enqueue(worker_jobs.fetch, job_details.id)
     else:
         # Make sure to update the user's twitter access token and secret
-        print(f"Authenticating user @{user.twitter_screen_name}")
+        await log(None, f"Authenticating user @{user.twitter_screen_name}")
         await user.update(
             twitter_access_token=twitter_access_token,
             twitter_access_token_secret=twitter_access_token_secret,
@@ -282,10 +290,10 @@ async def auth_twitter_dms_callback(request):
     user = await User.query.where(User.twitter_id == str(twitter_id)).gino.first()
     if user is None:
         # Uh, that's weird, there really should already be a user... so just ignore in that case
-        print(f"Authenticating DMs: user is None, this should never happen")
+        await log(None, f"Authenticating DMs: user is None, this should never happen")
     else:
         # Update the user's DM twitter access token and secret
-        print(f"Authenticating DMs for user @{user.twitter_screen_name}")
+        await log(None, f"Authenticating DMs for user @{user.twitter_screen_name}")
         await user.update(
             twitter_dms_access_token=twitter_access_token,
             twitter_dms_access_token_secret=twitter_access_token_secret,
@@ -299,16 +307,12 @@ async def stripe_callback(request):
     message = None
     data = await request.json()
 
-    # Debug
-    # print(f"stripe_callback: {data['type']}")
-    # print(json.dumps(data, indent=2))
-
     # TODO: verify webhook signatures
     # webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET_KEY")
 
     # Charge succeeded
     if data["type"] == "charge.succeeded":
-        print("stripe_callback: charge.succeeded")
+        await log(None, "stripe_callback: charge.succeeded")
         amount_dollars = data["data"]["object"]["amount"] / 100
 
         tip = await Tip.query.where(
@@ -338,13 +342,13 @@ async def stripe_callback(request):
 
     # Recurring session has completed
     elif data["type"] == "checkout.session.completed":
-        print("stripe_callback: checkout.session.completed")
+        await log(None, "stripe_callback: checkout.session.completed")
         amount_dollars = data["data"]["object"]["amount_total"] / 100
         recurring_tip = await RecurringTip.query.where(
             RecurringTip.stripe_checkout_session_id == data["data"]["object"]["id"]
         ).gino.first()
         if recurring_tip:
-            print("stripe_callback: updating recurring tip in database")
+            await log(None, "stripe_callback: updating recurring tip in database")
             await recurring_tip.update(
                 stripe_customer_id=data["data"]["object"]["customer"],
                 stripe_subscription_id=data["data"]["object"]["subscription"],
@@ -358,11 +362,11 @@ async def stripe_callback(request):
             else:
                 message = f"invalid user (id={tip.user_id}) starting ${amount_dollars}/month tips with stripe"
         else:
-            print("stripe_callback: cannot find RecurringTip")
+            await log(None, "stripe_callback: cannot find RecurringTip")
 
     # Recurring tip paid
     elif data["type"] == "invoice.paid":
-        print("stripe_callback: invoice.paid")
+        await log(None, "stripe_callback: invoice.paid")
         amount_dollars = data["data"]["object"]["amount_paid"] / 100
         recurring_tip = await RecurringTip.query.where(
             RecurringTip.stripe_customer_id == data["data"]["object"]["customer"]
@@ -391,13 +395,13 @@ async def stripe_callback(request):
 
     # Recurring tip payment failed
     elif data["type"] == "invoice.payment_failed":
-        print("stripe_callback: invoice.payment_failed")
-        print(json.dumps(data, indent=2))
+        await log(None, "stripe_callback: invoice.payment_failed")
+        await log(None, json.dumps(data, indent=2))
         message = "A recurring tip payment failed, look at docker logs and implement invoice.payment_failed"
 
     # Refund a charge
     elif data["type"] == "charge.refunded":
-        print("stripe_callback: charge.refunded")
+        await log(None, "stripe_callback: charge.refunded")
         charge_id = data["data"]["object"]["id"]
         tip = await Tip.query.where(Tip.stripe_charge_id == charge_id).gino.first()
         if tip:
@@ -405,11 +409,11 @@ async def stripe_callback(request):
 
     # All other callbacks
     else:
-        print(f"stripe_callback: {data['type']} (not implemented)")
+        await log(None, f"stripe_callback: {data['type']} (not implemented)")
 
     # Send notification to the admin
     if message:
-        print(f"stripe_callback: {message}")
+        await log(None, f"stripe_callback: {message}")
         await send_admin_notification(message)
 
     return web.HTTPOk()
@@ -502,6 +506,11 @@ async def api_post_settings(request):
     if data["action"] != "save" and data["action"] != "authenticate_dms":
         raise web.HTTPBadRequest(text="action must be 'save' or 'authenticate_dms'")
 
+    await log(
+        None,
+        f"api_post_settings: user=@{user.twitter_screen_name}, action={data['action']}",
+    )
+
     if data["action"] == "save":
         # Validate some more
         await _api_validate(
@@ -573,6 +582,10 @@ async def api_post_settings_delete_account(request):
     """
     session = await get_session(request)
     user = await _logged_in_user(session)
+
+    await log(
+        None, f"api_post_settings_delete_account: user=@{user.twitter_screen_name}"
+    )
 
     # Log the user out
     session = await get_session(request)
@@ -1053,6 +1066,11 @@ async def api_post_dashboard(request):
             text="action must be 'start', 'pause', 'fetch', or 'reactivate'"
         )
 
+    await log(
+        None,
+        f"api_post_dashboard: user=@{user.twitter_screen_name}, action={data['action']}",
+    )
+
     if data["action"] == "unblock":
         if not user.blocked:
             raise web.HTTPBadRequest(text="Can only 'unblock' if the user is blocked")
@@ -1083,12 +1101,11 @@ async def api_post_dashboard(request):
                 )
             else:
                 # They liked few enough fascist tweets, so create an unblock job
-                await UnblockJob.create(
-                    user_id=user.id,
-                    twitter_username=user.twitter_screen_name,
-                    status="pending",
-                    scheduled_timestamp=datetime.now(),
+                job_details = await JobDetails.create(
+                    job_type="unblock",
+                    data=json.dumps({"twitter_username": user.twitter_screen_name}),
                 )
+                jobs_q.enqueue(worker_jobs.unblock, job_details.id)
                 return web.json_response(
                     {"message": "You should be unblocked in the next few minutes"}
                 )
@@ -1123,12 +1140,11 @@ async def api_post_dashboard(request):
             await user.update(blocked=False, since_id=None).apply()
 
             # Create a new fetch job
-            await Job.create(
-                user_id=user.id,
+            job_details = await JobDetails.create(
                 job_type="fetch",
-                status="pending",
-                scheduled_timestamp=datetime.now(),
+                user_id=user.id,
             )
+            jobs_q.enqueue(worker_jobs.fetch, job_details.id)
 
             return web.json_response({"unblocked": True})
 
@@ -1160,12 +1176,11 @@ async def api_post_dashboard(request):
             await user.update(paused=False).apply()
 
             # Create a new delete job
-            await Job.create(
-                user_id=user.id,
+            job_details = await JobDetails.create(
                 job_type="delete",
-                status="pending",
-                scheduled_timestamp=datetime.now(),
+                user_id=user.id,
             )
+            jobs_q.enqueue(worker_jobs.delete, job_details.id)
 
         elif data["action"] == "pause":
             if user.paused:
@@ -1192,12 +1207,11 @@ async def api_post_dashboard(request):
                 )
 
             # Create a new fetch job
-            await Job.create(
-                user_id=user.id,
+            job_details = await JobDetails.create(
                 job_type="fetch",
-                status="pending",
-                scheduled_timestamp=datetime.now(),
+                user_id=user.id,
             )
+            jobs_q.enqueue(worker_jobs.fetch, job_details.id)
 
         return web.json_response(True)
 
@@ -1397,12 +1411,14 @@ async def api_post_dms(request):
         f.write(json.dumps(conversations, indent=2))
 
     # Create a new delete_dms job
-    await Job.create(
+    job_details = await JobDetails.create(
+        job_type="delete_dms",
         user_id=user.id,
-        job_type=job_type,
-        status="pending",
-        scheduled_timestamp=datetime.now(),
     )
+    if dm_type == "dms":
+        jobs_q.enqueue(worker_jobs.delete_dms, job_details.id)
+    elif dm_type == "groups":
+        jobs_q.enqueue(worker_jobs.delete_dm_groups, job_details.id)
 
     return web.json_response({"error": False})
 
@@ -1671,11 +1687,10 @@ async def admin_api_post_fascists(request):
         ).gino.status()
 
         # Make sure the facist is blocked
-        await BlockJob.create(
-            twitter_username=data["username"],
-            status="pending",
-            scheduled_timestamp=datetime.now(),
+        job_details = await JobDetails.create(
+            job_type="block", data=json.dumps({"twitter_username": data["username"]})
         )
+        jobs_q.enqueue(worker_jobs.block, job_details.id)
 
         return web.json_response(True)
 

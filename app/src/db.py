@@ -77,6 +77,28 @@ class Nag(db.Model):
     timestamp = db.Column(db.DateTime)
 
 
+class JobDetails(db.Model):
+    __tablename__ = "job_details"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer)  # not required for all job types
+    job_type = db.Column(
+        db.String
+    )  # "fetch", "delete", "delete_dms", "delete_dm_groups", "dm", "block", "unblock"
+    status = db.Column(
+        db.String, default="pending"
+    )  # "pending", "active", "finished", "canceled"
+    data = db.Column(db.String, default="{}")  # JSON object
+    scheduled_timestamp = db.Column(db.DateTime)
+    started_timestamp = db.Column(db.DateTime)
+    finished_timestamp = db.Column(db.DateTime)
+
+    def __str__(self):
+        return (
+            f"JobDetails: type={self.job_type}, status={self.status}, data={self.data}"
+        )
+
+
 class Job(db.Model):
     __tablename__ = "jobs"
 
@@ -93,6 +115,9 @@ class Job(db.Model):
     started_timestamp = db.Column(db.DateTime)
     finished_timestamp = db.Column(db.DateTime)
     container_name = db.Column(db.String)
+
+    def __str__(self):
+        return f"Job: type={self.job_type}, user_id={self.user_id}"
 
 
 class DirectMessageJob(db.Model):
@@ -117,6 +142,9 @@ class BlockJob(db.Model):
     scheduled_timestamp = db.Column(db.DateTime)
     blocked_timestamp = db.Column(db.DateTime)
 
+    def __str__(self):
+        return f"BlockJob: user=@{self.twitter_username}"
+
 
 class UnblockJob(db.Model):
     __tablename__ = "unblock_jobs"
@@ -127,6 +155,9 @@ class UnblockJob(db.Model):
     status = db.Column(db.String)  # "pending", "unblocked"
     scheduled_timestamp = db.Column(db.DateTime)
     unblocked_timestamp = db.Column(db.DateTime)
+
+    def __str__(self):
+        return f"UnblockJob: user=@{self.twitter_username}"
 
 
 class Thread(db.Model):
