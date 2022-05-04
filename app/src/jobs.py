@@ -475,7 +475,8 @@ async def fetch(job_details_id, funcs):
                 {"twitter_username": user.twitter_screen_name, "user_id": user.id}
             ),
         )
-        jobs_q.enqueue(funcs["block"], new_job_details.id)
+        redis_job = jobs_q.enqueue(funcs["block"], new_job_details.id)
+        await new_job_details.update(job_key=redis_job.id()).apply()
 
         # Don't send any DMs
         await log(job_details, f"Blocking user")
@@ -501,7 +502,8 @@ async def fetch(job_details_id, funcs):
                 }
             ),
         )
-        dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        await new_job_details.update(job_key=redis_job.id()).apply()
 
     await job_details.update(
         status="finished", finished_timestamp=datetime.now()
@@ -710,7 +712,10 @@ async def delete(job_details_id, funcs):
     new_job_details = await JobDetails.create(
         job_type="delete", user_id=user.id, scheduled_timestamp=scheduled_timestamp
     )
-    jobs_q.enqueue_at(scheduled_timestamp, funcs["delete"], new_job_details.id)
+    redis_job = jobs_q.enqueue_at(
+        scheduled_timestamp, funcs["delete"], new_job_details.id
+    )
+    await new_job_details.update(job_key=redis_job.id()).apply()
 
     # Has the user tipped in the last year?
     one_year = timedelta(days=365)
@@ -759,7 +764,8 @@ async def delete(job_details_id, funcs):
                 }
             ),
         )
-        dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        await new_job_details.update(job_key=redis_job.id()).apply()
 
         message = f"Semiphemeral is free, but running this service costs money. Care to chip in?\n\nIf you tip any amount, even just $1, I will stop nagging you for a year. Otherwise, I'll gently remind you once a month.\n\n(It's fine if you want to ignore these DMs. I won't care. I'm a bot, so I don't have feelings).\n\nVisit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
 
@@ -772,7 +778,8 @@ async def delete(job_details_id, funcs):
                 }
             ),
         )
-        dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        await new_job_details.update(job_key=redis_job.id()).apply()
 
     else:
         if should_nag:
@@ -847,7 +854,8 @@ async def delete(job_details_id, funcs):
                     }
                 ),
             )
-            dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+            redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+            await new_job_details.update(job_key=redis_job.id()).apply()
 
 
 # Delete DMs and DM Groups jobs
@@ -992,7 +1000,8 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
             }
         ),
     )
-    dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+    redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+    await new_job_details.update(job_key=redis_job.id()).apply()
 
     await job_details.update(
         status="finished", finished_timestamp=datetime.now()
@@ -1071,7 +1080,8 @@ async def block(job_details_id, funcs):
                         }
                     ),
                 )
-                dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+                redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+                await new_job_details.update(job_key=redis_job.id()).apply()
 
                 # Wait 65 seconds before blocking, to ensure they receive the DM
                 await asyncio.sleep(65)
@@ -1086,9 +1096,10 @@ async def block(job_details_id, funcs):
                         }
                     ),
                 )
-                jobs_q.enqueue_at(
+                redis_job = jobs_q.enqueue_at(
                     unblock_timestamp, funcs["unblock"], new_job_details.id
                 )
+                await new_job_details.update(job_key=redis_job.id()).apply()
 
         # Block the user
         await client.api.blocks.create.post(screen_name=data["twitter_username"])
