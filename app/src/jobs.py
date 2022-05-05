@@ -836,9 +836,13 @@ async def delete(job_details_id, funcs):
                             "tweets_deleted"
                         ]
                     if "progress" in _data and "retweets_deleted" in _data["progress"]:
-                        total_progress["retweets_deleted"] += _data["retweets_deleted"]
+                        total_progress["retweets_deleted"] += _data["progress"][
+                            "retweets_deleted"
+                        ]
                     if "progress" in _data and "likes_deleted" in _data["progress"]:
-                        total_progress["likes_deleted"] += _data["likes_deleted"]
+                        total_progress["likes_deleted"] += _data["progress"][
+                            "likes_deleted"
+                        ]
 
                     if job_detail.finished_timestamp > last_nag.timestamp:
                         if (
