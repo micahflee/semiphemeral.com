@@ -275,6 +275,13 @@ async def fetch(job_details_id, funcs):
     await log(job_details, str(job_details))
 
     user = await User.query.where(User.id == job_details.user_id).gino.first()
+    if not user:
+        await log(job_details, "User not found, canceling job")
+        await job_details.update(
+            status="canceled", finished_timestamp=datetime.now()
+        ).apply()
+        return
+
     async with SemiphemeralPeonyClient(user) as client:
         since_id = user.since_id
 
@@ -528,6 +535,13 @@ async def delete(job_details_id, funcs):
     await log(job_details, str(job_details))
 
     user = await User.query.where(User.id == job_details.user_id).gino.first()
+    if not user:
+        await log(job_details, "User not found, canceling job")
+        await job_details.update(
+            status="canceled", finished_timestamp=datetime.now()
+        ).apply()
+        return
+
     async with SemiphemeralPeonyClient(user) as client:
         await log(job_details, "Delete started")
 
@@ -886,8 +900,14 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
     await log(job_details, str(job_details))
 
     user = await User.query.where(User.id == job_details.user_id).gino.first()
+    if not user:
+        await log(job_details, "User not found, canceling job")
+        await job_details.update(
+            status="canceled", finished_timestamp=datetime.now()
+        ).apply()
+        return
 
-    async with SemiphemeralPeonyClient(userdms=True) as dms_client:
+    async with SemiphemeralPeonyClient(user, dms=True) as dms_client:
         try:
             twitter_user = await dms_client.user
         except Exception as e:
