@@ -1483,21 +1483,13 @@ async def app_admin_redirect(request):
 async def admin_api_get_jobs(request):
     active_jobs = (
         await JobDetails.query.where(JobDetails.status == "active")
-        .order_by(JobDetails.started_timestamp)
+        .order_by(JobDetails.id)
         .gino.all()
     )
 
     pending_jobs = (
         await JobDetails.query.where(JobDetails.status == "pending")
-        .where(JobDetails.scheduled_timestamp <= datetime.now())
-        .order_by(JobDetails.scheduled_timestamp)
-        .gino.all()
-    )
-
-    future_jobs = (
-        await JobDetails.query.where(JobDetails.status == "pending")
-        .where(JobDetails.scheduled_timestamp > datetime.now())
-        .order_by(JobDetails.scheduled_timestamp)
+        .order_by(JobDetails.id)
         .gino.all()
     )
 
@@ -1547,7 +1539,6 @@ async def admin_api_get_jobs(request):
         {
             "active_jobs": await to_client(active_jobs),
             "pending_jobs": await to_client(pending_jobs),
-            "future_jobs": await to_client(future_jobs),
         }
     )
 

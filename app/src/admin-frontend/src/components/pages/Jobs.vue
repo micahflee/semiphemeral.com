@@ -44,9 +44,17 @@ li .job-date {
   display: inline-block;
   vertical-align: middle;
   margin-right: 10px;
-  width: 280px;
+  width: 250px;
   font-size: 0.8em;
   color: #666666;
+}
+
+li .job-redis-status {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 10px;
+  width: 90px;
+  font-size: 0.8em;
 }
 
 li .job-data {
@@ -104,29 +112,8 @@ li .job-data {
           <span class="job-date"
             >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
           >
-          <span class="job-redis-status">{{ job.redis_status }}</span>
-        </li>
-      </ul>
-    </div>
-
-    <div v-if="future_jobs.length > 0">
-      <h2>{{ future_jobs.length }} future jobs</h2>
-      <ul>
-        <li v-for="(job, index) in future_jobs" v-bind:key="index">
-          <span class="job-id">{{ job.id }}</span>
-          <span class="job-user" v-if="job.twitter_username != null">
-            <a v-bind:href="job.twitter_link" target="_blank">{{
-              job.twitter_username
-            }}</a>
-          </span>
-          <span class="job-user" v-else>
-            <p>unknown user</p>
-          </span>
-          <span class="job-type">{{ job.job_type }}</span>
-          <span class="job-date"
-            >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
-          >
-          <span class="job-redis-status">{{ job.redis_status }}</span>
+          <span class="job-redis-status">redis: {{ job.redis_status }}</span>
+          <span class="job-data">data: {{ job.data }}</span>
         </li>
       </ul>
     </div>
@@ -141,7 +128,6 @@ export default {
       loading: false,
       active_jobs: [],
       pending_jobs: [],
-      future_jobs: [],
     };
   },
   created: function () {
@@ -164,7 +150,6 @@ export default {
             that.loading = false;
             that.active_jobs = data["active_jobs"];
             that.pending_jobs = data["pending_jobs"];
-            that.future_jobs = data["future_jobs"];
           });
         })
         .catch(function (err) {
