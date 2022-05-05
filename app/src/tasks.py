@@ -192,9 +192,9 @@ async def _unblock_users():
 
 async def _onetime_2022_05_add_redis_jobs():
     await connect_db()
-    count = 0
 
     # Convert Jobs
+    count = 0
     jobs = await db.Job.query.gino.all()
     print(f"Found {len(jobs)} Jobs")
     for job in jobs:
@@ -242,6 +242,7 @@ async def _onetime_2022_05_add_redis_jobs():
     print()
 
     # Convert DirectMessageJobs
+    count = 0
     dm_jobs = await db.DirectMessageJob.query.gino.all()
     print(f"Found {len(dm_jobs)} DirectMessageJobs")
     for dm_job in dm_jobs:
@@ -279,14 +280,16 @@ async def _onetime_2022_05_add_redis_jobs():
         #     await job_details.update(redis_id=redis_job.id).apply()
 
         count += 1
-        print(
-            "Skipped actually sending any pending DMs, because rewards are low and risks are high"
-        )
-        print(f"\rConverted {count}/{len(jobs)} DirectMessageJobs     ", end="")
+        print(f"\rConverted {count}/{len(dm_jobs)} DirectMessageJobs     ", end="")
+
+    print(
+        "Skipped actually sending any pending DMs, because rewards are low and risks are high"
+    )
 
     print()
 
     # Convert BlockJob
+    count = 0
     block_jobs = await db.BlockJob.query.gino.all()
     print(f"Found {len(block_jobs)} BlockJobs")
     for block_job in block_jobs:
@@ -316,11 +319,12 @@ async def _onetime_2022_05_add_redis_jobs():
             await job_details.update(redis_id=redis_job.id).apply()
 
         count += 1
-        print(f"\rConverted {count}/{len(jobs)} Jobs     ", end="")
+        print(f"\rConverted {count}/{len(block_jobs)} BlockJobs     ", end="")
 
     print()
 
     # Convert UnblockJob
+    count = 0
     unblock_jobs = await db.UnblockJob.query.gino.all()
     print(f"Found {len(unblock_jobs)} UnblockJobs")
     for unblock_job in unblock_jobs:
@@ -350,7 +354,50 @@ async def _onetime_2022_05_add_redis_jobs():
             await job_details.update(redis_id=redis_job.id).apply()
 
         count += 1
-        print(f"\rConverted {count}/{len(jobs)} Jobs     ", end="")
+        print(f"\rConverted {count}/{len(unblock_jobs)} UnblockJobs     ", end="")
+
+    print()
+
+
+async def _onetime_2022_05_add_all_jobs():
+    await connect_db()
+
+    pending_jobs_count = 0
+    new_jobs_count = 0
+
+    # Find all the active users
+    users = (
+        await User.query.where(User.blocked == False)
+        .where(User.paused == False)
+        .gino.all()
+    )
+    for user in users:
+        # Find pending delete jobs for this user
+        jobs = (
+            await JobDetails.query.where(JobDetails.user_id == user.id)
+            .where(JobDetails.status == "pending")
+            .where(JobDetails.job_type == "delete")
+            .gino.all()
+        )
+        if len(jobs) == 0:
+            # Create a new delete job
+            job_details = await JobDetails.create(
+                job_type="delete",
+                user_id=user.id,
+            )
+            redis_job = jobs_q.enqueue(
+                worker_jobs.delete, job_details.id, job_timeout="24h"
+            )
+            await job_details.update(redis_id=redis_job.id).apply()
+
+            new_jobs_count += 1
+        else:
+            pending_jobs_count += 1
+
+        print(
+            f"\r{pending_jobs_count:,} users with pending delete jobs, {new_jobs_count:,} delete jobs created",
+            end="",
+        )
 
     print()
 
@@ -398,6 +445,14 @@ def unblock_users():
 )
 def onetime_2022_05_add_redis_jobs():
     asyncio.run(_onetime_2022_05_add_redis_jobs())
+
+
+@main.command(
+    "2022-05-add-all-jobs",
+    short_help="Add jobs for everyone who isn't paused, and doesn't have a pending job",
+)
+def onetime_2022_05_add_all_jobs():
+    asyncio.run(_onetime_2022_05_add_all_jobs())
 
 
 if __name__ == "__main__":

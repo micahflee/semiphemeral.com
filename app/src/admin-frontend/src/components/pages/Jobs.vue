@@ -49,7 +49,7 @@ li .job-date {
   color: #666666;
 }
 
-li .job-progress {
+li .job-data {
   font-size: 0.9em;
   font-family: monospace;
   color: #666;
@@ -82,7 +82,7 @@ li .job-progress {
             >started {{ formatJobDate(job.started_timestamp) }} UTC</span
           >
           <span class="job-redis-status">{{ job.redis_status }}</span>
-          <span class="job-progress">{{ job.progress }}</span>
+          <span class="job-data">{{ job.data }}</span>
         </li>
       </ul>
     </div>

@@ -1534,7 +1534,7 @@ async def admin_api_get_jobs(request):
                     "twitter_username": twitter_username,
                     "twitter_link": twitter_link,
                     "job_type": job.job_type,
-                    "data": job.data,
+                    "data": json.loads(job.data),
                     "status": job.status,
                     "scheduled_timestamp": scheduled_timestamp,
                     "started_timestamp": started_timestamp,

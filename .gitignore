@@ -119,6 +119,7 @@ terraform/staging/terraform.tfstate
 ansible/inventory-*
 backups/*.sql
 backups/*.sql.gz
+backups/*.tar.gz
 
 # frontend
 app/src/frontend/node_modules
