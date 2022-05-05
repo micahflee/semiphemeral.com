@@ -570,10 +570,10 @@ async def delete(job_details_id, funcs):
                         await client.api.statuses.unretweet[tweet.status_id].post()
                         await tweet.update(is_deleted=True).apply()
                     except Exception as e:
-                        await log(
-                            job_details,
-                            f"Skipped deleting retweet {tweet.status_id} {e}",
-                        )
+                        # await log(
+                        #     job_details,
+                        #     f"Skipped deleting retweet {tweet.status_id} {e}",
+                        # )
                         await tweet.update(is_deleted=True).apply()
 
                     data["progress"]["retweets_deleted"] += 1
@@ -606,12 +606,12 @@ async def delete(job_details_id, funcs):
                     try:
                         await client.api.favorites.destroy.post(id=tweet.status_id)
                         await tweet.update(is_unliked=True).apply()
-                        await log(job_details, f"Deleted like {tweet.status_id}")
+                        # await log(job_details, f"Deleted like {tweet.status_id}")
                     except Exception as e:
-                        await log(
-                            job_details,
-                            f"Skipped deleting like {tweet.status_id} {e}",
-                        )
+                        # await log(
+                        #     job_details,
+                        #     f"Skipped deleting like {tweet.status_id} {e}",
+                        # )
                         await tweet.update(is_unliked=True).apply()
 
                     data["progress"]["likes_deleted"] += 1
@@ -632,10 +632,10 @@ async def delete(job_details_id, funcs):
                     await client.api.statuses.destroy.post(id=tweet.status_id)
                     await tweet.update(is_deleted=True).apply()
                 except Exception as e:
-                    await log(
-                        job_details,
-                        f"Skipped deleting retweet {tweet.status_id} {e}",
-                    )
+                    # await log(
+                    #     job_details,
+                    #     f"Skipped deleting retweet {tweet.status_id} {e}",
+                    # )
                     await tweet.update(is_deleted=True).apply()
 
                 data["progress"]["tweets_deleted"] += 1
@@ -685,13 +685,14 @@ async def delete(job_details_id, funcs):
                     )
                     if created_timestamp <= datetime_threshold:
                         # Delete the DM
-                        await log(job_details, f"Deleted DM {dm.id}")
+                        # await log(job_details, f"Deleted DM {dm.id}")
                         try:
                             await dms_client.api.direct_messages.events.destroy.delete(
                                 id=dm.id
                             )
                         except Exception as e:
-                            await log(job_details, f"Skipping DM {dm.id}, {e}")
+                            # await log(job_details, f"Skipping DM {dm.id}, {e}")
+                            pass
 
                         data["progress"]["dms_deleted"] += 1
                         await job_details.update(data=json.dumps(data)).apply()
