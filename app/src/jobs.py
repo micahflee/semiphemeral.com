@@ -712,7 +712,7 @@ async def delete(job_details_id, funcs):
         job_type="delete", user_id=user.id, scheduled_timestamp=scheduled_timestamp
     )
     redis_job = jobs_q.enqueue_at(
-        scheduled_timestamp, funcs["delete"], new_job_details.id
+        scheduled_timestamp, funcs["delete"], new_job_details.id, job_timeout="24h"
     )
     with open("/tmp/debug.log", "w") as f:
         f.write(str(redis_job))

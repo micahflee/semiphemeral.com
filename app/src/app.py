@@ -248,7 +248,7 @@ async def auth_twitter_callback(request):
             job_type="fetch",
             user_id=user.id,
         )
-        redis_job = jobs_q.enqueue(worker_jobs.fetch, job_details.id)
+        redis_job = jobs_q.enqueue(worker_jobs.fetch, job_details.id, job_timeout="24h")
         await job_details.update(redis_id=redis_job.id).apply()
     else:
         # Make sure to update the user's twitter access token and secret
@@ -1144,7 +1144,9 @@ async def api_post_dashboard(request):
                 job_type="fetch",
                 user_id=user.id,
             )
-            redis_job = jobs_q.enqueue(worker_jobs.fetch, job_details.id)
+            redis_job = jobs_q.enqueue(
+                worker_jobs.fetch, job_details.id, job_timeout="24h"
+            )
             await job_details.update(redis_id=redis_job.id).apply()
 
             return web.json_response({"unblocked": True})
@@ -1181,7 +1183,9 @@ async def api_post_dashboard(request):
                 job_type="delete",
                 user_id=user.id,
             )
-            redis_job = jobs_q.enqueue(worker_jobs.delete, job_details.id)
+            redis_job = jobs_q.enqueue(
+                worker_jobs.delete, job_details.id, job_timeout="24h"
+            )
             await job_details.update(redis_id=redis_job.id).apply()
 
         elif data["action"] == "pause":
@@ -1219,7 +1223,9 @@ async def api_post_dashboard(request):
                 job_type="fetch",
                 user_id=user.id,
             )
-            redis_job = jobs_q.enqueue(worker_jobs.fetch, job_details.id)
+            redis_job = jobs_q.enqueue(
+                worker_jobs.fetch, job_details.id, job_timeout="24h"
+            )
             await job_details.update(redis_id=redis_job.id).apply()
 
         return web.json_response(True)
@@ -1430,10 +1436,14 @@ async def api_post_dms(request):
         user_id=user.id,
     )
     if dm_type == "dms":
-        redis_job = jobs_q.enqueue(worker_jobs.delete_dms, job_details.id)
+        redis_job = jobs_q.enqueue(
+            worker_jobs.delete_dms, job_details.id, job_timeout="24h"
+        )
         await job_details.update(redis_id=redis_job.id).apply()
     elif dm_type == "groups":
-        redis_job = jobs_q.enqueue(worker_jobs.delete_dm_groups, job_details.id)
+        redis_job = jobs_q.enqueue(
+            worker_jobs.delete_dm_groups, job_details.id, job_timeout="24h"
+        )
         await job_details.update(redis_id=redis_job.id).apply()
 
     return web.json_response({"error": False})
@@ -1804,13 +1814,21 @@ async def main():
     active_jobs = await JobDetails.query.where(JobDetails.status == "active").gino.all()
     for job_details in active_jobs:
         if job_details.job_type == "fetch":
-            redis_job = jobs_q.enqueue(worker_jobs.fetch, job_details.id)
+            redis_job = jobs_q.enqueue(
+                worker_jobs.fetch, job_details.id, job_timeout="24h"
+            )
         elif job_details.job_type == "delete":
-            redis_job = jobs_q.enqueue(worker_jobs.delete, job_details.id)
+            redis_job = jobs_q.enqueue(
+                worker_jobs.delete, job_details.id, job_timeout="24h"
+            )
         elif job_details.job_type == "delete_dms":
-            redis_job = jobs_q.enqueue(worker_jobs.delete_dms, job_details.id)
+            redis_job = jobs_q.enqueue(
+                worker_jobs.delete_dms, job_details.id, job_timeout="24h"
+            )
         elif job_details.job_type == "delete_dm_groups":
-            redis_job = jobs_q.enqueue(worker_jobs.delete_dm_groups, job_details.id)
+            redis_job = jobs_q.enqueue(
+                worker_jobs.delete_dm_groups, job_details.id, job_timeout="24h"
+            )
         elif job_details.job_type == "block":
             redis_job = jobs_q.enqueue(worker_jobs.block, job_details.id)
         elif job_details.job_type == "unblock":
