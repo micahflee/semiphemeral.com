@@ -1481,64 +1481,73 @@ async def app_admin_redirect(request):
 
 @admin_required
 async def admin_api_get_jobs(request):
-    active_jobs = (
-        await JobDetails.query.where(JobDetails.status == "active")
+    jobs = (
+        await JobDetails.query.where(
+            or_(JobDetails.status == "active", JobDetails.status == "pending")
+        )
         .order_by(JobDetails.id)
         .gino.all()
     )
 
-    pending_jobs = (
-        await JobDetails.query.where(JobDetails.status == "pending")
-        .order_by(JobDetails.id)
-        .gino.all()
-    )
+    async def to_client(job):
+        if job.scheduled_timestamp:
+            scheduled_timestamp = job.scheduled_timestamp.timestamp()
+        else:
+            scheduled_timestamp = None
+        if job.started_timestamp:
+            started_timestamp = job.started_timestamp.timestamp()
+        else:
+            started_timestamp = None
 
-    async def to_client(jobs):
-        jobs_json = []
-        for job in jobs:
-            if job.scheduled_timestamp:
-                scheduled_timestamp = job.scheduled_timestamp.timestamp()
-            else:
-                scheduled_timestamp = None
-            if job.started_timestamp:
-                started_timestamp = job.started_timestamp.timestamp()
-            else:
-                started_timestamp = None
+        user = await User.query.where(User.id == job.user_id).gino.first()
+        if user:
+            twitter_username = user.twitter_screen_name
+            twitter_link = f"https://twitter.com/{user.twitter_screen_name}"
+        else:
+            twitter_username = None
+            twitter_link = None
 
-            user = await User.query.where(User.id == job.user_id).gino.first()
-            if user:
-                twitter_username = user.twitter_screen_name
-                twitter_link = f"https://twitter.com/{user.twitter_screen_name}"
-            else:
-                twitter_username = None
-                twitter_link = None
+        try:
+            redis_job = RQJob.fetch(job.redis_id, connection=conn)
+            redis_status = redis_job.get_status(refresh=True)
+        except rq.exceptions.NoSuchJobError:
+            redis_status = "N/A"
 
-            try:
-                redis_job = RQJob.fetch(job.redis_id, connection=conn)
-                redis_status = redis_job.get_status(refresh=True)
-            except rq.exceptions.NoSuchJobError:
-                redis_status = "N/A"
+        return {
+            "id": job.id,
+            "user_id": job.user_id,
+            "twitter_username": twitter_username,
+            "twitter_link": twitter_link,
+            "job_type": job.job_type,
+            "data": json.loads(job.data),
+            "status": job.status,
+            "scheduled_timestamp": scheduled_timestamp,
+            "started_timestamp": started_timestamp,
+            "redis_status": redis_status,
+        }
 
-            jobs_json.append(
-                {
-                    "id": job.id,
-                    "user_id": job.user_id,
-                    "twitter_username": twitter_username,
-                    "twitter_link": twitter_link,
-                    "job_type": job.job_type,
-                    "data": json.loads(job.data),
-                    "status": job.status,
-                    "scheduled_timestamp": scheduled_timestamp,
-                    "started_timestamp": started_timestamp,
-                    "redis_status": redis_status,
-                }
-            )
-        return jobs_json
+    started_jobs = []
+    queued_jobs = []
+    scheduled_jobs = []
+    other_jobs = []
+
+    for job in jobs:
+        job_json = await to_client(job)
+        if job_json["redis_status"] == "started":
+            started_jobs.append(job_json)
+        elif job_json["redis_status"] == "queued":
+            queued_jobs.append(job_json)
+        elif job_json["redis_status"] == "scheduled":
+            scheduled_jobs.append(job_json)
+        else:
+            other_jobs.append(job_json)
 
     return web.json_response(
         {
-            "active_jobs": await to_client(active_jobs),
-            "pending_jobs": await to_client(pending_jobs),
+            "started_jobs": started_jobs,
+            "queued_jobs": queued_jobs,
+            "scheduled_jobs": scheduled_jobs,
+            "other_jobs": other_jobs,
         }
     )
 
