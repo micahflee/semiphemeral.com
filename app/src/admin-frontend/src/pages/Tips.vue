@@ -1,87 +1,3 @@
-<style scoped>
-ul {
-  list-style: none;
-  padding: 0;
-}
-
-li img {
-  width: 20px;
-  height: 20px;
-}
-
-li .tip-user {
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 0.5em;
-  width: 150px;
-  font-size: 0.9em;
-}
-
-li .tip-date {
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 0.5em;
-  width: 160px;
-  font-size: 0.8em;
-  color: #666666;
-}
-
-li .tip-amount {
-  display: inline-block;
-  vertical-align: middle;
-  font-size: 0.8em;
-  color: #009900;
-  min-width: 80px;
-  margin-right: 10px;
-}
-
-li .tip-amount .refunded {
-  color: #cc0000;
-}
-
-li .tip-receipt {
-  display: inline-block;
-  vertical-align: middle;
-  width: 30px;
-}
-</style>
-
-<template>
-  <div>
-    <h1>Tips</h1>
-
-    <div v-if="tips.length > 0">
-      <h2>{{ tips.length }} tips</h2>
-      <ul>
-        <li v-for="(tip, index) in tips" v-bind:key="index">
-          <span class="tip-user">
-            <a v-bind:href="tip.twitter_link" target="_blank">{{
-              tip.twitter_username
-            }}</a>
-          </span>
-          <span class="tip-date">{{ formatTipDate(tip.timestamp) }}</span>
-          <span class="tip-amount">
-            <template v-if="tip.refunded">
-              <strike>{{ formatTipAmount(tip.amount) }}</strike>
-              <span class="refunded">refunded</span>
-            </template>
-            <template v-else>{{ formatTipAmount(tip.amount) }}</template>
-          </span>
-          <span class="tip-receipt">
-            <a v-bind:href="tip.receipt_url" target="_blank">
-              <img
-                title="Receipt"
-                alt="Receipt"
-                src="/static/img/receipt.png"
-              />
-            </a>
-          </span>
-        </li>
-      </ul>
-    </div>
-  </div>
-</template>
-
 <script>
 export default {
   props: ["userScreenName"],
@@ -155,3 +71,87 @@ export default {
   },
 };
 </script>
+
+<template>
+  <div>
+    <h1>Tips</h1>
+
+    <div v-if="tips.length > 0">
+      <h2>{{ tips.length }} tips</h2>
+      <ul>
+        <li v-for="(tip, index) in tips" v-bind:key="index">
+          <span class="tip-user">
+            <a v-bind:href="tip.twitter_link" target="_blank">{{
+              tip.twitter_username
+            }}</a>
+          </span>
+          <span class="tip-date">{{ formatTipDate(tip.timestamp) }}</span>
+          <span class="tip-amount">
+            <template v-if="tip.refunded">
+              <strike>{{ formatTipAmount(tip.amount) }}</strike>
+              <span class="refunded">refunded</span>
+            </template>
+            <template v-else>{{ formatTipAmount(tip.amount) }}</template>
+          </span>
+          <span class="tip-receipt">
+            <a v-bind:href="tip.receipt_url" target="_blank">
+              <img
+                title="Receipt"
+                alt="Receipt"
+                src="/static/img/receipt.png"
+              />
+            </a>
+          </span>
+        </li>
+      </ul>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li img {
+  width: 20px;
+  height: 20px;
+}
+
+li .tip-user {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.5em;
+  width: 150px;
+  font-size: 0.9em;
+}
+
+li .tip-date {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.5em;
+  width: 160px;
+  font-size: 0.8em;
+  color: #666666;
+}
+
+li .tip-amount {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 0.8em;
+  color: #009900;
+  min-width: 80px;
+  margin-right: 10px;
+}
+
+li .tip-amount .refunded {
+  color: #cc0000;
+}
+
+li .tip-receipt {
+  display: inline-block;
+  vertical-align: middle;
+  width: 30px;
+}
+</style>
