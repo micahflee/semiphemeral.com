@@ -1,21 +1,13 @@
-<style scoped>
-.button {
-  padding: 3px 6px;
-  margin: 0 5px 0 0;
-  font-size: 0.8em;
-  border: 1px solid #999999;
-  color: #034b9e;
-  background-color: #ffffff;
-  cursor: pointer;
-}
-.current {
-  color: #000000;
-  background-color: transparent;
-  font-weight: bold;
-  border: 0;
-  cursor: default;
-}
-</style>
+<script>
+export default {
+  props: ["pageNumber", "currentPage"],
+  computed: {
+    isCurrentPage: function() {
+      return this.pageNumber == this.currentPage;
+    }
+  }
+};
+</script>
 
 <template>
   <span>
@@ -34,13 +26,21 @@
   </span>
 </template>
 
-<script>
-export default {
-  props: ["pageNumber", "currentPage"],
-  computed: {
-    isCurrentPage: function() {
-      return this.pageNumber == this.currentPage;
-    }
-  }
-};
-</script>
+<style scoped>
+.button {
+  padding: 3px 6px;
+  margin: 0 5px 0 0;
+  font-size: 0.8em;
+  border: 1px solid #999999;
+  color: #034b9e;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+.current {
+  color: #000000;
+  background-color: transparent;
+  font-weight: bold;
+  border: 0;
+  cursor: default;
+}
+</style>

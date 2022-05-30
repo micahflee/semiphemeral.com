@@ -1,106 +1,3 @@
-<style scoped>
-.controls {
-  display: block;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  z-index: 999;
-  background-color: #dae8f1;
-  padding: 10px;
-  width: 100%;
-  border-top: 1px solid #666;
-}
-
-.controls .filter input {
-  min-width: 90%;
-  padding: 5px;
-  font-size: 1.2em;
-}
-
-.controls .options {
-  margin: 0 20px 10px 0;
-  color: #666666;
-  font-size: 0.8em;
-  display: inline-block;
-}
-
-.controls .info {
-  margin: 0 0 10px 0;
-  color: #666666;
-  font-size: 0.8em;
-  display: inline-block;
-}
-
-.controls .pagination {
-  margin: 15px 0 0 0;
-}
-
-ul {
-  list-style: none;
-  margin: 0 0 150px 0; /* big margin at the bottom to make space for controls */
-  padding: 0;
-}
-
-li {
-  display: inline-block;
-  vertical-align: top;
-}
-</style>
-
-<template>
-  <div class="page">
-    <h1>Choose which tweets should never get automatically deleted</h1>
-
-    <p>
-      You may need to disable your adblocker for semiphemeral.com for the
-      embedded tweets to show up properly (this website doesn't have ads).
-    </p>
-
-    <template v-if="loading">
-      <p>
-        <img src="/static/img/loading.gif" alt="Loading" />
-      </p>
-    </template>
-    <template v-else>
-      <div class="controls">
-        <div class="filter">
-          <input placeholder="Filter" type="text" v-model="filterQuery" />
-        </div>
-        <div class="options">
-          <label>
-            <input type="checkbox" v-model="showReplies" /> Show replies
-          </label>
-        </div>
-        <div class="info">{{ info }}</div>
-        <div class="pagination" v-if="this.numPages > 1">
-          <span v-for="(pageNumber, index) in pageNumbers" v-bind:key="index">
-            <PageButton
-              v-bind="{
-                pageNumber: pageNumber,
-                currentPage: page,
-              }"
-              v-on:select-page="filterTweets(pageNumber)"
-            ></PageButton>
-          </span>
-        </div>
-      </div>
-
-      <ul>
-        <li v-for="(id, index) in pageIndices" v-bind:key="index">
-          <Tweet
-            v-bind="{
-              tweet: tweets[id],
-              userScreenName: userScreenName,
-            }"
-            v-on:exclude-true="changeExclude(id, true)"
-            v-on:exclude-false="changeExclude(id, false)"
-          ></Tweet>
-        </li>
-      </ul>
-    </template>
-  </div>
-</template>
-
 <script>
 import Tweet from "./Tweets/Tweet.vue";
 import PageButton from "./Tweets/PageButton.vue";
@@ -266,3 +163,106 @@ export default {
   },
 };
 </script>
+
+<template>
+  <div class="page">
+    <h1>Choose which tweets should never get automatically deleted</h1>
+
+    <p>
+      You may need to disable your adblocker for semiphemeral.com for the
+      embedded tweets to show up properly (this website doesn't have ads).
+    </p>
+
+    <template v-if="loading">
+      <p>
+        <img src="/static/img/loading.gif" alt="Loading" />
+      </p>
+    </template>
+    <template v-else>
+      <div class="controls">
+        <div class="filter">
+          <input placeholder="Filter" type="text" v-model="filterQuery" />
+        </div>
+        <div class="options">
+          <label>
+            <input type="checkbox" v-model="showReplies" /> Show replies
+          </label>
+        </div>
+        <div class="info">{{ info }}</div>
+        <div class="pagination" v-if="this.numPages > 1">
+          <span v-for="(pageNumber, index) in pageNumbers" v-bind:key="index">
+            <PageButton
+              v-bind="{
+                pageNumber: pageNumber,
+                currentPage: page,
+              }"
+              v-on:select-page="filterTweets(pageNumber)"
+            ></PageButton>
+          </span>
+        </div>
+      </div>
+
+      <ul>
+        <li v-for="(id, index) in pageIndices" v-bind:key="index">
+          <Tweet
+            v-bind="{
+              tweet: tweets[id],
+              userScreenName: userScreenName,
+            }"
+            v-on:exclude-true="changeExclude(id, true)"
+            v-on:exclude-false="changeExclude(id, false)"
+          ></Tweet>
+        </li>
+      </ul>
+    </template>
+  </div>
+</template>
+
+<style scoped>
+.controls {
+  display: block;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  z-index: 999;
+  background-color: #dae8f1;
+  padding: 10px;
+  width: 100%;
+  border-top: 1px solid #666;
+}
+
+.controls .filter input {
+  min-width: 90%;
+  padding: 5px;
+  font-size: 1.2em;
+}
+
+.controls .options {
+  margin: 0 20px 10px 0;
+  color: #666666;
+  font-size: 0.8em;
+  display: inline-block;
+}
+
+.controls .info {
+  margin: 0 0 10px 0;
+  color: #666666;
+  font-size: 0.8em;
+  display: inline-block;
+}
+
+.controls .pagination {
+  margin: 15px 0 0 0;
+}
+
+ul {
+  list-style: none;
+  margin: 0 0 150px 0; /* big margin at the bottom to make space for controls */
+  padding: 0;
+}
+
+li {
+  display: inline-block;
+  vertical-align: top;
+}
+</style>

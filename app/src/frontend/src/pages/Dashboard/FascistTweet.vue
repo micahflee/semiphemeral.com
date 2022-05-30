@@ -1,27 +1,3 @@
-<style scoped>
-.tweet-wrapper {
-  display: inline-block;
-  width: 380px;
-  max-width: 100%;
-  border: 1px solid #f0f0f0;
-  border-radius: 5px;
-  padding: 5px 5px 0 5px;
-  margin: 0 10px 10px 0;
-}
-.error {
-  color: #cc0000;
-}
-</style>
-
-<template>
-  <div class="tweet-wrapper">
-    <div ref="embeddedTweet" v-bind:id="embeddedTweetId"></div>
-    <p>
-      <a target="_blank" v-bind:href="permalink">View on Twitter</a>
-    </p>
-  </div>
-</template>
-
 <script>
 let addScriptPromise = 0;
 function addScript() {
@@ -72,3 +48,27 @@ export default {
   },
 };
 </script>
+
+<template>
+  <div class="tweet-wrapper">
+    <div ref="embeddedTweet" v-bind:id="embeddedTweetId"></div>
+    <p>
+      <a target="_blank" v-bind:href="permalink">View on Twitter</a>
+    </p>
+  </div>
+</template>
+
+<style scoped>
+.tweet-wrapper {
+  display: inline-block;
+  width: 380px;
+  max-width: 100%;
+  border: 1px solid #f0f0f0;
+  border-radius: 5px;
+  padding: 5px 5px 0 5px;
+  margin: 0 10px 10px 0;
+}
+.error {
+  color: #cc0000;
+}
+</style>

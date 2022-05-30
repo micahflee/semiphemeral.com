@@ -1,54 +1,188 @@
-<style scoped>
-ul.buttons {
-  list-style: none;
-  padding: 0;
-  margin-left: 20px;
-}
+<script>
+import Job from "./Dashboard/Job.vue";
+import FascistTweet from "./Dashboard/FascistTweet.vue";
 
-button.start,
-button.download {
-  background-color: #4caf50;
-  border: none;
-  color: white;
-  padding: 5px 20px;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  cursor: pointer;
-  font-weight: bold;
-  border-radius: 5px;
-  margin: 0 0 5px 0;
-}
+export default {
+  props: ["userScreenName"],
+  data: function () {
+    return {
+      loading: false,
+      activeJobs: [],
+      pendingJobs: [],
+      finishedJobs: [],
+      settingPaused: null,
+      settingBlocked: null,
+      settingDeleteTweets: null,
+      settingRetweetsLikes: null,
+      settingDirectMessages: null,
+      fascistTweets: [],
+    };
+  },
+  computed: {
+    state: function () {
+      // There are 3 states:
+      // A: paused, with pending, queued or active jobs (fetching)
+      // B: paused, with only finished or cancelled jobs
+      // C: not paused
+      // More info: https://github.com/micahflee/semiphemeral.com/issues/8
+      if (this.settingPaused) {
+        if (this.activeJobs.length > 0 || this.pendingJobs.length > 0) {
+          return "A";
+        } else {
+          return "B";
+        }
+      } else {
+        return "C";
+      }
+    },
+    mostRecentFetchFinished: function () {
+      var timestamp = 0;
+      for (var i = 0; i < this.finishedJobs.length; i++) {
+        if (
+          this.finishedJobs[i]["job_type"] == "fetch" &&
+          this.finishedJobs[i]["finished_timestamp"] > timestamp
+        ) {
+          timestamp = this.finishedJobs[i]["finished_timestamp"];
+        }
+      }
 
-button.pause,
-button.reactivate {
-  background-color: #624caf;
-  border: none;
-  color: white;
-  padding: 5px 20px;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  cursor: pointer;
-  font-weight: bold;
-  border-radius: 5px;
-  margin: 0 0 5px 0;
-}
+      if (timestamp == 0) {
+        return "N/A";
+      } else {
+        var date = new Date(timestamp * 1000);
+        return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
+      }
+    },
+  },
+  created: function () {
+    this.fetchJobs();
+  },
+  methods: {
+    postDashboard: function (action) {
+      var that = this;
+      this.loading = true;
+      fetch("/api/dashboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: action }),
+      })
+        .then(function (response) {
+          that.fetchJobs();
+        })
+        .catch(function (err) {
+          console.log("Error", err);
+          that.loading = false;
+        });
+    },
+    startSemiphemeral: function () {
+      this.postDashboard("start");
+    },
+    pauseSemiphemeral: function () {
+      this.postDashboard("pause");
+    },
+    downloadHistory: function () {
+      this.postDashboard("fetch");
+    },
+    reactivateAccount: function () {
+      var that = this;
+      this.loading = true;
+      fetch("/api/dashboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reactivate" }),
+      })
+        .then(function (response) {
+          if (response.status !== 200) {
+            console.log("Error reactivating, status code: " + response.status);
+            that.loading = false;
+            return;
+          }
+          response.json().then(function (data) {
+            console.log(data);
+            that.loading = false;
+            if (!data["unblocked"]) {
+              alert("Nope, you're still blocked");
+            } else {
+              that.fetchJobs();
+            }
+          });
+        })
+        .catch(function (err) {
+          console.log("Error", err);
+          that.loading = false;
+        });
+    },
+    unblockAccount: function () {
+      var that = this;
+      this.loading = true;
+      fetch("/api/dashboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unblock" }),
+      })
+        .then(function (response) {
+          if (response.status !== 200) {
+            console.log("Error reactivating, status code: " + response.status);
+            that.loading = false;
+            return;
+          }
+          response.json().then(function (data) {
+            console.log(data);
+            that.loading = false;
+            if (data["message"]) {
+              alert(data["message"]);
+            }
+          });
+        })
+        .catch(function (err) {
+          console.log("Error", err);
+          that.loading = false;
+        });
+    },
+    fetchJobs: function () {
+      var that = this;
+      this.loading = true;
 
-ul.jobs {
-  list-style: none;
-  padding: 0;
-}
+      // Get list of pending and active jobs
+      fetch("/api/dashboard")
+        .then(function (response) {
+          if (response.status !== 200) {
+            console.log("Error fetching jobs, status code: " + response.status);
+            that.loading = false;
+            return;
+          }
+          response.json().then(function (data) {
+            that.loading = false;
+            if (data["active_jobs"]) that.activeJobs = data["active_jobs"];
+            else that.activeJobs = [];
 
-.warning {
-  color: #624caf;
-  font-weight: bold;
-  font-style: italic;
-}
-.center {
-  text-align: center;
-}
-</style>
+            if (data["pending_jobs"]) that.pendingJobs = data["pending_jobs"];
+            else that.pendingJobs = [];
+
+            if (data["finished_jobs"])
+              that.finishedJobs = data["finished_jobs"];
+            else that.finishedJobs = [];
+
+            that.settingPaused = data["setting_paused"];
+            that.settingBlocked = data["setting_blocked"];
+            that.settingDeleteTweets = data["setting_delete_tweets"];
+            that.settingRetweetsLikes = data["setting_retweets_likes"];
+            that.settingDirectMessages = data["setting_direct_messages"];
+            that.fascistTweets = data["fascist_tweets"];
+          });
+        })
+        .catch(function (err) {
+          console.log("Error fetching jobs", err);
+          that.loading = false;
+        });
+    },
+  },
+  components: {
+    Job: Job,
+    FascistTweet: FascistTweet,
+  },
+};
+</script>
 
 <template>
   <div>
@@ -239,188 +373,54 @@ ul.jobs {
   </div>
 </template>
 
-<script>
-import Job from "./Dashboard/Job.vue";
-import FascistTweet from "./Dashboard/FascistTweet.vue";
+<style scoped>
+ul.buttons {
+  list-style: none;
+  padding: 0;
+  margin-left: 20px;
+}
 
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      loading: false,
-      activeJobs: [],
-      pendingJobs: [],
-      finishedJobs: [],
-      settingPaused: null,
-      settingBlocked: null,
-      settingDeleteTweets: null,
-      settingRetweetsLikes: null,
-      settingDirectMessages: null,
-      fascistTweets: [],
-    };
-  },
-  computed: {
-    state: function () {
-      // There are 3 states:
-      // A: paused, with pending, queued or active jobs (fetching)
-      // B: paused, with only finished or cancelled jobs
-      // C: not paused
-      // More info: https://github.com/micahflee/semiphemeral.com/issues/8
-      if (this.settingPaused) {
-        if (this.activeJobs.length > 0 || this.pendingJobs.length > 0) {
-          return "A";
-        } else {
-          return "B";
-        }
-      } else {
-        return "C";
-      }
-    },
-    mostRecentFetchFinished: function () {
-      var timestamp = 0;
-      for (var i = 0; i < this.finishedJobs.length; i++) {
-        if (
-          this.finishedJobs[i]["job_type"] == "fetch" &&
-          this.finishedJobs[i]["finished_timestamp"] > timestamp
-        ) {
-          timestamp = this.finishedJobs[i]["finished_timestamp"];
-        }
-      }
+button.start,
+button.download {
+  background-color: #4caf50;
+  border: none;
+  color: white;
+  padding: 5px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 5px;
+  margin: 0 0 5px 0;
+}
 
-      if (timestamp == 0) {
-        return "N/A";
-      } else {
-        var date = new Date(timestamp * 1000);
-        return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
-      }
-    },
-  },
-  created: function () {
-    this.fetchJobs();
-  },
-  methods: {
-    postDashboard: function (action) {
-      var that = this;
-      this.loading = true;
-      fetch("/api/dashboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: action }),
-      })
-        .then(function (response) {
-          that.fetchJobs();
-        })
-        .catch(function (err) {
-          console.log("Error", err);
-          that.loading = false;
-        });
-    },
-    startSemiphemeral: function () {
-      this.postDashboard("start");
-    },
-    pauseSemiphemeral: function () {
-      this.postDashboard("pause");
-    },
-    downloadHistory: function () {
-      this.postDashboard("fetch");
-    },
-    reactivateAccount: function () {
-      var that = this;
-      this.loading = true;
-      fetch("/api/dashboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reactivate" }),
-      })
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log("Error reactivating, status code: " + response.status);
-            that.loading = false;
-            return;
-          }
-          response.json().then(function (data) {
-            console.log(data);
-            that.loading = false;
-            if (!data["unblocked"]) {
-              alert("Nope, you're still blocked");
-            } else {
-              that.fetchJobs();
-            }
-          });
-        })
-        .catch(function (err) {
-          console.log("Error", err);
-          that.loading = false;
-        });
-    },
-    unblockAccount: function () {
-      var that = this;
-      this.loading = true;
-      fetch("/api/dashboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "unblock" }),
-      })
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log("Error reactivating, status code: " + response.status);
-            that.loading = false;
-            return;
-          }
-          response.json().then(function (data) {
-            console.log(data);
-            that.loading = false;
-            if (data["message"]) {
-              alert(data["message"]);
-            }
-          });
-        })
-        .catch(function (err) {
-          console.log("Error", err);
-          that.loading = false;
-        });
-    },
-    fetchJobs: function () {
-      var that = this;
-      this.loading = true;
+button.pause,
+button.reactivate {
+  background-color: #624caf;
+  border: none;
+  color: white;
+  padding: 5px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 5px;
+  margin: 0 0 5px 0;
+}
 
-      // Get list of pending and active jobs
-      fetch("/api/dashboard")
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log("Error fetching jobs, status code: " + response.status);
-            that.loading = false;
-            return;
-          }
-          response.json().then(function (data) {
-            that.loading = false;
-            if (data["active_jobs"]) that.activeJobs = data["active_jobs"];
-            else that.activeJobs = [];
+ul.jobs {
+  list-style: none;
+  padding: 0;
+}
 
-            if (data["pending_jobs"]) that.pendingJobs = data["pending_jobs"];
-            else that.pendingJobs = [];
-
-            if (data["finished_jobs"])
-              that.finishedJobs = data["finished_jobs"];
-            else that.finishedJobs = [];
-
-            that.settingPaused = data["setting_paused"];
-            that.settingBlocked = data["setting_blocked"];
-            that.settingDeleteTweets = data["setting_delete_tweets"];
-            that.settingRetweetsLikes = data["setting_retweets_likes"];
-            that.settingDirectMessages = data["setting_direct_messages"];
-            that.fascistTweets = data["fascist_tweets"];
-          });
-        })
-        .catch(function (err) {
-          console.log("Error fetching jobs", err);
-          that.loading = false;
-        });
-    },
-  },
-  components: {
-    Job: Job,
-    FascistTweet: FascistTweet,
-  },
-};
-</script>
+.warning {
+  color: #624caf;
+  font-weight: bold;
+  font-style: italic;
+}
+.center {
+  text-align: center;
+}
+</style>
