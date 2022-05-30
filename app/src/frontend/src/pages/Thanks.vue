@@ -1,9 +1,13 @@
-<style scoped>
-img {
-  width: 200px;
-  height: 200px;
-}
-</style>
+<script>
+export default {
+  props: ["userScreenName"],
+  data: function () {
+    return {
+      receipt_url: null,
+    };
+  }
+};
+</script>
 
 <template>
   <div>
@@ -19,34 +23,9 @@ img {
   </div>
 </template>
 
-<script>
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      receipt_url: null,
-    };
-  },
-  created: function () {
-    // Skip getting the recent receipt since it won't be available by the time the thank you page loads
-    // // Get the most recent tip receipt URL
-    // var that = this;
-    // fetch("/api/tip/recent")
-    //   .then(function(response) {
-    //     if (response.status !== 200) {
-    //       console.log(
-    //         "Error fetching the most recent tip, status code: " +
-    //           response.status
-    //       );
-    //       return;
-    //     }
-    //     response.json().then(function(data) {
-    //       that.receipt_url = data["receipt_url"];
-    //     });
-    //   })
-    //   .catch(function(err) {
-    //     console.log("Error fetching the most recent tip", err);
-    //   });
-  },
-};
-</script>
+<style scoped>
+img {
+  width: 200px;
+  height: 200px;
+}
+</style>

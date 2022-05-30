@@ -1,3 +1,62 @@
+<script>
+import NavBar from "./layout/NavBar.vue";
+
+export default {
+  data: function () {
+    return {
+      currentPageComponent: "Dashboard",
+      userScreenName: false,
+      userProfileUrl: false,
+      lastFetch: false,
+    };
+  },
+  created: function () {
+    this.getUser();
+  },
+  methods: {
+    getUser: function () {
+      var that = this;
+      fetch("/api/user")
+        .then(function (response) {
+          if (response.status !== 200) {
+            console.log("Error fetching user, status code: " + response.status);
+            return;
+          }
+          response.json().then(function (data) {
+            that.userScreenName = data["user_screen_name"];
+            that.userProfileUrl = data["user_profile_url"];
+            that.lastFetch = data["last_fetch"];
+          });
+        })
+        .catch(function (err) {
+          console.log("Error fetching user", err);
+        });
+    },
+  },
+  components: {
+    NavBar: NavBar,
+  },
+};
+</script>
+
+<template>
+  <div>
+    <NavBar
+      v-bind="{
+            userScreenName: userScreenName,
+            userProfileUrl: userProfileUrl }"
+    ></NavBar>
+    <router-view v-bind="{
+      userScreenName: userScreenName
+    }"></router-view>
+    <footer>
+      <p>
+        <a href="/privacy">Privacy</a>
+      </p>
+    </footer>
+  </div>
+</template>
+
 <style>
 html {
   position: relative;
@@ -65,62 +124,3 @@ footer p {
   margin: 0 10px;
 }
 </style>
-
-<template>
-  <div>
-    <NavBar
-      v-bind="{
-            userScreenName: userScreenName,
-            userProfileUrl: userProfileUrl }"
-    ></NavBar>
-    <router-view v-bind="{
-      userScreenName: userScreenName
-    }"></router-view>
-    <footer>
-      <p>
-        <a href="/privacy">Privacy</a>
-      </p>
-    </footer>
-  </div>
-</template>
-
-<script>
-import NavBar from "./layout/NavBar.vue";
-
-export default {
-  data: function () {
-    return {
-      currentPageComponent: "Dashboard",
-      userScreenName: false,
-      userProfileUrl: false,
-      lastFetch: false,
-    };
-  },
-  created: function () {
-    this.getUser();
-  },
-  methods: {
-    getUser: function () {
-      var that = this;
-      fetch("/api/user")
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log("Error fetching user, status code: " + response.status);
-            return;
-          }
-          response.json().then(function (data) {
-            that.userScreenName = data["user_screen_name"];
-            that.userProfileUrl = data["user_profile_url"];
-            that.lastFetch = data["last_fetch"];
-          });
-        })
-        .catch(function (err) {
-          console.log("Error fetching user", err);
-        });
-    },
-  },
-  components: {
-    NavBar: NavBar,
-  },
-};
-</script>

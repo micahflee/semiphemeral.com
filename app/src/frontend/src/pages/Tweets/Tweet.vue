@@ -1,50 +1,3 @@
-<style scoped>
-.tweet-wrapper {
-  display: inline-block;
-  width: 380px;
-  max-width: 100%;
-  border: 1px solid #f0f0f0;
-  border-radius: 5px;
-  padding: 5px 5px 0 5px;
-  margin: 0 10px 10px 0;
-}
-.excluded {
-  font-weight: bold;
-}
-.stats {
-  font-size: 0.8em;
-  color: #666666;
-}
-.error {
-  color: #cc0000;
-}
-</style>
-
-<template>
-  <div class="tweet-wrapper">
-    <div class="info">
-      <label>
-        <input ref="excludeCheckbox" type="checkbox" v-model="exclude" />
-        <span v-if="exclude" class="excluded">Tweet excluded from deletion</span>
-        <span v-else>It's okay if this tweet gets deleted</span>
-        <span v-if="loading">
-          <img src="/static/img/loading.gif" title="Loading" />
-        </span>
-        <span v-if="error != ''" class="error">{{ error }}</span>
-      </label>
-      <div class="stats">
-        {{ tweet.retweet_count }} retweets,
-        {{ tweet.like_count }} likes,
-        <a
-          target="_blank"
-          v-bind:href="twitterPermalink"
-        >permalink</a>
-      </div>
-    </div>
-    <div ref="embeddedTweet" v-bind:id="embeddedTweetId"></div>
-  </div>
-</template>
-
 <script>
 let addScriptPromise = 0;
 function addScript() {
@@ -174,3 +127,50 @@ export default {
   },
 };
 </script>
+
+<template>
+  <div class="tweet-wrapper">
+    <div class="info">
+      <label>
+        <input ref="excludeCheckbox" type="checkbox" v-model="exclude" />
+        <span v-if="exclude" class="excluded">Tweet excluded from deletion</span>
+        <span v-else>It's okay if this tweet gets deleted</span>
+        <span v-if="loading">
+          <img src="/static/img/loading.gif" title="Loading" />
+        </span>
+        <span v-if="error != ''" class="error">{{ error }}</span>
+      </label>
+      <div class="stats">
+        {{ tweet.retweet_count }} retweets,
+        {{ tweet.like_count }} likes,
+        <a
+          target="_blank"
+          v-bind:href="twitterPermalink"
+        >permalink</a>
+      </div>
+    </div>
+    <div ref="embeddedTweet" v-bind:id="embeddedTweetId"></div>
+  </div>
+</template>
+
+<style scoped>
+.tweet-wrapper {
+  display: inline-block;
+  width: 380px;
+  max-width: 100%;
+  border: 1px solid #f0f0f0;
+  border-radius: 5px;
+  padding: 5px 5px 0 5px;
+  margin: 0 10px 10px 0;
+}
+.excluded {
+  font-weight: bold;
+}
+.stats {
+  font-size: 0.8em;
+  color: #666666;
+}
+.error {
+  color: #cc0000;
+}
+</style>

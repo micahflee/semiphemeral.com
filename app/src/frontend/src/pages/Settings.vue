@@ -1,43 +1,158 @@
-<style scoped>
-input.small {
-  width: 3em;
-}
-.danger {
-  margin-top: 100px;
-  opacity: 80%;
-  border: 2px solid #df2e2e;
-  border-radius: 10px;
-  padding: 5px 10px;
-  display: inline-block;
-}
-.danger button {
-  background-color: #df2e2e;
-  border: none;
-  color: white;
-  padding: 5px 20px;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  cursor: pointer;
-  font-weight: bold;
-  border-radius: 5px;
-}
-.danger h2 {
-  margin: 5px;
-}
-.danger p {
-  margin: 5px;
-}
-
-.disabled {
-  opacity: 50%;
-}
-
-.dm-note {
-  font-size: 0.8em;
-  color: #666666;
-}
-</style>
+<script>
+export default {
+  props: ["userScreenName"],
+  data: function () {
+    return {
+      loading: false,
+      hasFetched: false,
+      deleteTweets: false,
+      tweetsDaysThreshold: false,
+      tweetsEnableRetweetThreshold: false,
+      tweetsRetweetThreshold: false,
+      tweetsEnableLikeThreshold: false,
+      tweetsLikeThreshold: false,
+      tweetsThreadsThreshold: false,
+      retweetsLikes: false,
+      retweetsLikesDeleteRetweets: false,
+      retweetsLikesRetweetsThreshold: false,
+      retweetsLikesDeleteLikes: false,
+      retweetsLikesLikesThreshold: false,
+      directMessages: false,
+      directMessagesThreshold: false,
+      isDMAppAuthenticated: false,
+      downloadAllTweets: false,
+    };
+  },
+  created: function () {
+    this.getSettings();
+  },
+  methods: {
+    getSettings: function () {
+      var that = this;
+      fetch("/api/settings")
+        .then(function (response) {
+          if (response.status !== 200) {
+            console.log(
+              "Error fetching settings, status code: " + response.status
+            );
+            return;
+          }
+          response.json().then(function (data) {
+            that.hasFetched = data["has_fetched"];
+            that.deleteTweets = data["delete_tweets"];
+            that.tweetsDaysThreshold = data["tweets_days_threshold"];
+            that.tweetsEnableRetweetThreshold =
+              data["tweets_enable_retweet_threshold"];
+            that.tweetsRetweetThreshold = data["tweets_retweet_threshold"];
+            that.tweetsEnableLikeThreshold =
+              data["tweets_enable_like_threshold"];
+            that.tweetsLikeThreshold = data["tweets_like_threshold"];
+            that.tweetsThreadsThreshold = data["tweets_threads_threshold"];
+            that.retweetsLikes = data["retweets_likes"];
+            that.retweetsLikesDeleteRetweets =
+              data["retweets_likes_delete_retweets"];
+            that.retweetsLikesRetweetsThreshold =
+              data["retweets_likes_retweets_threshold"];
+            that.retweetsLikesDeleteLikes = data["retweets_likes_delete_likes"];
+            that.retweetsLikesLikesThreshold =
+              data["retweets_likes_likes_threshold"];
+            that.directMessages = data["direct_messages"];
+            that.directMessagesThreshold = data["direct_messages_threshold"];
+            that.isDMAppAuthenticated = data["is_dm_app_authenticated"];
+          });
+        })
+        .catch(function (err) {
+          console.log("Error fetching user", err);
+        });
+    },
+    onSubmit: function () {
+      var that = this;
+      this.loading = true;
+      fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save",
+          delete_tweets: this.deleteTweets,
+          tweets_days_threshold: Number(this.tweetsDaysThreshold),
+          tweets_enable_retweet_threshold: this.tweetsEnableRetweetThreshold,
+          tweets_retweet_threshold: Number(this.tweetsRetweetThreshold),
+          tweets_enable_like_threshold: this.tweetsEnableLikeThreshold,
+          tweets_like_threshold: Number(this.tweetsLikeThreshold),
+          tweets_threads_threshold: this.tweetsThreadsThreshold,
+          retweets_likes: this.retweetsLikes,
+          retweets_likes_delete_retweets: this.retweetsLikesDeleteRetweets,
+          retweets_likes_retweets_threshold: Number(
+            this.retweetsLikesRetweetsThreshold
+          ),
+          retweets_likes_delete_likes: this.retweetsLikesDeleteLikes,
+          retweets_likes_likes_threshold: Number(
+            this.retweetsLikesLikesThreshold
+          ),
+          direct_messages: this.directMessages,
+          direct_messages_threshold: Number(this.directMessagesThreshold),
+          download_all_tweets: this.downloadAllTweets,
+        }),
+      })
+        .then(function (response) {
+          that.loading = false;
+          that.getSettings();
+        })
+        .catch(function (err) {
+          console.log("Error updating settings", err);
+          that.loading = false;
+        });
+    },
+    deleteAccount: function () {
+      if (confirm("All of your data will be deleted. Are you totally sure?")) {
+        fetch("/api/settings/delete_account", { method: "POST" })
+          .then(function (response) {
+            document.location = "/";
+          })
+          .catch(function (err) {
+            console.log("Error deleting account", err);
+          });
+      }
+    },
+    authenticateDMs: function () {
+      var that = this;
+      this.loading = true;
+      fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "authenticate_dms",
+        }),
+      })
+        .then(function (response) {
+          if (response.status !== 200) {
+            console.log(
+              "Error authenticating with Twitter, status code: " +
+                response.status
+            );
+            that.loading = false;
+            return;
+          }
+          response.json().then(function (data) {
+            if (data["error"]) {
+              alert(
+                "Error authenticating with Twitter:\n" + data["error_message"]
+              );
+              that.loading = false;
+            } else {
+              // Redirect to authenticate
+              document.location = data["redirect_url"];
+            }
+          });
+        })
+        .catch(function (err) {
+          console.log("Error authenticating with Twitter", err);
+          that.loading = false;
+        });
+    },
+  },
+};
+</script>
 
 <template>
   <div>
@@ -234,158 +349,43 @@ input.small {
   </div>
 </template>
 
-<script>
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      loading: false,
-      hasFetched: false,
-      deleteTweets: false,
-      tweetsDaysThreshold: false,
-      tweetsEnableRetweetThreshold: false,
-      tweetsRetweetThreshold: false,
-      tweetsEnableLikeThreshold: false,
-      tweetsLikeThreshold: false,
-      tweetsThreadsThreshold: false,
-      retweetsLikes: false,
-      retweetsLikesDeleteRetweets: false,
-      retweetsLikesRetweetsThreshold: false,
-      retweetsLikesDeleteLikes: false,
-      retweetsLikesLikesThreshold: false,
-      directMessages: false,
-      directMessagesThreshold: false,
-      isDMAppAuthenticated: false,
-      downloadAllTweets: false,
-    };
-  },
-  created: function () {
-    this.getSettings();
-  },
-  methods: {
-    getSettings: function () {
-      var that = this;
-      fetch("/api/settings")
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log(
-              "Error fetching settings, status code: " + response.status
-            );
-            return;
-          }
-          response.json().then(function (data) {
-            that.hasFetched = data["has_fetched"];
-            that.deleteTweets = data["delete_tweets"];
-            that.tweetsDaysThreshold = data["tweets_days_threshold"];
-            that.tweetsEnableRetweetThreshold =
-              data["tweets_enable_retweet_threshold"];
-            that.tweetsRetweetThreshold = data["tweets_retweet_threshold"];
-            that.tweetsEnableLikeThreshold =
-              data["tweets_enable_like_threshold"];
-            that.tweetsLikeThreshold = data["tweets_like_threshold"];
-            that.tweetsThreadsThreshold = data["tweets_threads_threshold"];
-            that.retweetsLikes = data["retweets_likes"];
-            that.retweetsLikesDeleteRetweets =
-              data["retweets_likes_delete_retweets"];
-            that.retweetsLikesRetweetsThreshold =
-              data["retweets_likes_retweets_threshold"];
-            that.retweetsLikesDeleteLikes = data["retweets_likes_delete_likes"];
-            that.retweetsLikesLikesThreshold =
-              data["retweets_likes_likes_threshold"];
-            that.directMessages = data["direct_messages"];
-            that.directMessagesThreshold = data["direct_messages_threshold"];
-            that.isDMAppAuthenticated = data["is_dm_app_authenticated"];
-          });
-        })
-        .catch(function (err) {
-          console.log("Error fetching user", err);
-        });
-    },
-    onSubmit: function () {
-      var that = this;
-      this.loading = true;
-      fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "save",
-          delete_tweets: this.deleteTweets,
-          tweets_days_threshold: Number(this.tweetsDaysThreshold),
-          tweets_enable_retweet_threshold: this.tweetsEnableRetweetThreshold,
-          tweets_retweet_threshold: Number(this.tweetsRetweetThreshold),
-          tweets_enable_like_threshold: this.tweetsEnableLikeThreshold,
-          tweets_like_threshold: Number(this.tweetsLikeThreshold),
-          tweets_threads_threshold: this.tweetsThreadsThreshold,
-          retweets_likes: this.retweetsLikes,
-          retweets_likes_delete_retweets: this.retweetsLikesDeleteRetweets,
-          retweets_likes_retweets_threshold: Number(
-            this.retweetsLikesRetweetsThreshold
-          ),
-          retweets_likes_delete_likes: this.retweetsLikesDeleteLikes,
-          retweets_likes_likes_threshold: Number(
-            this.retweetsLikesLikesThreshold
-          ),
-          direct_messages: this.directMessages,
-          direct_messages_threshold: Number(this.directMessagesThreshold),
-          download_all_tweets: this.downloadAllTweets,
-        }),
-      })
-        .then(function (response) {
-          that.loading = false;
-          that.getSettings();
-        })
-        .catch(function (err) {
-          console.log("Error updating settings", err);
-          that.loading = false;
-        });
-    },
-    deleteAccount: function () {
-      if (confirm("All of your data will be deleted. Are you totally sure?")) {
-        fetch("/api/settings/delete_account", { method: "POST" })
-          .then(function (response) {
-            document.location = "/";
-          })
-          .catch(function (err) {
-            console.log("Error deleting account", err);
-          });
-      }
-    },
-    authenticateDMs: function () {
-      var that = this;
-      this.loading = true;
-      fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "authenticate_dms",
-        }),
-      })
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log(
-              "Error authenticating with Twitter, status code: " +
-                response.status
-            );
-            that.loading = false;
-            return;
-          }
-          response.json().then(function (data) {
-            if (data["error"]) {
-              alert(
-                "Error authenticating with Twitter:\n" + data["error_message"]
-              );
-              that.loading = false;
-            } else {
-              // Redirect to authenticate
-              document.location = data["redirect_url"];
-            }
-          });
-        })
-        .catch(function (err) {
-          console.log("Error authenticating with Twitter", err);
-          that.loading = false;
-        });
-    },
-  },
-};
-</script>
+<style scoped>
+input.small {
+  width: 3em;
+}
+.danger {
+  margin-top: 100px;
+  opacity: 80%;
+  border: 2px solid #df2e2e;
+  border-radius: 10px;
+  padding: 5px 10px;
+  display: inline-block;
+}
+.danger button {
+  background-color: #df2e2e;
+  border: none;
+  color: white;
+  padding: 5px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 5px;
+}
+.danger h2 {
+  margin: 5px;
+}
+.danger p {
+  margin: 5px;
+}
+
+.disabled {
+  opacity: 50%;
+}
+
+.dm-note {
+  font-size: 0.8em;
+  color: #666666;
+}
+</style>

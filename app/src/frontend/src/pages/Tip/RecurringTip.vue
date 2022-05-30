@@ -1,40 +1,3 @@
-<style scoped>
-button {
-  border: none;
-  color: #5d8fad;
-  text-decoration: underline;
-  display: inline-block;
-  cursor: pointer;
-  font-weight: normal;
-  font-size: 0.9em;
-  background-color: #ffffff;
-}
-
-.recurring-tip {
-  font-style: italic;
-  font-size: 0.9em;
-}
-</style>
-
-<template>
-  <div>
-    <p>
-      <span class="recurring-tip"
-        >You are currently tipping
-        {{ formatTipAmount(recurringTip.amount) }} every month. Thank you!</span
-      >
-      <button
-        v-on:click="cancel"
-        type="button"
-        id="cancel-recurring-tip"
-        class="cancel-button"
-      >
-        Cancel Recurring Tip
-      </button>
-    </p>
-  </div>
-</template>
-
 <script>
 export default {
   props: ["recurringTip"],
@@ -76,3 +39,40 @@ export default {
   },
 };
 </script>
+
+<template>
+  <div>
+    <p>
+      <span class="recurring-tip"
+        >You are currently tipping
+        {{ formatTipAmount(recurringTip.amount) }} every month. Thank you!</span
+      >
+      <button
+        v-on:click="cancel"
+        type="button"
+        id="cancel-recurring-tip"
+        class="cancel-button"
+      >
+        Cancel Recurring Tip
+      </button>
+    </p>
+  </div>
+</template>
+
+<style scoped>
+button {
+  border: none;
+  color: #5d8fad;
+  text-decoration: underline;
+  display: inline-block;
+  cursor: pointer;
+  font-weight: normal;
+  font-size: 0.9em;
+  background-color: #ffffff;
+}
+
+.recurring-tip {
+  font-style: italic;
+  font-size: 0.9em;
+}
+</style>

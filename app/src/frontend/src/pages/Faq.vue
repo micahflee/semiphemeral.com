@@ -1,3 +1,12 @@
+<script>
+export default {
+  props: ["userScreenName"],
+  data: function () {
+    return {};
+  },
+};
+</script>
+
 <template>
   <div>
     <h1>Frequently Asked Questions</h1>
@@ -37,12 +46,3 @@
     <p>Yes! This is a free service and everyone is welcome to use it so long as they don't support fascists (who will get automatically detected and blocked).</p>
   </div>
 </template>
-
-<script>
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {};
-  },
-};
-</script>
