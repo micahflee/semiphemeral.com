@@ -1,25 +1,3 @@
-<style scoped>
-button {
-  margin: 0 0 0 10px;
-  padding: 2px 5px;
-  border: 1px solid #aeaeae;
-  border-radius: 4px;
-  font-size: 0.8em;
-}
-</style>
-
-<template>
-  <div>
-    <a v-bind:href="profileLink">{{ user['twitter_screen_name'] }}</a>
-    <span>
-      <button v-on:click="impersonate">impersonate</button>
-    </span>
-    <span v-if="user.blocked">
-      <button v-on:click="info">info</button>
-    </span>
-  </div>
-</template>
-
 <script>
 export default {
   props: ["user"],
@@ -54,3 +32,25 @@ export default {
   }
 };
 </script>
+
+<template>
+  <div>
+    <a v-bind:href="profileLink">{{ user['twitter_screen_name'] }}</a>
+    <span>
+      <button v-on:click="impersonate">impersonate</button>
+    </span>
+    <span v-if="user.blocked">
+      <button v-on:click="info">info</button>
+    </span>
+  </div>
+</template>
+
+<style scoped>
+button {
+  margin: 0 0 0 10px;
+  padding: 2px 5px;
+  border: 1px solid #aeaeae;
+  border-radius: 4px;
+  font-size: 0.8em;
+}
+</style>

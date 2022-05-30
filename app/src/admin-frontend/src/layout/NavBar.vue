@@ -1,3 +1,48 @@
+<script>
+export default {
+  props: ["userScreenName", "userProfileUrl"],
+  computed: {
+    logoutTitle: function () {
+      return "Logged in as @" + this.userScreenName;
+    },
+  },
+};
+</script>
+
+<template>
+  <div>
+    <span class="logo">
+      <a href="/">
+        <img src="/static/img/logo-small.png" />
+      </a>
+    </span>
+    <ul>
+      <li>
+        <router-link to="/admin/jobs">Jobs</router-link>
+      </li>
+      <li>
+        <router-link to="/admin/users">Users</router-link>
+      </li>
+      <li>
+        <router-link to="/admin/fascists">Fascists</router-link>
+      </li>
+      <li>
+        <router-link to="/admin/tips">Tips</router-link>
+      </li>
+    </ul>
+    <span class="user">
+      <img
+        v-if="userScreenName"
+        v-bind:src="userProfileUrl"
+        v-bind:title="logoutTitle"
+      />
+      <span>
+        <a href="/auth/logout">Log out</a>
+      </span>
+    </span>
+  </div>
+</template>
+
 <style scoped>
 span.logo img {
   vertical-align: middle;
@@ -50,48 +95,3 @@ span.user span a {
   text-decoration: none;
 }
 </style>
-
-<template>
-  <div>
-    <span class="logo">
-      <a href="/">
-        <img src="/static/img/logo-small.png" />
-      </a>
-    </span>
-    <ul>
-      <li>
-        <router-link to="/admin/jobs">Jobs</router-link>
-      </li>
-      <li>
-        <router-link to="/admin/users">Users</router-link>
-      </li>
-      <li>
-        <router-link to="/admin/fascists">Fascists</router-link>
-      </li>
-      <li>
-        <router-link to="/admin/tips">Tips</router-link>
-      </li>
-    </ul>
-    <span class="user">
-      <img
-        v-if="userScreenName"
-        v-bind:src="userProfileUrl"
-        v-bind:title="logoutTitle"
-      />
-      <span>
-        <a href="/auth/logout">Log out</a>
-      </span>
-    </span>
-  </div>
-</template>
-
-<script>
-export default {
-  props: ["userScreenName", "userProfileUrl"],
-  computed: {
-    logoutTitle: function () {
-      return "Logged in as @" + this.userScreenName;
-    },
-  },
-};
-</script>
