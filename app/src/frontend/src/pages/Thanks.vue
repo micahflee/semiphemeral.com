@@ -1,12 +1,11 @@
 <script>
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      receipt_url: null,
-    };
-  }
-};
+import { ref } from "vue"
+
+const props = defineProps({
+  userScreenName: String
+})
+
+const receipt_url = ref(null)
 </script>
 
 <template>

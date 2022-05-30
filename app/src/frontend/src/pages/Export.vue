@@ -1,7 +1,7 @@
 <script>
-export default {
-  props: ["userScreenName"],
-};
+const props = defineProps({
+  userScreenName: String
+})
 </script>
 
 <template>

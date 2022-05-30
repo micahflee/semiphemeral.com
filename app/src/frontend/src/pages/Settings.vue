@@ -1,157 +1,145 @@
 <script>
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      loading: false,
-      hasFetched: false,
-      deleteTweets: false,
-      tweetsDaysThreshold: false,
-      tweetsEnableRetweetThreshold: false,
-      tweetsRetweetThreshold: false,
-      tweetsEnableLikeThreshold: false,
-      tweetsLikeThreshold: false,
-      tweetsThreadsThreshold: false,
-      retweetsLikes: false,
-      retweetsLikesDeleteRetweets: false,
-      retweetsLikesRetweetsThreshold: false,
-      retweetsLikesDeleteLikes: false,
-      retweetsLikesLikesThreshold: false,
-      directMessages: false,
-      directMessagesThreshold: false,
-      isDMAppAuthenticated: false,
-      downloadAllTweets: false,
-    };
-  },
-  created: function () {
-    this.getSettings();
-  },
-  methods: {
-    getSettings: function () {
-      var that = this;
-      fetch("/api/settings")
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log(
-              "Error fetching settings, status code: " + response.status
-            );
-            return;
-          }
-          response.json().then(function (data) {
-            that.hasFetched = data["has_fetched"];
-            that.deleteTweets = data["delete_tweets"];
-            that.tweetsDaysThreshold = data["tweets_days_threshold"];
-            that.tweetsEnableRetweetThreshold =
-              data["tweets_enable_retweet_threshold"];
-            that.tweetsRetweetThreshold = data["tweets_retweet_threshold"];
-            that.tweetsEnableLikeThreshold =
-              data["tweets_enable_like_threshold"];
-            that.tweetsLikeThreshold = data["tweets_like_threshold"];
-            that.tweetsThreadsThreshold = data["tweets_threads_threshold"];
-            that.retweetsLikes = data["retweets_likes"];
-            that.retweetsLikesDeleteRetweets =
-              data["retweets_likes_delete_retweets"];
-            that.retweetsLikesRetweetsThreshold =
-              data["retweets_likes_retweets_threshold"];
-            that.retweetsLikesDeleteLikes = data["retweets_likes_delete_likes"];
-            that.retweetsLikesLikesThreshold =
-              data["retweets_likes_likes_threshold"];
-            that.directMessages = data["direct_messages"];
-            that.directMessagesThreshold = data["direct_messages_threshold"];
-            that.isDMAppAuthenticated = data["is_dm_app_authenticated"];
-          });
-        })
-        .catch(function (err) {
-          console.log("Error fetching user", err);
-        });
-    },
-    onSubmit: function () {
-      var that = this;
-      this.loading = true;
-      fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "save",
-          delete_tweets: this.deleteTweets,
-          tweets_days_threshold: Number(this.tweetsDaysThreshold),
-          tweets_enable_retweet_threshold: this.tweetsEnableRetweetThreshold,
-          tweets_retweet_threshold: Number(this.tweetsRetweetThreshold),
-          tweets_enable_like_threshold: this.tweetsEnableLikeThreshold,
-          tweets_like_threshold: Number(this.tweetsLikeThreshold),
-          tweets_threads_threshold: this.tweetsThreadsThreshold,
-          retweets_likes: this.retweetsLikes,
-          retweets_likes_delete_retweets: this.retweetsLikesDeleteRetweets,
-          retweets_likes_retweets_threshold: Number(
-            this.retweetsLikesRetweetsThreshold
-          ),
-          retweets_likes_delete_likes: this.retweetsLikesDeleteLikes,
-          retweets_likes_likes_threshold: Number(
-            this.retweetsLikesLikesThreshold
-          ),
-          direct_messages: this.directMessages,
-          direct_messages_threshold: Number(this.directMessagesThreshold),
-          download_all_tweets: this.downloadAllTweets,
-        }),
-      })
-        .then(function (response) {
-          that.loading = false;
-          that.getSettings();
-        })
-        .catch(function (err) {
-          console.log("Error updating settings", err);
-          that.loading = false;
-        });
-    },
-    deleteAccount: function () {
-      if (confirm("All of your data will be deleted. Are you totally sure?")) {
-        fetch("/api/settings/delete_account", { method: "POST" })
-          .then(function (response) {
-            document.location = "/";
-          })
-          .catch(function (err) {
-            console.log("Error deleting account", err);
-          });
+import { ref } from "vue"
+
+const props = defineProps({
+  userScreenName: String
+})
+
+const loading = ref(false)
+const hasFetched = ref(false)
+const deleteTweets = ref(false)
+const tweetsDaysThreshold = ref(false)
+const tweetsEnableRetweetThreshold = ref(false)
+const tweetsRetweetThreshold = ref(false)
+const tweetsEnableLikeThreshold = ref(false)
+const tweetsLikeThreshold = ref(false)
+const tweetsThreadsThreshold = ref(false)
+const retweetsLikes = ref(false)
+const retweetsLikesDeleteRetweets = ref(false)
+const retweetsLikesRetweetsThreshold = ref(false)
+const retweetsLikesDeleteLikes = ref(false)
+const retweetsLikesLikesThreshold = ref(false)
+const directMessages = ref(false)
+const directMessagesThreshold = ref(false)
+const isDMAppAuthenticated = ref(false)
+const downloadAllTweets = ref(false)
+
+function getSettings() {
+  fetch("/api/settings")
+    .then(function (response) {
+      if (response.status !== 200) {
+        console.log(
+          "Error fetching settings, status code: " + response.status
+        );
+        return
       }
-    },
-    authenticateDMs: function () {
-      var that = this;
-      this.loading = true;
-      fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "authenticate_dms",
-        }),
+      response.json().then(function (data) {
+        hasFetched.value = data["has_fetched"]
+        deleteTweets.value = data["delete_tweets"]
+        tweetsDaysThreshold.value = data["tweets_days_threshold"]
+        tweetsEnableRetweetThreshold.value = data["tweets_enable_retweet_threshold"]
+        tweetsRetweetThreshold.value = data["tweets_retweet_threshold"]
+        tweetsEnableLikeThreshold.value = data["tweets_enable_like_threshold"]
+        tweetsLikeThreshold.value = data["tweets_like_threshold"]
+        tweetsThreadsThreshold.value = data["tweets_threads_threshold"]
+        retweetsLikes.value = data["retweets_likes"]
+        retweetsLikesDeleteRetweets.value = data["retweets_likes_delete_retweets"]
+        retweetsLikesRetweetsThreshold.value = data["retweets_likes_retweets_threshold"]
+        retweetsLikesDeleteLikes.value = data["retweets_likes_delete_likes"]
+        retweetsLikesLikesThreshold.value = data["retweets_likes_likes_threshold"]
+        directMessages.value = data["direct_messages"]
+        directMessagesThreshold.value = data["direct_messages_threshold"]
+        isDMAppAuthenticated.value = data["is_dm_app_authenticated"]
+      });
+    })
+    .catch(function (err) {
+      console.log("Error fetching user", err)
+    })
+}
+
+function onSubmit() {
+  loading.value = true
+  fetch("/api/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "save",
+      delete_tweets: deleteTweets.value,
+      tweets_days_threshold: Number(tweetsDaysThreshold.value),
+      tweets_enable_retweet_threshold: tweetsEnableRetweetThreshold.value,
+      tweets_retweet_threshold: Number(tweetsRetweetThreshold.value),
+      tweets_enable_like_threshold: tweetsEnableLikeThreshold.value,
+      tweets_like_threshold: Number(tweetsLikeThreshold.value),
+      tweets_threads_threshold: tweetsThreadsThreshold.value,
+      retweets_likes: retweetsLikes.value,
+      retweets_likes_delete_retweets: retweetsLikesDeleteRetweets.value,
+      retweets_likes_retweets_threshold: Number(retweetsLikesRetweetsThreshold.value),
+      retweets_likes_delete_likes: retweetsLikesDeleteLikes.value,
+      retweets_likes_likes_threshold: Number(retweetsLikesLikesThreshold.value),
+      direct_messages: directMessages.value,
+      direct_messages_threshold: Number(directMessagesThreshold.value),
+      download_all_tweets: downloadAllTweets.value,
+    }),
+  })
+    .then(function (response) {
+      loading.value = false
+      getSettings()
+    })
+    .catch(function (err) {
+      console.log("Error updating settings", err)
+      loading.value = false
+    })
+}
+
+function deleteAccount() {
+  if (confirm("All of your data will be deleted. Are you totally sure?")) {
+    fetch("/api/settings/delete_account", { method: "POST" })
+      .then(function (response) {
+        document.location = "/"
       })
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log(
-              "Error authenticating with Twitter, status code: " +
-                response.status
-            );
-            that.loading = false;
-            return;
-          }
-          response.json().then(function (data) {
-            if (data["error"]) {
-              alert(
-                "Error authenticating with Twitter:\n" + data["error_message"]
-              );
-              that.loading = false;
-            } else {
-              // Redirect to authenticate
-              document.location = data["redirect_url"];
-            }
-          });
-        })
-        .catch(function (err) {
-          console.log("Error authenticating with Twitter", err);
-          that.loading = false;
-        });
-    },
-  },
-};
+      .catch(function (err) {
+        console.log("Error deleting account", err)
+      })
+  }
+}
+
+function authenticateDMs() {
+  loading.value = true
+  fetch("/api/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "authenticate_dms",
+    }),
+  })
+    .then(function (response) {
+      if (response.status !== 200) {
+        console.log(
+          "Error authenticating with Twitter, status code: " +
+            response.status
+        )
+        loading.value = false
+        return
+      }
+      response.json().then(function (data) {
+        if (data["error"]) {
+          alert(
+            "Error authenticating with Twitter:\n" + data["error_message"]
+          )
+          loading.value = false
+        } else {
+          // Redirect to authenticate
+          document.location = data["redirect_url"]
+        }
+      });
+    })
+    .catch(function (err) {
+      console.log("Error authenticating with Twitter", err)
+      loading.value = false
+    })
+}
+
+getSettings()
 </script>
 
 <template>

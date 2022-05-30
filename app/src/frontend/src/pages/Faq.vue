@@ -1,10 +1,7 @@
 <script>
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {};
-  },
-};
+const props = defineProps({
+  userScreenName: String
+})
 </script>
 
 <template>

@@ -1,115 +1,108 @@
 <script>
+import { ref } from "vue"
 import RecurringTip from "./Tip/RecurringTip.vue";
 
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      loading: false,
-      errorMessage: null,
-      stripePublishableKey: false,
-      stripe: false,
-      amount: "500",
-      otherAmount: "",
-      type: "one-time",
-      tips: [],
-      recurringTips: [],
-    };
-  },
-  created: function () {
-    var that = this;
-    fetch("/api/tip")
+const props = defineProps({
+  userScreenName: String
+})
+
+const loading = ref(false)
+const errorMessage = ref(null)
+const stripePublishableKey = ref(false)
+const stripe = ref(false)
+const amount = ref("500")
+const otherAmount = ref("")
+const type = ref("one-time")
+const tips = ref([])
+const recurringTips = ref([])
+
+function initStripe() {
+  // Initialize Stripe
+  stripe.value = Stripe(this.stripePublishableKey);
+  var tipButton = document.getElementById("tip-stripe-button");
+
+  tipButton.addEventListener("click", function () {
+    fetch("/api/tip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount: amount.value,
+        other_amount: otherAmount.value,
+        type: type.value,
+      }),
+    })
       .then(function (response) {
-        if (response.status !== 200) {
-          console.log(
-            "Error fetching tip info, status code: " + response.status
-          );
-          return;
-        }
-        response.json().then(function (data) {
-          that.stripePublishableKey = data["stripe_publishable_key"];
-          that.tips = data["tips"];
-          that.recurringTips = data["recurring_tips"];
-
-          that.initStripe();
-        });
+        return response.json()
       })
-      .catch(function (err) {
-        console.log("Error fetching tip info", err);
-      });
-  },
-  methods: {
-    initStripe: function () {
-      // Initialize Stripe
-      this.stripe = Stripe(this.stripePublishableKey);
-      var tipButton = document.getElementById("tip-stripe-button");
+      .then(function (session) {
+        return stripe.value.redirectToCheckout({ sessionId: session.id })
+      })
+      .then(function (result) {
+        if (result.error) {
+          alert(result.error.message)
+        }
+      })
+      .catch(function (error) {
+        console.error("Error:", error)
+      })
+  })
+}
 
-      var that = this;
-      tipButton.addEventListener("click", function () {
-        fetch("/api/tip", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            amount: that.amount,
-            other_amount: that.otherAmount,
-            type: that.type,
-          }),
-        })
-          .then(function (response) {
-            return response.json();
-          })
-          .then(function (session) {
-            return that.stripe.redirectToCheckout({ sessionId: session.id });
-          })
-          .then(function (result) {
-            if (result.error) {
-              alert(result.error.message);
-            }
-          })
-          .catch(function (error) {
-            console.error("Error:", error);
-          });
-      });
-    },
-    formatTipDate: function (timestamp) {
-      var date = new Date(timestamp * 1000);
-      var month_num = date.getMonth() + 1;
-      var month = "";
-      if (month_num == 1) {
-        month = "January";
-      } else if (month_num == 2) {
-        month = "February";
-      } else if (month_num == 3) {
-        month = "March";
-      } else if (month_num == 4) {
-        month = "April";
-      } else if (month_num == 5) {
-        month = "May";
-      } else if (month_num == 6) {
-        month = "June";
-      } else if (month_num == 7) {
-        month = "July";
-      } else if (month_num == 8) {
-        month = "August";
-      } else if (month_num == 9) {
-        month = "September";
-      } else if (month_num == 10) {
-        month = "October";
-      } else if (month_num == 11) {
-        month = "November";
-      } else if (month_num == 12) {
-        month = "December";
-      }
-      return month + " " + date.getDate() + ", " + date.getFullYear();
-    },
-    formatTipAmount: function (amount) {
-      return "$" + (amount / 100).toFixed(2);
-    },
-  },
-  components: {
-    RecurringTip: RecurringTip,
-  },
-};
+function formatTipDate(timestamp) {
+  var date = new Date(timestamp * 1000)
+  var month_num = date.getMonth() + 1
+  var month = ""
+  if (month_num == 1) {
+    month = "January"
+  } else if (month_num == 2) {
+    month = "February"
+  } else if (month_num == 3) {
+    month = "March"
+  } else if (month_num == 4) {
+    month = "April"
+  } else if (month_num == 5) {
+    month = "May"
+  } else if (month_num == 6) {
+    month = "June"
+  } else if (month_num == 7) {
+    month = "July"
+  } else if (month_num == 8) {
+    month = "August"
+  } else if (month_num == 9) {
+    month = "September"
+  } else if (month_num == 10) {
+    month = "October"
+  } else if (month_num == 11) {
+    month = "November"
+  } else if (month_num == 12) {
+    month = "December"
+  }
+  return month + " " + date.getDate() + ", " + date.getFullYear()
+}
+
+function formatTipAmount(amount) {
+  return "$" + (amount / 100).toFixed(2)
+}
+
+fetch("/api/tip")
+  .then(function (response) {
+    if (response.status !== 200) {
+      console.log(
+        "Error fetching tip info, status code: " + response.status
+      );
+      return
+    }
+    response.json().then(function (data) {
+      stripePublishableKey.value = data["stripe_publishable_key"];
+      tips.value = data["tips"];
+      recurringTips.value = data["recurring_tips"];
+
+      initStripe();
+    })
+  })
+  .catch(function (err) {
+    console.log("Error fetching tip info", err);
+  })
 </script>
 
 <template>

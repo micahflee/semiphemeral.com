@@ -1,83 +1,79 @@
-<script>
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      loading: false,
-      directMessages: false,
-      isDMAppAuthenticated: false,
-      isDMJobOngoing: false,
-    };
-  },
-  created: function () {
-    this.getDMInfo();
-  },
-  methods: {
-    getDMInfo: function () {
-      var that = this;
-      that.loading = true;
-      fetch("/api/dms")
-        .then(function (response) {
-          that.loading = false;
-          if (response.status !== 200) {
-            console.log(
-              "Error fetching DM info, status code: " + response.status
-            );
-            return;
-          }
-          response.json().then(function (data) {
-            that.isDMAppAuthenticated = data["is_dm_app_authenticated"];
-            that.isDMJobOngoing = data["is_dm_job_ongoing"];
-            that.directMessages = data["direct_messages"];
-          });
-        })
-        .catch(function (err) {
-          console.log("Error fetching DM info", err);
-        });
-    },
-    onSubmit: function () {
-      var file = this.$refs.file.files[0];
-      if (
-        file.name != "direct-message-headers.js" &&
-        file.name != "direct-message-group-headers.js"
-      ) {
-        alert(
-          'That\'s the wrong file. It should be named "direct-message-headers.js" or "direct-message-group-headers.js".'
+<script setup>
+import { ref } from "vue"
+
+const props = defineProps({
+  userScreenName: String
+})
+
+const file = ref(null)
+const loading = ref(false)
+const directMessages = ref(false)
+const isDMAppAuthenticated = ref(false)
+const isDMJobOngoing = ref(false)
+
+function getDMInfo() {
+  loading.value = true;
+  fetch("/api/dms")
+    .then(function (response) {
+      loading.value = false
+      if (response.status !== 200) {
+        console.log(
+          "Error fetching DM info, status code: " + response.status
+        )
+        return
+      }
+      response.json().then(function (data) {
+        isDMAppAuthenticated.value = data["is_dm_app_authenticated"]
+        isDMJobOngoing.value = data["is_dm_job_ongoing"]
+        directMessages.value = data["direct_messages"]
+      });
+    })
+    .catch(function (err) {
+      console.log("Error fetching DM info", err)
+    });
+}
+
+function onSubmit() {
+  if (
+    file.value.files[0].name != "direct-message-headers.js" &&
+    file.value.files[0].name != "direct-message-group-headers.js"
+  ) {
+    alert(
+      'That\'s the wrong file. It should be named "direct-message-headers.js" or "direct-message-group-headers.js".'
+    );
+    return
+  }
+
+  var formData = new FormData()
+  formData.append("file", file.value.files[0])
+
+  loading.value = true
+  fetch("/api/dms", { method: "POST", body: formData })
+    .then(function (response) {
+      loading.value = false
+
+      if (response.status !== 200) {
+        console.log(
+          "Error uploading file, status code: " + response.status
         );
-        return;
+        return
       }
 
-      var formData = new FormData();
-      formData.append("file", file);
+      response.json().then(function (data) {
+        if (data["error"]) {
+          alert(data["error_message"])
+        } else {
+          getDMInfo()
+        }
+      })
+    })
+    .catch(function (err) {
+      console.log("Error uploading DMs file", err)
+      loading.value = false
+    })
+}
 
-      var that = this;
-      this.loading = true;
-      fetch("/api/dms", { method: "POST", body: formData })
-        .then(function (response) {
-          that.loading = false;
-
-          if (response.status !== 200) {
-            console.log(
-              "Error uploading file, status code: " + response.status
-            );
-            return;
-          }
-
-          response.json().then(function (data) {
-            if (data["error"]) {
-              alert(data["error_message"]);
-            } else {
-              that.getDMInfo();
-            }
-          });
-        })
-        .catch(function (err) {
-          console.log("Error uploading DMs file", err);
-          that.loading = false;
-        });
-    },
-  },
-};
+getDMInfo()
 </script>
 
 <template>

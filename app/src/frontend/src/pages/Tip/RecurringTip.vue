@@ -1,43 +1,42 @@
-<script>
-export default {
-  props: ["recurringTip"],
-  methods: {
-    formatTipAmount: function (amount) {
-      return "$" + (amount / 100).toFixed(2);
-    },
-    cancel: function () {
-      var that = this;
-      fetch("/api/tip/cancel_recurring", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recurring_tip_id: this.recurringTip.id,
-        }),
+<script setup>
+const props = defineProps({
+  job: String
+})
+
+function formatTipAmount (amount) {
+  return "$" + (amount / 100).toFixed(2)
+}
+
+function cancel () {
+  fetch("/api/tip/cancel_recurring", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      recurring_tip_id: recurringTip.value.id
+    })
+  })
+    .then(function (response) {
+      if (response.status !== 200) {
+        alert(
+          "Error canceling recurring tip, please contact hi@semiphemeral.com: " +
+            response.status
+        )
+        return
+      }
+      response.json().then(function (data) {
+        if (that.error) {
+          alert(error_message)
+        } else {
+          // Success, reload the tips page
+          alert("Monthly tip canceled")
+          window.location.href = "/tip"
+        }
       })
-        .then(function (response) {
-          if (response.status !== 200) {
-            alert(
-              "Error canceling recurring tip, please contact @semiphemeral: " +
-                response.status
-            );
-            return;
-          }
-          response.json().then(function (data) {
-            if (that.error) {
-              alert(error_message);
-            } else {
-              // Success, reload the tips page
-              alert("Monthly tip canceled");
-              window.location.href = "/tip";
-            }
-          });
-        })
-        .catch(function (err) {
-          console.log("Error", err);
-        });
-    },
-  },
-};
+    })
+    .catch(function (err) {
+      console.log("Error", err)
+    })
+}
 </script>
 
 <template>
