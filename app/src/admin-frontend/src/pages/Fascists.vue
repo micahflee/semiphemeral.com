@@ -1,68 +1,63 @@
-<script>
+<script setup>
+import { ref } from "vue"
 import Fascist from "./Fascists/Fascist.vue";
 
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      loading: false,
-      fascists: [],
-    };
-  },
-  created: function () {
-    this.fetchFascists();
-  },
-  methods: {
-    onCreateSubmit: function () {
-      var that = this;
-      this.loading = true;
-      fetch("/admin_api/fascists", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create",
-          username: this.$refs.username.value,
-          comment: this.$refs.comment.value,
-        }),
-      })
-        .then(function (response) {
-          that.fetchFascists();
-        })
-        .catch(function (err) {
-          console.log("Error", err);
-          that.loading = false;
-        });
-    },
-    fetchFascists: function () {
-      var that = this;
-      this.loading = true;
+const props = defineProps({
+  userScreenName: String
+})
 
-      // Get lists of users
-      fetch("/admin_api/fascists")
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log(
-              "Error fetching fascists, status code: " + response.status
-            );
-            that.loading = false;
-            return;
-          }
-          response.json().then(function (data) {
-            that.loading = false;
-            if (data["fascists"]) that.fascists = data["fascists"];
-            else that.fascists = [];
-          });
-        })
-        .catch(function (err) {
-          console.log("Error fetching users", err);
-          that.loading = false;
-        });
-    },
-  },
-  components: {
-    Fascist: Fascist,
-  },
-};
+const loading = ref(false)
+const fascists = ref([])
+
+function onCreateSubmit() {
+  loading.value = true;
+  fetch("/admin_api/fascists", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "create",
+      username: $refs.username.value,
+      comment: $refs.comment.value,
+    }),
+  })
+    .then(function (response) {
+      fetchFascists()
+    })
+    .catch(function (err) {
+      console.log("Error", err)
+      loading.value = false
+    })
+}
+
+function fetchFascists() {
+  loading.value = true;
+
+  // Get lists of users
+  fetch("/admin_api/fascists")
+    .then(function (response) {
+      if (response.status !== 200) {
+        console.log(
+          "Error fetching fascists, status code: " + response.status
+        );
+        loading.value = false
+        return
+      }
+      response.json().then(function (data) {
+        loading.value = false
+        if (data["fascists"]) {
+          fascists.value = data["fascists"]
+        } else {
+          fascists.value = []
+        }
+      })
+    })
+    .catch(function (err) {
+      console.log("Error fetching users", err)
+      loading.value = false
+    })
+}
+
+fetchFascists()
 </script>
 
 <template>
