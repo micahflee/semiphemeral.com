@@ -1,63 +1,36 @@
-<script>
-export default {
-  props: ["job"],
-  computed: {
-    progressTweetsFetched: function () {
-      return this.getProgressVal(this.job.data, "tweets_fetched");
-    },
-    progressLikesFetched: function () {
-      return this.getProgressVal(this.job.data, "likes_fetched");
-    },
-    progressTweetsDeleted: function () {
-      return this.getProgressVal(this.job.data, "tweets_deleted");
-    },
-    progressRetweetsDeleted: function () {
-      return this.getProgressVal(this.job.data, "retweets_deleted");
-    },
-    progressLikesDeleted: function () {
-      return this.getProgressVal(this.job.data, "likes_deleted");
-    },
-    progressDMsDeleted: function () {
-      return this.getProgressVal(this.job.data, "dms_deleted");
-    },
-    progressDMsSkipped: function () {
-      return this.getProgressVal(this.job.data, "dms_skipped");
-    },
-    progressStatus: function () {
-      return this.getProgressVal(this.job.data, "status");
-    },
-    scheduledTimestampInThePast: function () {
-      var scheduledTimestamp = Math.floor(
-        this.job["scheduled_timestamp"] * 1000
-      );
-      var nowTimestamp = Date.now();
-      return scheduledTimestamp <= nowTimestamp;
-    },
-    humanReadableScheduledTimestamp: function () {
-      return this.humanReadableTimestamp(this.job["scheduled_timestamp"]);
-    },
-    humanReadableStartedTimestamp: function () {
-      return this.humanReadableTimestamp(this.job["started_timestamp"]);
-    },
-    humanReadableFinishedTimestamp: function () {
-      return this.humanReadableTimestamp(this.job["finished_timestamp"]);
-    },
-  },
-  methods: {
-    humanReadableTimestamp: function (timestamp) {
-      var date = new Date(timestamp * 1000);
-      return date.toLocaleDateString() + " at " + date.toLocaleTimeString();
-    },
-    getProgressVal: function (data, key) {
-      var p = JSON.parse(data);
-      if (p && p["progress"]) {
-        return p["progress"][key];
-      } else {
-        return "";
-      }
-    },
-  },
-};
+<script setup>
+const props = defineProps({
+  job: String
+})
+
+function humanReadableTimestamp(timestamp) {
+  var date = new Date(timestamp * 1000)
+  return date.toLocaleDateString() + " at " + date.toLocaleTimeString()
+}
+
+function getProgressVal(data, key) {
+  var p = JSON.parse(data)
+  if (p && p["progress"]) {
+    return p["progress"][key]
+  } else {
+    return ""
+  }
+}
+
+const progressTweetsFetched = getProgressVal(job.value.data, "tweets_fetched")
+const progressLikesFetched = getProgressVal(job.value.data, "likes_fetched")
+const progressTweetsDeleted = getProgressVal(job.value.data, "tweets_deleted")
+const progressRetweetsDeleted = getProgressVal(job.value.data, "retweets_deleted")
+const progressLikesDeleted = getProgressVal(job.value.data, "likes_deleted")
+const progressDMsDeleted = getProgressVal(job.value.data, "dms_deleted")
+const progressDMsSkipped = getProgressVal(job.value.data, "dms_skipped")
+const progressStatus = getProgressVal(job.value.data, "status")
+var scheduledTimestamp = Math.floor(this.job["scheduled_timestamp"] * 1000)
+var nowTimestamp = Date.now()
+const scheduledTimestampInThePast = scheduledTimestamp <= nowTimestamp
+const humanReadableScheduledTimestamp = humanReadableTimestamp(job.value["scheduled_timestamp"])
+const humanReadableStartedTimestamp =humanReadableTimestamp(job.value["started_timestamp"])
+const humanReadableFinishedTimestamp = humanReadableTimestamp(job.value["finished_timestamp"])
 </script>
 
 <template>

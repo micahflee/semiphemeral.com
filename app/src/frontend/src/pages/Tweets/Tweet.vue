@@ -1,4 +1,11 @@
-<script>
+<script setup>
+import { ref, nextTick, onBeforeUpdate, onUpdated, watch } from "vue"
+
+const props = defineProps({
+  tweet: Object,
+  userScreenName: String
+})
+
 let addScriptPromise = 0;
 function addScript() {
   if (!addScriptPromise) {
@@ -14,118 +21,93 @@ function addScript() {
   return addScriptPromise;
 }
 
-export default {
-  props: ["tweet", "userScreenName"],
-  data: function () {
-    return {
-      loading: false,
-      exclude: null,
-      previousStatusId: null,
-      error: "",
-    };
-  },
-  created: function () {
-    this.exclude = this.tweet.exclude;
-  },
-  mounted: function () {
-    this.$nextTick(this.embedTweet);
-  },
-  beforeUpdate: function () {
-    // If the tweet div id is "tweet-123", this will set previousStatusId to "123"
-    this.previousStatusId = this.$refs.embeddedTweet
-      .getAttribute("id")
-      .split("-")[1];
-  },
-  updated: function () {
-    this.$nextTick(this.embedTweet);
-  },
-  computed: {
-    twitterPermalink: function () {
-      return (
-        "https://twitter.com/" +
-        this.userScreenName +
-        "/status/" +
-        this.tweet.status_id
-      );
-    },
-    embeddedTweetId: function () {
-      return "tweet-" + this.tweet.status_id;
-    },
-  },
-  watch: {
-    exclude: function (newExclude, oldExclude) {
-      // Skip if this is the first time
-      if (newExclude == null || oldExclude == null) {
-        return;
-      }
-      if (newExclude) {
-        this.$emit("exclude-true");
-      } else {
-        this.$emit("exclude-false");
-      }
+const loading = ref(false)
+const exclude = ref(props['tweet'].exclude)
+const previousStatusId = ref(null)
+const error = ref("")
 
-      var that = this;
-      that.loading = true;
-      that.error = "";
-      that.$refs.excludeCheckbox.disabled = true;
+const twitterPermalink = "https://twitter.com/" + props['userScreenName'] + "/status/" + props['tweet'].status_id
+const embeddedTweetId = "tweet-" + props['tweet'].status_id
 
-      fetch("/api/tweets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status_id: that.tweet.status_id,
-          exclude: that.exclude,
-        }),
-      })
-        .then(function (response) {
-          that.loading = false;
-          that.$refs.excludeCheckbox.disabled = false;
-        })
-        .catch(function (err) {
-          console.log("Error toggling exclude", err);
-          that.loading = false;
-          that.$refs.excludeCheckbox.disabled = false;
+function embedTweet () {
+  // If the tweet itself hasn't changed, no need to re-embed it
+  if (previousStatusId.value == props["tweet"]["status_id"]) {
+    return
+  }
 
-          // Toggle back
-          var oldExclude = that.exclude;
-          that.exclude = null;
-          that.exclude = !oldExclude;
-          that.error = "Error toggling exclude";
-        });
-    },
-  },
-  methods: {
-    embedTweet: function () {
-      // If the tweet itself hasn't changed, no need to re-embed it
-      if (this.previousStatusId == this.tweet["status_id"]) {
-        return;
-      }
+  // Make sure the exclude checkbox is updated
+  exclude.value = null; // set it to null first, to avoid POSTing to the API
+  exclude.value = props['tweet'].exclude
 
-      // Make sure the exclude checkbox is updated
-      this.exclude = null; // set it to null first, to avoid POSTing to the API
-      this.exclude = this.tweet.exclude;
+  // Delete everything in the tweet div
+  while ($refs.embeddedTweet.firstChild) {
+    $refs.embeddedTweet.removeChild($refs.embeddedTweet.firstChild)
+  }
 
-      // Delete everything in the tweet div
-      while (this.$refs.embeddedTweet.firstChild) {
-        this.$refs.embeddedTweet.removeChild(
-          this.$refs.embeddedTweet.firstChild
-        );
-      }
+  // Embed the tweet
+  Promise.resolve(window.twttr ? window.twttr : addScript()).then(function (
+    twttr
+  ) {
+    twttr.widgets.createTweetEmbed(
+      props['tweet'].status_id,
+      $refs.embeddedTweet,
+      { dnt: true }
+    )
+  })
+}
 
-      // Embed the tweet
-      var that = this;
-      Promise.resolve(window.twttr ? window.twttr : addScript()).then(function (
-        twttr
-      ) {
-        twttr.widgets.createTweetEmbed(
-          that.tweet.status_id,
-          that.$refs.embeddedTweet,
-          { dnt: true }
-        );
-      });
-    },
-  },
-};
+nextTick(embedTweet)
+
+onBeforeUpdate(() => {
+  // If the tweet div id is "tweet-123", this will set previousStatusId to "123"
+  previousStatusId.value = $refs.embeddedTweet
+    .getAttribute("id")
+    .split("-")[1]
+})
+
+onUpdated(() => {
+  nextTick(embedTweet)
+})
+
+watch(exclude, (newExclude, oldExclude) => {
+  // Skip if this is the first time
+  if (newExclude == null || oldExclude == null) {
+    return
+  }
+  if (newExclude) {
+    this.$emit("exclude-true")
+  } else {
+    this.$emit("exclude-false")
+  }
+
+  loading.value = true
+  error.value = ""
+  $refs.excludeCheckbox.disabled = true
+
+  fetch("/api/tweets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      status_id: props['tweet'].status_id,
+      exclude: exclude.value,
+    })
+  })
+    .then(function (response) {
+      loading.value = false
+      $refs.excludeCheckbox.disabled = false
+    })
+    .catch(function (err) {
+      console.log("Error toggling exclude", err)
+      loading.value = false
+      $refs.excludeCheckbox.disabled = false
+
+      // Toggle back
+      var oldExclude = exclude.value
+      exclude.value = null
+      exclude.value = !oldExclude
+      error.value = "Error toggling exclude"
+    });
+})
 </script>
 
 <template>

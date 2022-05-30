@@ -1,4 +1,11 @@
-<script>
+<script setup>
+import { nextTick } from 'vue'
+
+const props = defineProps({
+  statusId: String,
+  permalink: String
+})
+
 let addScriptPromise = 0;
 function addScript() {
   if (!addScriptPromise) {
@@ -14,39 +21,29 @@ function addScript() {
   return addScriptPromise;
 }
 
-export default {
-  props: ["statusId", "permalink"],
-  mounted: function () {
-    this.$nextTick(this.embedTweet);
-  },
-  computed: {
-    embeddedTweetId: function () {
-      return "tweet-" + this.statusId;
-    },
-  },
-  methods: {
-    embedTweet: function () {
-      // Delete everything in the tweet div
-      while (this.$refs.embeddedTweet.firstChild) {
-        this.$refs.embeddedTweet.removeChild(
-          this.$refs.embeddedTweet.firstChild
-        );
-      }
+const embeddedTweetId = "tweet-" + this.statusId;
 
-      // Embed the tweet
-      var that = this;
-      Promise.resolve(window.twttr ? window.twttr : addScript()).then(function (
-        twttr
-      ) {
-        twttr.widgets.createTweetEmbed(
-          that.statusId,
-          that.$refs.embeddedTweet,
-          { dnt: true }
-        );
-      });
-    },
-  },
-};
+function embedTweet () {
+  // Delete everything in the tweet div
+  while ($refs.embeddedTweet.firstChild) {
+    $refs.embeddedTweet.removeChild(
+      $refs.embeddedTweet.firstChild
+    )
+  }
+
+  // Embed the tweet
+  Promise.resolve(window.twttr ? window.twttr : addScript()).then(function (
+    twttr
+  ) {
+    twttr.widgets.createTweetEmbed(
+      statusId.value,
+      $refs.embeddedTweet,
+      { dnt: true }
+    )
+  })
+}
+
+nextTick(embedTweet)
 </script>
 
 <template>

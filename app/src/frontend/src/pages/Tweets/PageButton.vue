@@ -1,12 +1,10 @@
 <script>
-export default {
-  props: ["pageNumber", "currentPage"],
-  computed: {
-    isCurrentPage: function() {
-      return this.pageNumber == this.currentPage;
-    }
-  }
-};
+const props = defineProps({
+  pageNumber: Number
+  currentPage: Number
+})
+
+const isCurrentPage = (props['pageNumber'] == props['currentPage'])
 </script>
 
 <template>
