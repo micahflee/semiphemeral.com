@@ -16,7 +16,6 @@ USER user:user
 # Install nodejs
 RUN curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.39.1/install.sh | bash && \
     . ~/.bashrc && \
-    sleep 1 && \
     nvm install 18.2.0
 
 # Install python dependencies
