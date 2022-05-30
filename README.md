@@ -8,10 +8,12 @@ The hosted version of [semiphemeral](https://github.com/micahflee/semiphemeral).
 
 To backup and restore, you need `postgresql-client` installed.
 
-Install [terraform](https://www.terraform.io/downloads.html) (`snap install terraform`) and Python 3+, and these pip dependencies:
+Install [terraform](https://www.terraform.io/downloads.html) (`snap install terraform`).
+
+You need python 3 and poetry:
 
 ```sh
-pip3 install --user ansible black click requests
+poetry install
 ```
 
 Copy `vars-terraform-sample.json` to `.vars-terraform.json` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean. Copy `vars-ansible-sample.json` to `.vars-ansible.json` and edit it to add Twitter app credentials.
@@ -19,7 +21,7 @@ Copy `vars-terraform-sample.json` to `.vars-terraform.json` and edit it to add a
 Use `devops.py`. Each command requires passing in either `staging` or `prod`:
 
 ```
-$ ./devops.py
+$ poetry run ./devops.py
 Usage: devops.py [OPTIONS] COMMAND [ARGS]...
 
   Deploy semiphemeral.com
@@ -47,8 +49,8 @@ It also detects your current IP address, and configures the firewall to only all
 ## Deploy staging
 
 ```
-./devops.py terraform staging
-./devops.py ansible-db staging
-./devops.py ansible-app staging
-./devops.py ansible-app-update staging
+poetry run ./devops.py terraform staging
+poetry run ./devops.py ansible-db staging
+poetry run ./devops.py ansible-app staging
+poetry run ./devops.py ansible-app-update staging
 ```
