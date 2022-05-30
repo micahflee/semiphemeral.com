@@ -6,15 +6,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get upgrade -y && \
     apt-get clean
 
-# Install nodejs
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash && \
-    . ~/.bashrc && \
-    sleep 1 && \
-    nvm install 16.14.2 && \
-    ln -s ~/.nvm/versions/node/v16.14.2/bin/node /usr/local/bin/node && \
-    ln -s /root/.nvm/versions/node/v16.14.2/bin/npm /usr/local/bin/npm && \
-    ln -s /root/.nvm/versions/node/v16.14.2/bin/npx /usr/local/bin/npx
-
 # Install poetry
 RUN pip install poetry
 
@@ -22,22 +13,38 @@ RUN pip install poetry
 RUN useradd -u 1000 -o -ms /bin/bash user
 USER user:user
 
+# Install nodejs
+RUN curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.39.1/install.sh | bash && \
+    . ~/.bashrc && \
+    sleep 1 && \
+    nvm install 18.2.0
+
 # Install python dependencies
 WORKDIR /app
 COPY poetry.lock .
 COPY pyproject.toml .
 RUN poetry install
 
+# Install node deps for frontend
+RUN mkdir frontend
+COPY frontend/package.json frontend
+COPY frontend/package-lock.json frontend
+RUN cd frontend && npm install
+
+# Install node deps for admin frontend
+RUN mkdir admin-frontend
+COPY admin-frontend/package.json frontend
+COPY admin-frontend/package-lock.json frontend
+RUN cd admin-frontend && npm install
+
 # Copy code
 COPY . .
 
-# Webpack the js
-USER root:root
-RUN cd frontend && npm install
-RUN cd frontend && ./build.js
-RUN cd admin-frontend && npm install
-RUN cd admin-frontend && ./build.js
-USER user:user
+# Build the frontend
+RUN cd frontend && npm run build
+
+# Build the admin-frontend
+RUN cd admin-frontend && npm run build
 
 EXPOSE 8080
 CMD ["poetry", "run", "python", "-u", "app.py"]
