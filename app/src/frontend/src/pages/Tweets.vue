@@ -1,167 +1,161 @@
-<script>
-import Tweet from "./Tweets/Tweet.vue";
-import PageButton from "./Tweets/PageButton.vue";
+<script setup>
+import { ref, watch } from "vue"
+import Tweet from "./Tweets/Tweet.vue"
+import PageButton from "./Tweets/PageButton.vue"
 
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      loading: false,
-      tweets: [],
-      filteredIndices: [], // Indices for tweets after applying filter
-      pageIndices: [], // Indices of tweets on the current page
-      filterQuery: "",
-      showReplies: true,
-      page: 0,
-      numPages: 1,
-      countPerPage: 50,
-      pageNumbers: [],
-      info: "",
-    };
-  },
-  computed: {
-    numberOfTweetsStagedForDeletion: function () {
-      var count = 0;
-      for (var i = 0; i < this.tweets.length; i++) {
-        if (!this.tweets[i].exclude) {
-          count++;
-        }
-      }
-      return count;
-    },
-  },
-  created: function () {
-    this.fetchTweets();
-  },
-  watch: {
-    showReplies: function () {
-      this.filterTweets();
-    },
-    filterQuery: function () {
-      this.filterTweets();
-    },
-  },
-  methods: {
-    fetchTweets: function () {
-      var that = this;
-      this.loading = true;
+const props = defineProps({
+  userScreenName: String
+})
 
-      // Get all saved tweets
-      fetch("/api/tweets")
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log(
-              "Error fetching tweets, status code: " + response.status
-            );
-            return;
-          }
-          response.json().then(function (data) {
-            that.tweets = data["tweets"];
-            that.filterTweets();
-            that.loading = false;
-          });
-        })
-        .catch(function (err) {
-          console.log("Error fetching tweets", err);
-          that.loading = false;
-        });
-    },
-    filterTweets: function (page = 0) {
-      if (page == "previous") {
-        this.page--;
-      } else if (page == "next") {
-        this.page++;
-      } else {
-        this.page = page;
-      }
+const loading = ref(false)
+const tweets = ref([])
+const filteredIndices = ref([]) // Indices for tweets after applying filter
+const pageIndices = ref([]) // Indices of tweets on the current page
+const filterQuery = ref("")
+const showReplies = ref(true)
+const page = ref(0)
+const numPages = ref(1)
+const countPerPage = ref(50)
+const pageNumbers = ref([])
+const info = ref("")
 
-      // filteredIndices is a list of tweets array indices that match the filter settings
-      this.filteredIndices = [];
-      for (var i = 0; i < this.tweets.length; i++) {
-        if (
-          this.tweets[i]["text"]
-            .toLowerCase()
-            .includes(this.filterQuery.toLowerCase())
-        ) {
-          if (
-            this.showReplies ||
-            (!this.showReplies && !this.tweets[i]["is_reply"])
-          ) {
-            this.filteredIndices.push(i);
-          }
-        }
-      }
+function numberOfTweetsStagedForDeletion() {
+  var count = 0
+  for (var i = 0; i < this.tweets.length; i++) {
+    if (!tweets[i].exclude) {
+      count++
+    }
+  }
+  return count
+}
 
-      // Calculate number of pages
-      this.numPages = Math.ceil(
-        this.filteredIndices.length / this.countPerPage
-      );
-      if (this.page >= this.numPages) {
-        this.page = 0;
-      }
+watch(showReplies, (value) => {
+  filterTweets()
+})
 
-      // Make the page numbers boxes
-      this.pageNumbers = [];
-      if (this.page > 0) {
-        this.pageNumbers.push("previous");
-      }
-      for (var i = this.page - 3; i <= this.page + 3; i++) {
-        if (i >= 0 && i <= this.numPages - 1) {
-          this.pageNumbers.push(i);
-        }
-      }
-      if (this.page < this.numPages - 1) {
-        this.pageNumbers.push("next");
-      }
+watch(filterQuery, (value) => {
+  filterTweets()
+})
 
-      // pageIndices is a list of tweets array indices to get displayed on the current page
-      this.pageIndices = [];
-      for (
-        var i = this.page * this.countPerPage;
-        i < (this.page + 1) * this.countPerPage;
-        i++
+function fetchTweets() {
+  loading.value = true;
+
+  // Get all saved tweets
+  fetch("/api/tweets")
+    .then(function (response) {
+      if (response.status !== 200) {
+        console.log(
+          "Error fetching tweets, status code: " + response.status
+        )
+        return
+      }
+      response.json().then(function (data) {
+        tweets.value = data["tweets"]
+        filterTweets()
+        loading.value = false
+      })
+    })
+    .catch(function (err) {
+      console.log("Error fetching tweets", err)
+      loading.value = false
+    })
+}
+
+function filterTweets(pageClicked = 0) {
+  if (pageClicked == "previous") {
+    page.value--
+  } else if (pageClicked == "next") {
+    page.value++
+  } else {
+    page.value = pageClicked
+  }
+
+  // filteredIndices is a list of tweets array indices that match the filter settings
+  filteredIndices.value = [];
+  for (var i = 0; i < tweets.value.length; i++) {
+    if (
+      tweets.value[i]["text"]
+        .toLowerCase()
+        .includes(filterQuery.value.toLowerCase())
+    ) {
+      if (
+        showReplies.value ||
+        (!showReplies.value && !tweets.value[i]["is_reply"])
       ) {
-        if (i < this.filteredIndices.length) {
-          this.pageIndices.push(this.filteredIndices[i]);
-        }
+        filteredIndices.value.push(i)
       }
+    }
+  }
 
-      // The info text box
-      this.updateInfo();
-    },
-    updateInfo: function () {
-      this.info =
-        "Page " +
-        this.commaFormatted(this.page) +
-        " of " +
-        this.commaFormatted(this.numPages) +
-        " | ";
-      if (this.filteredIndices.length != this.tweets.length) {
-        this.info +=
-          "Filtering to " +
-          this.filteredIndices.length +
-          " of " +
-          this.tweets.length +
-          " tweets | ";
-      } else {
-        this.info += this.tweets.length + " tweets | ";
-      }
-      this.info +=
-        this.numberOfTweetsStagedForDeletion + " tweets okay to delete";
-    },
-    commaFormatted: function (x) {
-      return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    },
-    changeExclude: function (id, exclude) {
-      this.tweets[id].exclude = exclude;
-      this.updateInfo();
-    },
-  },
-  components: {
-    Tweet: Tweet,
-    PageButton: PageButton,
-  },
-};
+  // Calculate number of pages
+  numPages.value = Math.ceil(
+    filteredIndices.value.length / countPerPage.value
+  )
+  if (page.value >= numPages.value) {
+    page.value = 0
+  }
+
+  // Make the page numbers boxes
+  pageNumbers.value = []
+  if (page.value > 0) {
+    pageNumbers.value.push("previous")
+  }
+  for (var i = this.page - 3; i <= this.page + 3; i++) {
+    if (i >= 0 && i <= numPages.value - 1) {
+      pageNumbers.value.push(i)
+    }
+  }
+  if (page.value < numPages.value - 1) {
+    pageNumbers.value.push("next")
+  }
+
+  // pageIndices is a list of tweets array indices to get displayed on the current page
+  pageIndices.value = []
+  for (
+    var i = page.value * countPerPage.value;
+    i < (page.value + 1) * countPerPage.value;
+    i++
+  ) {
+    if (i < filteredIndices.value.length) {
+      pageIndices.value.push(filteredIndices.value[i])
+    }
+  }
+
+  // The info text box
+  this.updateInfo()
+}
+
+function updateInfo() {
+  info.value =
+    "Page " +
+    commaFormatted(page.value) +
+    " of " +
+    commaFormatted(numPages.value) +
+    " | "
+  if (filteredIndices.value.length != tweets.value.length) {
+    info.value +=
+      "Filtering to " +
+      filteredIndices.value.length +
+      " of " +
+      tweets.value.length +
+      " tweets | "
+  } else {
+    info.value += tweets.value.length + " tweets | "
+  }
+  info.value +=
+    numberOfTweetsStagedForDeletion.value + " tweets okay to delete"
+}
+
+function commaFormatted(x) {
+  return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+}
+
+function changeExclude(id, exclude) {
+  tweets.value[id].exclude = exclude
+  updateInfo()
+}
+
+fetchTweets()
 </script>
 
 <template>
