@@ -1,12 +1,10 @@
-<script>
-export default {
-  props: ["userScreenName", "userProfileUrl"],
-  computed: {
-    logoutTitle: function () {
-      return "Logged in as @" + this.userScreenName;
-    },
-  },
-};
+<script setup>
+const props = defineProps({
+  userScreenName: String,
+  userProfileUrl: String
+})
+
+const logoutTitle = "Logged in as @" + this.userScreenName
 </script>
 
 <template>

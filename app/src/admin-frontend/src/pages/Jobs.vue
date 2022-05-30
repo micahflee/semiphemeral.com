@@ -1,93 +1,91 @@
-<script>
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      loading: false,
-      started_jobs: [],
-      queued_jobs: [],
-      scheduled_jobs: [],
-      other_jobs: [],
-    };
-  },
-  created: function () {
-    this.fetchJobs();
-  },
-  methods: {
-    fetchJobs: function () {
-      var that = this;
-      this.loading = true;
+<script setup>
+import { ref } from "vue"
 
-      // Get lists of jobs
-      fetch("/admin_api/jobs")
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log("Error fetching tips, status code: " + response.status);
-            that.loading = false;
-            return;
-          }
-          response.json().then(function (data) {
-            that.loading = false;
-            that.started_jobs = data["started_jobs"];
-            that.queued_jobs = data["queued_jobs"];
-            that.scheduled_jobs = data["scheduled_jobs"];
-            that.other_jobs = data["other_jobs"];
-          });
-        })
-        .catch(function (err) {
-          console.log("Error fetching jobs", err);
-          that.loading = false;
-        });
-    },
-    addZero: function (i) {
-      if (i < 10) {
-        i = "0" + i;
+const props = defineProps({
+  userScreenName: String
+})
+
+const loading = ref(false)
+const started_jobs = ref([])
+const queued_jobs = ref([])
+const scheduled_jobs = ref([])
+const other_jobs = ref([])
+
+function fetchJobs () {
+  loading.value = true
+
+  // Get lists of jobs
+  fetch("/admin_api/jobs")
+    .then(function (response) {
+      if (response.status !== 200) {
+        console.log("Error fetching tips, status code: " + response.status)
+        loading.value = false
+        return
       }
-      return i;
-    },
-    formatJobDate: function (timestamp) {
-      var date = new Date(timestamp * 1000);
-      var month_num = date.getMonth() + 1;
-      var month = "";
-      if (month_num == 1) {
-        month = "January";
-      } else if (month_num == 2) {
-        month = "February";
-      } else if (month_num == 3) {
-        month = "March";
-      } else if (month_num == 4) {
-        month = "April";
-      } else if (month_num == 5) {
-        month = "May";
-      } else if (month_num == 6) {
-        month = "June";
-      } else if (month_num == 7) {
-        month = "July";
-      } else if (month_num == 8) {
-        month = "August";
-      } else if (month_num == 9) {
-        month = "September";
-      } else if (month_num == 10) {
-        month = "October";
-      } else if (month_num == 11) {
-        month = "November";
-      } else if (month_num == 12) {
-        month = "December";
-      }
-      return (
-        month +
-        " " +
-        date.getUTCDate() +
-        ", " +
-        date.getUTCFullYear() +
-        " " +
-        this.addZero(date.getUTCHours()) +
-        ":" +
-        this.addZero(date.getUTCMinutes())
-      );
-    },
-  },
-};
+      response.json().then(function (data) {
+        loading.value = false
+        started_jobs.value = data["started_jobs"]
+        queued_jobs.value = data["queued_jobs"]
+        scheduled_jobs.value = data["scheduled_jobs"]
+        other_jobs.value = data["other_jobs"]
+      });
+    })
+    .catch(function (err) {
+      console.log("Error fetching jobs", err)
+      loading.value = false
+    })
+}
+
+function addZero(i) {
+  if (i < 10) {
+    i = "0" + i
+  }
+  return i
+}
+
+function formatJobDate(timestamp) {
+  var date = new Date(timestamp * 1000)
+  var month_num = date.getMonth() + 1
+  var month = ""
+  if (month_num == 1) {
+    month = "January"
+  } else if (month_num == 2) {
+    month = "February"
+  } else if (month_num == 3) {
+    month = "March"
+  } else if (month_num == 4) {
+    month = "April"
+  } else if (month_num == 5) {
+    month = "May"
+  } else if (month_num == 6) {
+    month = "June"
+  } else if (month_num == 7) {
+    month = "July"
+  } else if (month_num == 8) {
+    month = "August"
+  } else if (month_num == 9) {
+    month = "September"
+  } else if (month_num == 10) {
+    month = "October"
+  } else if (month_num == 11) {
+    month = "November"
+  } else if (month_num == 12) {
+    month = "December"
+  }
+  return (
+    month +
+    " " +
+    date.getUTCDate() +
+    ", " +
+    date.getUTCFullYear() +
+    " " +
+    this.addZero(date.getUTCHours()) +
+    ":" +
+    this.addZero(date.getUTCMinutes())
+  )
+}
+
+fetchJobs()
 </script>
 
 <template>

@@ -1,75 +1,76 @@
-<script>
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      loading: false,
-      tips: [],
-    };
-  },
-  created: function () {
-    this.fetchTips();
-  },
-  methods: {
-    fetchTips: function () {
-      var that = this;
-      this.loading = true;
+<script setup>
+import { ref } from "vue"
 
-      // Get lists of tips
-      fetch("/admin_api/tips")
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log("Error fetching tips, status code: " + response.status);
-            that.loading = false;
-            return;
-          }
-          response.json().then(function (data) {
-            that.loading = false;
-            if (data["tips"]) that.tips = data["tips"];
-            else that.tips = [];
-          });
-        })
-        .catch(function (err) {
-          console.log("Error fetching tips", err);
-          that.loading = false;
-        });
-    },
-    formatTipDate: function (timestamp) {
-      var date = new Date(timestamp * 1000);
-      var month_num = date.getMonth() + 1;
-      var month = "";
-      if (month_num == 1) {
-        month = "January";
-      } else if (month_num == 2) {
-        month = "February";
-      } else if (month_num == 3) {
-        month = "March";
-      } else if (month_num == 4) {
-        month = "April";
-      } else if (month_num == 5) {
-        month = "May";
-      } else if (month_num == 6) {
-        month = "June";
-      } else if (month_num == 7) {
-        month = "July";
-      } else if (month_num == 8) {
-        month = "August";
-      } else if (month_num == 9) {
-        month = "September";
-      } else if (month_num == 10) {
-        month = "October";
-      } else if (month_num == 11) {
-        month = "November";
-      } else if (month_num == 12) {
-        month = "December";
+const props = defineProps({
+  userScreenName: String
+})
+
+const loading = ref(false)
+const tips = ref([])
+
+function fetchTips () {
+  loading.value = true;
+
+  // Get lists of tips
+  fetch("/admin_api/tips")
+    .then(function (response) {
+      if (response.status !== 200) {
+        console.log("Error fetching tips, status code: " + response.status)
+        loading.value = false
+        return
       }
-      return month + " " + date.getDate() + ", " + date.getFullYear();
-    },
-    formatTipAmount: function (amount) {
-      return "$" + (amount / 100).toFixed(2);
-    },
-  },
-};
+      response.json().then(function (data) {
+        loading.value = false
+        if (data["tips"]) {
+          tips.value = data["tips"]
+        } else {
+          tips.value = []
+        }
+      })
+    })
+    .catch(function (err) {
+      console.log("Error fetching tips", err)
+      loading.value = false
+    })
+}
+
+function formatTipDate(timestamp) {
+  var date = new Date(timestamp * 1000)
+  var month_num = date.getMonth() + 1
+  var month = ""
+  if (month_num == 1) {
+    month = "January"
+  } else if (month_num == 2) {
+    month = "February"
+  } else if (month_num == 3) {
+    month = "March"
+  } else if (month_num == 4) {
+    month = "April"
+  } else if (month_num == 5) {
+    month = "May"
+  } else if (month_num == 6) {
+    month = "June"
+  } else if (month_num == 7) {
+    month = "July"
+  } else if (month_num == 8) {
+    month = "August"
+  } else if (month_num == 9) {
+    month = "September"
+  } else if (month_num == 10) {
+    month = "October"
+  } else if (month_num == 11) {
+    month = "November"
+  } else if (month_num == 12) {
+    month = "December"
+  }
+  return month + " " + date.getDate() + ", " + date.getFullYear()
+}
+
+function formatTipAmount(amount) {
+  return "$" + (amount / 100).toFixed(2)
+}
+
+fetchTips()
 </script>
 
 <template>

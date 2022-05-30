@@ -1,39 +1,28 @@
-<script>
+<script setup>
+import { ref } from "vue"
 import NavBar from "./layout/NavBar.vue";
 
-export default {
-  data: function() {
-    return {
-      userScreenName: false,
-      userProfileUrl: false
-    };
-  },
-  created: function() {
-    this.getUser();
-  },
-  methods: {
-    getUser: function() {
-      var that = this;
-      fetch("/api/user")
-        .then(function(response) {
-          if (response.status !== 200) {
-            console.log("Error fetching user, status code: " + response.status);
-            return;
-          }
-          response.json().then(function(data) {
-            that.userScreenName = data["user_screen_name"];
-            that.userProfileUrl = data["user_profile_url"];
-          });
-        })
-        .catch(function(err) {
-          console.log("Error fetching user", err);
-        });
-    }
-  },
-  components: {
-    NavBar: NavBar
-  }
-};
+const userScreenName = ref(false)
+const userProfileUrl = ref(false)
+
+function getUser() {
+  fetch("/api/user")
+    .then(function(response) {
+      if (response.status !== 200) {
+        console.log("Error fetching user, status code: " + response.status)
+        return
+      }
+      response.json().then(function(data) {
+        userScreenName.value = data["user_screen_name"]
+        userProfileUrl.value = data["user_profile_url"]
+      });
+    })
+    .catch(function(err) {
+      console.log("Error fetching user", err)
+    })
+}
+
+getUser()
 </script>
 
 <template>

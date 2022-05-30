@@ -1,33 +1,26 @@
-<script>
-export default {
-  props: ["fascist"],
-  computed: {
-    profileLink: function() {
-      return "https://twitter.com/" + this.fascist["username"];
-    }
-  },
-  methods: {
-    deleteFascist: function() {
-      var that = this;
-      this.loading = true;
-      fetch("/admin_api/fascists", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "delete",
-          username: that.fascist["username"]
-        })
-      })
-        .then(function(response) {
-          that.$emit("reload");
-        })
-        .catch(function(err) {
-          console.log("Error", err);
-          that.loading = false;
-        });
-    }
-  }
-};
+<script setup>
+const props = defineProps({
+  fascist: String
+})
+
+const profileLink = "https://twitter.com/" + this.fascist["username"]
+
+function deleteFascist() {
+  fetch("/admin_api/fascists", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "delete",
+      username: props['fascist']["username"]
+    })
+  })
+    .then(function(response) {
+      that.$emit("reload");
+    })
+    .catch(function(err) {
+      console.log("Error", err);
+    })
+}
 </script>
 
 <template>

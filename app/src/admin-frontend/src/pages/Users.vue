@@ -1,84 +1,80 @@
-<script>
+<script setup>
+import { ref } from "vue"
 import User from "./Users/User.vue";
 
-export default {
-  props: ["userScreenName"],
-  data: function () {
-    return {
-      loading: false,
-      impersonatingTwitterUsername: null,
-      activeUsers: [],
-      pausedUsers: [],
-      blockedUsers: [],
-    };
-  },
-  created: function () {
-    this.fetchUsers();
-  },
-  computed: {
-    impersonatingLink: function () {
-      return "https://twitter.com/" + this.impersonatingTwitterUsername;
-    },
-  },
-  methods: {
-    fetchUsers: function () {
-      var that = this;
-      this.loading = true;
+const props = defineProps({
+  userScreenName: String
+})
 
-      // Get lists of users
-      fetch("/admin_api/users")
-        .then(function (response) {
-          if (response.status !== 200) {
-            console.log(
-              "Error fetching users, status code: " + response.status
-            );
-            that.loading = false;
-            return;
-          }
-          response.json().then(function (data) {
-            that.loading = false;
-            that.impersonatingTwitterUsername =
-              data["impersonating_twitter_username"];
+const loading = ref(false)
+const impersonatingTwitterUsername = ref(null)
+const activeUsers = ref([])
+const pausedUsers = ref([])
+const blockedUsers = ref([])
 
-            if (data["active_users"]) that.activeUsers = data["active_users"];
-            else that.activeUsers = [];
+const impersonatingLink = "https://twitter.com/" + impersonatingTwitterUsername.value
 
-            if (data["paused_users"]) that.pausedUsers = data["paused_users"];
-            else that.pausedUsers = [];
+function fetchUsers() {
+  loading.value = true
 
-            if (data["blocked_users"])
-              that.blockedUsers = data["blocked_users"];
-            else that.blockedUsers = [];
-          });
-        })
-        .catch(function (err) {
-          console.log("Error fetching users", err);
-          that.loading = false;
-        });
-    },
-    stopImpersonating: function () {
-      var that = this;
-      this.loading = true;
+  // Get lists of users
+  fetch("/admin_api/users")
+    .then(function (response) {
+      if (response.status !== 200) {
+        console.log(
+          "Error fetching users, status code: " + response.status
+        )
+        loading.value = false
+        return
+      }
+      response.json().then(function (data) {
+        loading.value = false
+        impersonatingTwitterUsername.value = data["impersonating_twitter_username"]
 
-      fetch("/admin_api/users/impersonate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          twitter_id: "0",
-        }),
+        if (data["active_users"]) {
+          activeUsers.value = data["active_users"]
+        } else {
+          activeUsers.value = []
+        }
+
+        if (data["paused_users"]) {
+          pausedUsers.value = data["paused_users"]
+        } else {
+          pausedUsers.value = []
+        }
+
+        if (data["blocked_users"]) {
+          blockedUsers.value = data["blocked_users"]
+        } else {
+          blockedUsers.value = []
+        }
       })
-        .then(function (response) {
-          that.fetchUsers();
-        })
-        .catch(function (err) {
-          console.log("Error", err);
-        });
-    },
-  },
-  components: {
-    User: User,
-  },
-};
+    })
+    .catch(function (err) {
+      console.log("Error fetching users", err)
+      loading.value = false
+    })
+}
+
+function stopImpersonating() {
+  loading.value = true
+
+  fetch("/admin_api/users/impersonate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      twitter_id: "0",
+    }),
+  })
+    .then(function (response) {
+      fetchUsers()
+    })
+    .catch(function (err) {
+      console.log("Error", err)
+    })
+}
+
+fetchUsers()
 </script>
 
 <template>
