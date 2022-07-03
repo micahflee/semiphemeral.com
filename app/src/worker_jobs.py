@@ -15,6 +15,7 @@ def fetch(job_details_id):
 
 def delete(job_details_id):
     global funcs
+    asyncio.run(jobs.fetch(job_details_id, funcs))
     asyncio.run(jobs.delete(job_details_id, funcs))
 
 
