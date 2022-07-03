@@ -547,12 +547,10 @@ async def delete(job_details_id, funcs):
 
         # Start the progress
         data = json.loads(job_details.data)
-        data["progress"] = {
-            "tweets_deleted": 0,
-            "retweets_deleted": 0,
-            "likes_deleted": 0,
-            "dms_deleted": 0,
-        }
+        data["progress"]["tweets_deleted"] = 0
+        data["progress"]["retweets_deleted"] = 0
+        data["progress"]["likes_deleted"] = 0
+        data["progress"]["dms_deleted"] = 0
 
         # Unretweet and unlike tweets
         if user.retweets_likes:
