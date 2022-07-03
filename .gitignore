@@ -120,6 +120,7 @@ ansible/inventory-*
 backups/*.sql
 backups/*.sql.gz
 backups/*.tar.gz
+backups/id_ed25519.pub
 
 # frontend
 app/src/frontend/node_modules

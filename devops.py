@@ -145,7 +145,7 @@ def _ansible_apply(deploy_environment, playbook, extra_args=[]):
     return True
 
 
-def _ssh(deploy_environment, server, args=None, use_popen=False, cmds=None):
+def _ssh(deploy_environment, server, args=None, check_output=False, cmds=None):
     app_ip, db_ip, _ = _get_ips(deploy_environment)
     if not app_ip or not db_ip:
         return
@@ -166,9 +166,8 @@ def _ssh(deploy_environment, server, args=None, use_popen=False, cmds=None):
     # SSH into the server
     args_str = " ".join(pipes.quote(s) for s in args)
     print(f"Executing: {args_str}")
-    if use_popen:
-        p = subprocess.Popen(args)
-        return p
+    if check_output:
+        return subprocess.check_output(args)
     else:
         p = subprocess.run(args)
         if p.returncode != 0:
@@ -319,7 +318,9 @@ def terraform(deploy_environment, open_firewall):
     if open_firewall or deploy_environment == "production":
         _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
     else:
-        _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
+        _terraform_apply(
+            deploy_environment, ["0.0.0.0/0", "::/0"], ["0.0.0.0/0", "::/0"]
+        )
 
 
 @main.command()
@@ -488,6 +489,89 @@ def backup_restore_app(deploy_environment, backup_filename):
 
     # Restore the backup
     _ssh(deploy_environment, "db", cmds=["/opt/semiphemeral/restore.sh", basename])
+
+
+@main.command()
+def backup_prod_to_staging():
+    """Create backup on prod, restore it to"""
+    _, production_db_ip, _ = _get_ips("production")
+    _, staging_db_ip, _ = _get_ips("staging")
+
+    # Generate an ssh key on prod
+    _ssh(
+        "production",
+        "db",
+        cmds=["rm", "/root/.ssh/id_ed25519", "/root/.ssh/id_ed25519.pub"],
+    )
+    _ssh(
+        "production",
+        "db",
+        cmds=[
+            "ssh-keygen",
+            "-t",
+            "ed25519",
+            "-f",
+            "/root/.ssh/id_ed25519",
+            "-N",
+            "''",
+        ],
+    )
+
+    # Copy the public key to staging
+    subprocess.run(
+        [
+            "scp",
+            f"root@{production_db_ip}:/root/.ssh/id_ed25519.pub",
+            "./backups",
+        ]
+    )
+    subprocess.run(
+        [
+            "ssh-copy-id",
+            "-f",
+            "-i",
+            "./backups/id_ed25519.pub",
+            f"root@{staging_db_ip}",
+        ]
+    )
+
+    # Save the backup on production
+    _ssh("production", "db", cmds=["/db/backup.sh"])
+
+    # Find the filename
+    backup_filename = (
+        _ssh(
+            "production",
+            "db",
+            cmds=["ls", "/db/mnt/semiphemeral-*.sql.gz"],
+            check_output=True,
+        )
+        .decode()
+        .strip()
+    )
+    basename = os.path.basename(backup_filename)
+
+    # Copy the backup from production to staging
+    _ssh(
+        "production",
+        "db",
+        cmds=[
+            "rsync",
+            "--progress",
+            backup_filename,
+            f"root@{staging_db_ip}:{backup_filename}",
+        ],
+    )
+
+    # Delete the backup from production
+    _ssh(
+        "production",
+        "db",
+        cmds=["rm", backup_filename],
+    )
+
+    # Restore the backup on staging
+    _ssh("staging", "db", cmds=["/db/restore.sh", basename])
 
 
 if __name__ == "__main__":
