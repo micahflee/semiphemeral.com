@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TIMESTAMP=$(date +%F_%T)
+TIMESTAMP=$(date +%F_%H%M%S)
 FILENAME=/db/mnt/semiphemeral-{{ deploy_environment }}-$TIMESTAMP.sql
 
 echo "== Dumping" &&
