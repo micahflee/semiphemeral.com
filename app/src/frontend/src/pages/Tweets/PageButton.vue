@@ -1,6 +1,6 @@
 <script>
 const props = defineProps({
-  pageNumber: Number
+  pageNumber: Number,
   currentPage: Number
 })
 
@@ -34,6 +34,7 @@ const isCurrentPage = (props['pageNumber'] == props['currentPage'])
   background-color: #ffffff;
   cursor: pointer;
 }
+
 .current {
   color: #000000;
   background-color: transparent;
