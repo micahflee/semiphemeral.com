@@ -161,6 +161,13 @@ resource "digitalocean_firewall" "db" {
     protocol              = "icmp"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
+
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "22"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
+    # destination_addresses = ["10.0.0.0/8"]
+  }
 }
 
 resource "digitalocean_domain" "domain" {
