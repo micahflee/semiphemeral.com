@@ -11,5 +11,6 @@ services:
       - POSTGRES_DB={{ postgres_db }}
     volumes:
       - /db/mnt/data:/var/lib/postgresql/data
+      - ./max_conns.sql:/docker-entrypoint-initdb.d/max_conns.sql
     ports:
       - '{{ db_private_ip }}:5432:5432'

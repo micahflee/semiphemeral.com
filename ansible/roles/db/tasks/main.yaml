@@ -44,6 +44,11 @@
     src: ../templates/db/docker-compose.yaml
     dest: /db/docker-compose.yaml
 
+- name: /db/max_conns.sql template
+  template:
+    src: ../templates/db/max_conns.sql
+    dest: /db/max_conns.sql
+
 - name: /db/backup.sh template
   template:
     src: ../templates/db/backup.sh
