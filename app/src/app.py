@@ -1912,9 +1912,14 @@ async def main():
         ]
     )
 
+    runner = web.AppRunner(app)
+    await runner.setup()
+    server = web.TCPSite(runner, port=8080)
+    await server.start()
+    print("Server started at http://127.0.0.1:8080")
+
     loop = asyncio.get_event_loop()
-    server = await loop.create_server(app.make_handler(), port=8080)
-    await server.serve_forever()
+    loop.run_forever()
 
 
 if __name__ == "__main__":
