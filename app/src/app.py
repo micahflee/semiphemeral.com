@@ -1918,9 +1918,8 @@ async def main():
     await server.start()
     print("Server started at http://127.0.0.1:8080")
 
-    loop = asyncio.get_event_loop()
-    loop.run_forever()
-
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
     asyncio.run(main())
