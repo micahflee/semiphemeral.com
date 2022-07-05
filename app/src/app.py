@@ -42,11 +42,16 @@ import redis
 import rq
 from rq import Queue
 from rq.job import Job as RQJob
+from rq.registry import FailedJobRegistry
 
 print(f"Connecting to redis at: {os.environ.get('REDIS_URL')}")
 conn = redis.from_url(os.environ.get("REDIS_URL"))
+
 jobs_q = Queue("jobs", connection=conn)
 dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
+
+jobs_registry = FailedJobRegistry(queue=jobs_q)
+dm_jobs_registry = FailedJobRegistry(queue=dm_jobs_high_q)
 
 
 async def _logged_in_user(session):
@@ -1918,8 +1923,26 @@ async def main():
     await server.start()
     print("Server started at http://127.0.0.1:8080")
 
-    while True:
-        await asyncio.sleep(3600)
+    # Loop forever logging redis job exceptions
+    with open("/var/web/exceptions.log", "a") as f:
+        logged_job_ids = []
+        while True:
+            exceptions_logged = 0
+            for job_id in jobs_registry.get_job_ids():
+                if job_id not in logged_job_ids:
+                    job = RQJob.fetch(job_id, connection=conn)
+                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    f.write(f"job_id is {job_id}, timestamp is {now}\n")
+                    f.write(job.exc_info)
+                    f.write("===\n")
+                    f.flush()
+                    logged_job_ids.append(job_id)
+                    exceptions_logged += 1
+            if exceptions_logged > 0:
+                print(f"Logged {exceptions_logged} exceptions")
+
+            await asyncio.sleep(20)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
