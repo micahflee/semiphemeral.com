@@ -29,17 +29,17 @@ def main():
     # Save the snapshot
     snapshot_name = f"db-production-{datetime.utcnow().strftime('%Y-%m-%d_%H%M')}"
     print(f"Saving snapshot: {snapshot_name}")
-    subprocess.run(
-        [
-            "doctl",
-            "compute",
-            "volume",
-            "snapshot",
-            volume_id,
-            "--snapshot-name",
-            snapshot_name,
-        ]
-    )
+    # subprocess.run(
+    #     [
+    #         "doctl",
+    #         "compute",
+    #         "volume",
+    #         "snapshot",
+    #         volume_id,
+    #         "--snapshot-name",
+    #         snapshot_name,
+    #     ]
+    # )
 
 
 if __name__ == "__main__":

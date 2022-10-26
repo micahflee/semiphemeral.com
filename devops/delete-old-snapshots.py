@@ -17,8 +17,8 @@ def main():
         if snapshot["name"].startswith("db-production-") and age <= timedelta(
             hours=1
         ):
-            print(f"Deleting snapshot: {snapshot['name']}")
-            subprocess.run(["doctl", "compute", "snapshot", "delete", snapshot["id"]])
+            print(f"Deleting snapshot: {snapshot['name']}, age: {age}")
+            # subprocess.run(["doctl", "compute", "snapshot", "delete", "--force", snapshot["id"]])
 
 
 if __name__ == "__main__":
