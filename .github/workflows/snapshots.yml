@@ -1,0 +1,34 @@
+name: Snapshots
+run-name: Save db-production volume snapshots
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  snapshots:
+    runs-on: ubuntu-latest
+    env:
+      DO_ACCESS_TOKEN: ${{ secrets.DO_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install jq
+          sudo snap install doctl
+
+      - name: Configure docli
+        run: |
+          mkdir -p ~/.config
+          doctl auth init --access-token "$DO_ACCESS_TOKEN"
+          doctl account get
+
+      - name: Save a snapshot
+        run: python ./devops/save-snapshot.py
+
+      - name: Delete old snapshot
+        run: python ./devops/delete-old-snapshots.py
