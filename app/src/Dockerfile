@@ -11,10 +11,10 @@ RUN pip install poetry
 
 # Install nodejs
 RUN cd /opt && \
-    wget https://nodejs.org/dist/v16.15.0/node-v16.15.0-linux-x64.tar.xz && \
-    tar -xf node-v16.15.0-linux-x64.tar.xz && \
-    ln -s /opt/node-v16.15.0-linux-x64/bin/node /usr/local/bin/node && \
-    ln -s /opt/node-v16.15.0-linux-x64/bin/npm /usr/local/bin/npm
+    wget https://nodejs.org/dist/v18.12.0/node-v18.12.0-linux-x64.tar.xz && \
+    tar -xf node-v18.12.0-linux-x64.tar.xz && \
+    ln -s /opt/node-v18.12.0-linux-x64/bin/node /usr/local/bin/node && \
+    ln -s /opt/node-v18.12.0-linux-x64/bin/npm /usr/local/bin/npm
 
 # Install python dependencies
 WORKDIR /app
