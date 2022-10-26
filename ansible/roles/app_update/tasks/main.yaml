@@ -27,10 +27,8 @@
 
 - name: ensure containers are built
   shell: |
-    docker pull $(cat src/Dockerfile | grep FROM | cut -d" " -f2)
-    docker-compose pull
     cd /opt/semiphemeral/app
-    docker-compose build
+    docker-compose build --pull
 
 - name: ensure containers are down
   docker_compose:
@@ -42,7 +40,7 @@
 - name: run database migrations
   shell: |
     cd /opt/semiphemeral/app
-    docker run app_web poetry run alembic upgrade head
+    docker run app_web python -m poetry run alembic upgrade head
 
 - name: ensure containers are up
   docker_compose:

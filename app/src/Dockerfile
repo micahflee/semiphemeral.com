@@ -6,9 +6,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get upgrade -y && \
     apt-get clean
 
-# Install poetry
-RUN pip install poetry
-
 # Install nodejs
 RUN cd /opt && \
     wget https://nodejs.org/dist/v18.12.0/node-v18.12.0-linux-x64.tar.xz && \
@@ -16,26 +13,43 @@ RUN cd /opt && \
     ln -s /opt/node-v18.12.0-linux-x64/bin/node /usr/local/bin/node && \
     ln -s /opt/node-v18.12.0-linux-x64/bin/npm /usr/local/bin/npm
 
-# Install python dependencies
+# Switch to unprivileged user
 WORKDIR /app
+RUN useradd -u 1000 -o -ms /bin/bash user
+RUN chown -R user:user /app
+USER user:user
+
+# Install python dependencies
+RUN python -m pip install --upgrade pip
+RUN python -m pip install poetry
 COPY poetry.lock .
 COPY pyproject.toml .
-RUN poetry install
+RUN python -m poetry install
 
 # Install node deps for frontend
 RUN mkdir frontend
 COPY frontend/package.json frontend
 COPY frontend/package-lock.json frontend
+USER root:root
+RUN chown -R user:user frontend 
+USER user:user
 RUN cd frontend && npm install
 
 # Install node deps for admin frontend
 RUN mkdir admin-frontend
 COPY admin-frontend/package.json admin-frontend
 COPY admin-frontend/package-lock.json admin-frontend
+USER root:root
+RUN chown -R user:user admin-frontend 
+USER user:user
 RUN cd admin-frontend && npm install
 
 # Copy code
 COPY . .
+USER root:root
+RUN chown -R user:user .
+USER user:user
+
 
 # Build the frontend
 RUN cd frontend && npm run build
@@ -43,9 +57,5 @@ RUN cd frontend && npm run build
 # Build the admin-frontend
 RUN cd admin-frontend && npm run build
 
-# Switch to unprivileged user
-RUN useradd -u 1000 -o -ms /bin/bash user
-USER user:user
-
 EXPOSE 8080
-CMD ["poetry", "run", "python", "-u", "app.py"]
+CMD ["python", "-m", "poetry", "run", "python", "-u", "app.py"]
