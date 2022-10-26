@@ -70,12 +70,12 @@
 - name: ensure vm.overcommit_memory = 1 is set
   sysctl:
     name: vm.overcommit_memory
-    value: '1'
+    value: "1"
     state: present
 
-# - name: ensure crons are enabled to automatically cleanup database
-#   cron:
-#     name: "cleanup users and DMs"
-#     minute: "30"
-#     hour: "4"
-#     job: docker exec -it app_jobs_1 poetry run python tasks.py cleanup-users && docker exec -it app_jobs_1 poetry run python tasks.py cleanup-dm-jobs
+- name: ensure crons are enabled to automatically cleanup database
+  cron:
+    name: "cleanup users and DMs"
+    minute: "30"
+    hour: "4"
+    job: docker exec -it app_worker_1 poetry run python tasks.py cleanup-users && docker exec -it app_jobs_1 poetry run python tasks.py cleanup-dm-jobs
