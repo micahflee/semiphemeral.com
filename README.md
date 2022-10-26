@@ -30,16 +30,19 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  ansible-app         Deploy and configure infrastructure app server
-  ansible-app-update  Update the app on already-deployed app server
-  ansible-db          Deploy and configure infrastructure db server
-  backup-restore      Restore a database backup
-  backup-save         Save a database backup
-  destroy-staging     Destroy staging infrastructure
-  forward-postgres    Forward the postgres port to localhost, using SSH
-  ssh-app             SSH to app server
-  ssh-db              SSH to db server
-  terraform           Re-apply terraform (uses current IP for devops IP)
+  ansible-app             Deploy and configure infrastructure app server
+  ansible-app-update      Update the app on already-deployed app server
+  ansible-db              Deploy and configure infrastructure db server
+  backup-prod-to-staging  Create backup on prod, restore it to
+  backup-restore-app      Restore app backup
+  backup-restore-db       Restore db backup
+  backup-save-app         Save app backup
+  backup-save-db          Save db backup
+  destroy-staging         Destroy staging infrastructure
+  forward-postgres        Forward the postgres port to localhost, using SSH
+  ssh-app                 SSH to app server
+  ssh-db                  SSH to db server
+  terraform               Re-apply terraform (uses current IP for devops IP)
 ```
 
 When you run deploy, it will use terraform to deploy/update DigitalOcean infrastructure, and then use ansible to ensure the server is configured.
@@ -53,4 +56,5 @@ poetry run ./devops.py terraform staging
 poetry run ./devops.py ansible-db staging
 poetry run ./devops.py ansible-app staging
 poetry run ./devops.py ansible-app-update staging
+poetry run ./devops.py backup-prod-to-staging
 ```
