@@ -18,7 +18,7 @@ def main():
             minutes=20
         ):
             print(f"Deleting snapshot: {snapshot['name']}, age: {age}")
-            # subprocess.run(["doctl", "compute", "snapshot", "delete", "--force", snapshot["id"]])
+            subprocess.run(["doctl", "compute", "snapshot", "delete", "--force", snapshot["id"]])
 
 
 if __name__ == "__main__":
