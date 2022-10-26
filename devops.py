@@ -42,11 +42,11 @@ def _get_variables(filename):
 
 
 def _terraform_variables(deploy_environment):
-    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-terraform.json"))
+    variables = _get_variables(os.path.join(_get_root_dir(), "vars-terraform.json"))
     variables["deploy_environment"] = deploy_environment
 
     ansible_variables = _get_variables(
-        os.path.join(_get_root_dir(), ".vars-ansible.json")
+        os.path.join(_get_root_dir(), "vars-ansible.json")
     )
     variables["domain"] = ansible_variables[deploy_environment]["domain"]
 
@@ -61,8 +61,8 @@ def _terraform_variables(deploy_environment):
 def _ansible_variables(deploy_environment):
     ansible_vars = []
 
-    # Add variables from .vars-ansible.json
-    all_variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible.json"))
+    # Add variables from vars-ansible.json
+    all_variables = _get_variables(os.path.join(_get_root_dir(), "vars-ansible.json"))
     variables = all_variables[deploy_environment]
     variables["deploy_environment"] = deploy_environment
 
@@ -374,7 +374,7 @@ def forward_postgres(deploy_environment):
         return
 
     # load ansible variables
-    variables = _get_variables(os.path.join(_get_root_dir(), ".vars-ansible.json"))[
+    variables = _get_variables(os.path.join(_get_root_dir(), "vars-ansible.json"))[
         deploy_environment
     ]
 

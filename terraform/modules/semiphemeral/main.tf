@@ -16,15 +16,15 @@ resource "digitalocean_vpc" "semiphemeral" {
   region = "nyc1"
 }
 
-
 resource "digitalocean_droplet" "app" {
-  name       = "app-${var.deploy_environment}"
-  image      = "ubuntu-20-04-x64"
-  region     = "nyc1"
-  size       = "s-2vcpu-2gb"
-  vpc_uuid   = digitalocean_vpc.semiphemeral.id
-  monitoring = true
-  ssh_keys   = [var.ssh_fingerprint]
+  name          = "app-${var.deploy_environment}"
+  image         = "ubuntu-22-04-x64"
+  region        = "nyc1"
+  size          = "s-2vcpu-2gb"
+  vpc_uuid      = digitalocean_vpc.semiphemeral.id
+  monitoring    = true
+  droplet_agent = true
+  ssh_keys      = [var.ssh_fingerprint]
 }
 
 resource "digitalocean_firewall" "app" {
@@ -91,13 +91,14 @@ resource "digitalocean_firewall" "app" {
 }
 
 resource "digitalocean_droplet" "db" {
-  name       = "db-${var.deploy_environment}"
-  image      = "ubuntu-20-04-x64"
-  size       = "s-2vcpu-2gb"
-  region     = "nyc1"
-  vpc_uuid   = digitalocean_vpc.semiphemeral.id
-  monitoring = true
-  ssh_keys   = [var.ssh_fingerprint]
+  name          = "db-${var.deploy_environment}"
+  image         = "ubuntu-22-04-x64"
+  size          = "s-2vcpu-2gb"
+  region        = "nyc1"
+  vpc_uuid      = digitalocean_vpc.semiphemeral.id
+  monitoring    = true
+  droplet_agent = true
+  ssh_keys      = [var.ssh_fingerprint]
 }
 
 resource "digitalocean_volume" "db_data" {

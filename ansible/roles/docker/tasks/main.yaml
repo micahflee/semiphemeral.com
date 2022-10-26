@@ -19,7 +19,7 @@
 
 - name: ensure docker apt repository is installed
   apt_repository:
-    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable
     state: present
 
 - name: ensure docker is installed
