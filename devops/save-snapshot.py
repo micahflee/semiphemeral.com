@@ -5,7 +5,7 @@ from datetime import datetime
 
 
 def main():
-    volume_name = "db_production"
+    volume_name = "db-production"
 
     # Find the volume ID
     volumes = json.loads(
@@ -22,6 +22,8 @@ def main():
 
     if not volume_id:
         print(f"volume with name {volume_name} not found")
+        print()
+        print(json.dumps(volumes, indent=2))
         sys.exit(-1)
 
     # Save the snapshot
