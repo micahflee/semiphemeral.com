@@ -55,6 +55,6 @@ It also detects your current IP address, and configures the firewall to only all
 poetry run ./devops.py terraform staging
 poetry run ./devops.py ansible-db staging
 poetry run ./devops.py ansible-app staging
-poetry run ./devops.py ansible-app-update staging
 poetry run ./devops.py backup-prod-to-staging
+poetry run ./devops.py ansible-app-update staging
 ```

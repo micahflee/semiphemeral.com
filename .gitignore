@@ -115,7 +115,8 @@ terraform/*/.terraform.lock.hcl
 terraform/staging/terraform.tfstate
 
 # secrets
-.vars-*
+vars-ansible.json
+vars-terraform.json
 ansible/inventory-*
 backups/*.sql
 backups/*.sql.gz
