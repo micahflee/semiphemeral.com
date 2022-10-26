@@ -1,9 +1,8 @@
 name: Snapshots
 run-name: Save db-production volume snapshots
 on:
-  push:
-    branches:
-      - 76_snapshots
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
   snapshots:
