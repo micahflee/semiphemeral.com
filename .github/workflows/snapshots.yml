@@ -6,7 +6,7 @@ on:
       - 76_snapshots
 
 jobs:
-  test-cli:
+  snapshots:
     runs-on: ubuntu-latest
     env:
       DO_ACCESS_TOKEN: ${{ secrets.DO_ACCESS_TOKEN }}
@@ -33,5 +33,3 @@ jobs:
 
       - name: Delete old snapshot
         run: python ./devops/delete-old-snapshots.py
-
-      - name: Delete old snapshots
