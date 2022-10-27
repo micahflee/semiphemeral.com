@@ -23,18 +23,6 @@ def _validate_env(deploy_environment):
     return True
 
 
-def _find_available_port():
-    with socket.socket() as tmpsock:
-        while True:
-            try:
-                tmpsock.bind(("127.0.0.1", random.randint(10000, 20000)))
-                break
-            except OSError:
-                pass
-        _, port = tmpsock.getsockname()
-    return port
-
-
 def _get_variables(filename):
     with open(filename) as f:
         variables = json.loads(f.read())
@@ -43,7 +31,6 @@ def _get_variables(filename):
 
 def _terraform_variables(deploy_environment):
     variables = _get_variables(os.path.join(_get_root_dir(), "vars-terraform.json"))
-    variables["deploy_environment"] = deploy_environment
 
     ansible_variables = _get_variables(
         os.path.join(_get_root_dir(), "vars-ansible.json")
@@ -106,7 +93,7 @@ def _terraform_apply(deploy_environment, ssh_ips):
         "terraform",
         "apply",
         "-var",
-        f"ssh_ips={json.dumps(ssh_ips)}"
+        f"ssh_ips={json.dumps(ssh_ips)}",
     ] + _terraform_variables(deploy_environment)
     print(cmd)
     p = subprocess.run(
@@ -121,7 +108,12 @@ def _terraform_apply(deploy_environment, ssh_ips):
 
 
 def _ansible_apply(deploy_environment, playbook, extra_args=[]):
-    if playbook not in ["deploy-app.yaml", "deploy-db.yaml", "update-app.yaml"]:
+    if playbook not in [
+        "deploy-app.yaml",
+        "deploy-db.yaml",
+        "update-app.yaml",
+        "deploy-bastion.yaml",
+    ]:
         click.echo("Invalid playbook")
         return False
 
@@ -144,14 +136,18 @@ def _ansible_apply(deploy_environment, playbook, extra_args=[]):
 
 
 def _ssh(deploy_environment, server, args=None, check_output=False, cmds=None):
-    app_ip, db_ip, _ = _get_ips(deploy_environment)
-    if not app_ip or not db_ip:
-        return
+    if server == "bastion":
+        terraform_output = _get_terraform_output("prod")
+        ip = terraform_output["bastion_ip"]
+    else:
+        app_ip, db_ip, _ = _get_ips(deploy_environment)
+        if not app_ip or not db_ip:
+            return
 
-    if server == "app":
-        ip = app_ip
-    elif server == "db":
-        ip = db_ip
+        if server == "app":
+            ip = app_ip
+        elif server == "db":
+            ip = db_ip
 
     if not args:
         args = []
@@ -224,6 +220,12 @@ def _write_ansible_inventory(deploy_environment):
         f.write("[db]\n")
         f.write(f"{db_ip}\n")
 
+        if deploy_environment == "prod":
+            terraform_output = _get_terraform_output("prod")
+            bastion_ip = terraform_output["bastion_ip"]
+            f.write("[bastion]\n")
+            f.write(f"{bastion_ip}\n")
+
     return inventory_filename
 
 
@@ -233,9 +235,15 @@ def main():
 
 
 @main.command()
+def ansible_bastion():
+    """Deploy and configure bastion server"""
+    _ansible_apply("prod", "deploy-bastion.yaml")
+
+
+@main.command()
 @click.argument("deploy_environment", nargs=1)
 def ansible_app(deploy_environment):
-    """Deploy and configure infrastructure app server"""
+    """Deploy and configure app server"""
     if not _validate_env(deploy_environment):
         return
 
@@ -246,7 +254,7 @@ def ansible_app(deploy_environment):
 @main.command()
 @click.argument("deploy_environment", nargs=1)
 def ansible_db(deploy_environment):
-    """Deploy and configure infrastructure db server"""
+    """Deploy and configure db server"""
     if not _validate_env(deploy_environment):
         return
 
@@ -316,9 +324,7 @@ def terraform(deploy_environment, open_firewall):
     if open_firewall or deploy_environment == "prod":
         _terraform_apply(deploy_environment, [devops_ip])
     else:
-        _terraform_apply(
-            deploy_environment, ["0.0.0.0/0", "::/0"]
-        )
+        _terraform_apply(deploy_environment, ["0.0.0.0/0", "::/0"])
 
 
 @main.command()
@@ -329,10 +335,7 @@ def destroy_staging():
     cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
     devops_ip = _get_devops_ip()
 
-    ip_vars = [
-        "-var",
-        f"ssh_ips={json.dumps([devops_ip])}"
-    ]
+    ip_vars = ["-var", f"ssh_ips={json.dumps([devops_ip])}"]
 
     # terraform destroy
     p = subprocess.run(
@@ -342,6 +345,12 @@ def destroy_staging():
     if p.returncode != 0:
         click.echo("Error running terraform destroy")
         return
+
+
+@main.command()
+def ssh_bastion():
+    """SSH to bastion server"""
+    _ssh("", "bastion")
 
 
 @main.command()
@@ -485,102 +494,6 @@ def backup_restore_app(deploy_environment, backup_filename):
 
     # Restore the backup
     _ssh(deploy_environment, "db", cmds=["/opt/semiphemeral/restore.sh", basename])
-
-
-@main.command()
-def backup_prod_to_staging():
-    """Create backup on prod, restore it to"""
-    _, prod_db_ip, _ = _get_ips("prod")
-    _, staging_db_ip, _ = _get_ips("staging")
-
-    # Generate an ssh key on prod
-    _ssh(
-        "prod",
-        "db",
-        cmds=["rm", "/root/.ssh/id_ed25519", "/root/.ssh/id_ed25519.pub"],
-    )
-    _ssh(
-        "prod",
-        "db",
-        cmds=[
-            "ssh-keygen",
-            "-t",
-            "ed25519",
-            "-f",
-            "/root/.ssh/id_ed25519",
-            "-N",
-            "''",
-        ],
-    )
-
-    # Copy the public key to staging
-    subprocess.run(
-        [
-            "scp",
-            f"root@{prod_db_ip}:/root/.ssh/id_ed25519.pub",
-            "./backups",
-        ]
-    )
-    subprocess.run(
-        [
-            "ssh-copy-id",
-            "-f",
-            "-i",
-            "./backups/id_ed25519.pub",
-            f"root@{staging_db_ip}",
-        ]
-    )
-
-    # Save the backup on prod
-    _ssh("prod", "db", cmds=["/db/backup.sh"])
-
-    # Find the filename
-    backup_filename = (
-        _ssh(
-            "prod",
-            "db",
-            cmds=["ls", "/db/mnt/semiphemeral-*.sql.gz"],
-            check_output=True,
-        )
-        .decode()
-        .strip()
-    )
-    basename = os.path.basename(backup_filename)
-
-    # Accept the db-staging host key
-    _ssh(
-        "prod",
-        "db",
-        cmds=[
-            "ssh",
-            "-oStrictHostKeyChecking=no",
-            f"root@{staging_db_ip}:{backup_filename}",
-            "id",
-        ],
-    )
-
-    # Copy the backup from prod to staging
-    _ssh(
-        "prod",
-        "db",
-        cmds=[
-            "rsync",
-            "--progress",
-            backup_filename,
-            f"root@{staging_db_ip}:{backup_filename}",
-        ],
-    )
-
-    # Restore the backup on staging
-    _ssh("staging", "db", cmds=["/db/restore.sh", basename])
-
-    # Delete the backup from prod
-    if click.confirm("Are you ready to delete the backup on prod?"):
-        _ssh(
-            "prod",
-            "db",
-            cmds=["rm", backup_filename],
-        )
 
 
 if __name__ == "__main__":

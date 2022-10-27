@@ -4,5 +4,6 @@
   remote_user: root
   roles:
     - base
+    - extra_swap
     - docker
     - db
