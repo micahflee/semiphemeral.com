@@ -261,6 +261,16 @@ async def calculate_excluded_threads(user):
             await thread.update(should_exclude=True).apply()
 
 
+async def broken_and_cancel(user, job_details):
+    await log(
+        job_details,
+        f"Account seems broken, canceling job and pausing user",
+    )
+    await user.update(paused=True).apply()
+    await job_details.update(
+        status="canceled", finished_timestamp=datetime.now()
+    ).apply()
+
 # Fetch job
 
 
@@ -311,26 +321,13 @@ async def fetch(job_details_id, funcs):
         while True:
             try:
                 statuses = await client.api.statuses.user_timeline.get(**params)
-            except peony.exceptions.DoesNotExist:
-                await log(
-                    job_details,
-                    f"DoesNotExist, account seems deleted, canceling job and pausing user",
-                )
-                await user.update(paused=True).apply()
-                await job_details.update(
-                    status="canceled", finished_timestamp=datetime.now()
-                ).apply()
-                return
-            except peony.exceptions.HTTPUnauthorized:
-                await log(
-                    job_details,
-                    f"HTTPUnauthorized, account seems broken, canceling job and pausing user",
-                )
-                await user.update(paused=True).apply()
-
-                await job_details.update(
-                    status="canceled", finished_timestamp=datetime.now()
-                ).apply()
+            except (
+                peony.exceptions.DoesNotExist,
+                peony.exceptions.HTTPUnauthorized,
+                peony.exceptions.InvalidOrExpiredToken,
+                peony.exceptions.AccountLocked,
+            ):
+                await broken_and_cancel(user, job_details)
                 return
 
             if len(statuses) == 0:
@@ -403,15 +400,13 @@ async def fetch(job_details_id, funcs):
         while True:
             try:
                 statuses = await client.api.favorites.list.get(**params)
-            except peony.exceptions.HTTPUnauthorized:
-                await log(
-                    job_details,
-                    f"HTTPUnauthorized, account seems broken, canceling job and pausing user",
-                )
-                await user.update(paused=True).apply()
-                await job_details.update(
-                    status="canceled", finished_timestamp=datetime.now()
-                ).apply()
+            except (
+                peony.exceptions.DoesNotExist,
+                peony.exceptions.HTTPUnauthorized,
+                peony.exceptions.InvalidOrExpiredToken,
+                peony.exceptions.AccountLocked,
+            ):
+                await broken_and_cancel(user, job_details)
                 return
 
             if len(statuses) == 0:
