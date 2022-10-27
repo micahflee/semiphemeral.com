@@ -18,7 +18,7 @@
         "postgres_password": "blahblah-something-random",
         "postgres_db": "semiphemeral"
     },
-    "production": {
+    "prod": {
         "domain": "semiphemeral.com",
         "twitter_consumer_token": "put_consumer_token_here (must have read, write permissions)",
         "twitter_consumer_secret": "put_consumer_token_secret_here",

@@ -13,6 +13,7 @@
     packages:
       - unattended-upgrades
       - byobu
+      - fail2ban
 
 - name: ensure unattended-upgrades is configured
   shell: |
@@ -25,40 +26,13 @@
     state: started
     enabled: yes
 
+- name: ensure fail2ban is enabled
+  systemd:
+    name: fail2ban
+    state: started
+    enabled: yes
+
 - name: ensure /root/.vimrc is there
   copy:
     src: "../templates/root/.vimrc"
     dest: /root/.vimrc
-
-- name: check if swap file exists
-  stat:
-    path: /swapfile
-  register: swapfile
-
-- name: create 16GB swapfile
-  shell: fallocate -l 16G /swapfile
-  when: swapfile.stat.exists == false
-
-- name: ensure swapfile has the right permissions
-  file:
-    path: /swapfile
-    owner: "root"
-    group: "root"
-    mode: "0600"
-
-- name: check if swapfile is formatted
-  shell: file /swapfile | grep "swap file (new style)"
-  ignore_errors: yes
-  register: file_swapfile
-
-- name: format swapfile
-  shell: mkswap /swapfile
-  when: file_swapfile.rc != 0
-
-- name: ensure /etc/fstab has the swap file
-  copy:
-    src: "../templates/etc/fstab"
-    dest: /etc/fstab
-
-- name: make sure swap is on
-  shell: swapon --all

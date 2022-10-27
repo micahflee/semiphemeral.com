@@ -25,7 +25,7 @@ from sqlalchemy.sql import text
 from asyncpg.exceptions import ForeignKeyViolationError
 
 import redis
-from rq import Queue
+from rq import Queue, Retry
 
 conn = redis.from_url(os.environ.get("REDIS_URL"))
 jobs_q = Queue("jobs", connection=conn)
@@ -261,6 +261,17 @@ async def calculate_excluded_threads(user):
             await thread.update(should_exclude=True).apply()
 
 
+async def broken_and_cancel(user, job_details):
+    await log(
+        job_details,
+        f"Account seems broken, canceling job and pausing user",
+    )
+    await user.update(paused=True).apply()
+    await job_details.update(
+        status="canceled", finished_timestamp=datetime.now()
+    ).apply()
+
+
 # Fetch job
 
 
@@ -311,26 +322,13 @@ async def fetch(job_details_id, funcs):
         while True:
             try:
                 statuses = await client.api.statuses.user_timeline.get(**params)
-            except peony.exceptions.DoesNotExist:
-                await log(
-                    job_details,
-                    f"DoesNotExist, account seems deleted, canceling job and pausing user",
-                )
-                await user.update(paused=True).apply()
-                await job_details.update(
-                    status="canceled", finished_timestamp=datetime.now()
-                ).apply()
-                return
-            except peony.exceptions.HTTPUnauthorized:
-                await log(
-                    job_details,
-                    f"HTTPUnauthorized, account seems broken, canceling job and pausing user",
-                )
-                await user.update(paused=True).apply()
-
-                await job_details.update(
-                    status="canceled", finished_timestamp=datetime.now()
-                ).apply()
+            except (
+                peony.exceptions.DoesNotExist,
+                peony.exceptions.HTTPUnauthorized,
+                peony.exceptions.InvalidOrExpiredToken,
+                peony.exceptions.AccountLocked,
+            ):
+                await broken_and_cancel(user, job_details)
                 return
 
             if len(statuses) == 0:
@@ -353,13 +351,14 @@ async def fetch(job_details_id, funcs):
             for status in statuses:
                 if status.in_reply_to_status_id:
                     status_ids = await calculate_thread(user, status.id_str)
-                    root_status_id = status_ids[0]
-                    if root_status_id in threads:
-                        for status_id in status_ids:
-                            if status_id not in threads[root_status_id]:
-                                threads[root_status_id].append(status_id)
-                    else:
-                        threads[root_status_id] = status_ids
+                    if len(status_ids) > 0:
+                        root_status_id = status_ids[0]
+                        if root_status_id in threads:
+                            for status_id in status_ids:
+                                if status_id not in threads[root_status_id]:
+                                    threads[root_status_id].append(status_id)
+                        else:
+                            threads[root_status_id] = status_ids
 
             # For each thread, does this thread already exist, or do we create a new one?
             for root_status_id in threads:
@@ -403,15 +402,13 @@ async def fetch(job_details_id, funcs):
         while True:
             try:
                 statuses = await client.api.favorites.list.get(**params)
-            except peony.exceptions.HTTPUnauthorized:
-                await log(
-                    job_details,
-                    f"HTTPUnauthorized, account seems broken, canceling job and pausing user",
-                )
-                await user.update(paused=True).apply()
-                await job_details.update(
-                    status="canceled", finished_timestamp=datetime.now()
-                ).apply()
+            except (
+                peony.exceptions.DoesNotExist,
+                peony.exceptions.HTTPUnauthorized,
+                peony.exceptions.InvalidOrExpiredToken,
+                peony.exceptions.AccountLocked,
+            ):
+                await broken_and_cancel(user, job_details)
                 return
 
             if len(statuses) == 0:
@@ -478,7 +475,11 @@ async def fetch(job_details_id, funcs):
                 {"twitter_username": user.twitter_screen_name, "user_id": user.id}
             ),
         )
-        redis_job = jobs_q.enqueue(funcs["block"], new_job_details.id)
+        redis_job = jobs_q.enqueue(
+            funcs["block"],
+            new_job_details.id,
+            retry=Retry(max=3, interval=[60, 120, 240]),
+        )
         await new_job_details.update(redis_id=redis_job.id).apply()
 
         # Don't send any DMs
@@ -508,7 +509,9 @@ async def fetch(job_details_id, funcs):
                 }
             ),
         )
-        redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        redis_job = dm_jobs_high_q.enqueue(
+            funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
+        )
         await new_job_details.update(redis_id=redis_job.id).apply()
 
     await job_details.update(
@@ -779,7 +782,9 @@ async def delete(job_details_id, funcs):
                 }
             ),
         )
-        redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        redis_job = dm_jobs_high_q.enqueue(
+            funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
+        )
         await new_job_details.update(redis_id=redis_job.id).apply()
 
         message = f"Semiphemeral is free, but running this service costs money. Care to chip in?\n\nIf you tip any amount, even just $1, I will stop nagging you for a year. Otherwise, I'll gently remind you once a month.\n\n(It's fine if you want to ignore these DMs. I won't care. I'm a bot, so I don't have feelings).\n\nVisit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
@@ -793,7 +798,9 @@ async def delete(job_details_id, funcs):
                 }
             ),
         )
-        redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        redis_job = dm_jobs_high_q.enqueue(
+            funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
+        )
         await new_job_details.update(redis_id=redis_job.id).apply()
 
     else:
@@ -873,7 +880,11 @@ async def delete(job_details_id, funcs):
                     }
                 ),
             )
-            redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+            redis_job = dm_jobs_high_q.enqueue(
+                funcs["dm"],
+                new_job_details.id,
+                retry=Retry(max=3, interval=[60, 120, 240]),
+            )
             await new_job_details.update(redis_id=redis_job.id).apply()
 
 
@@ -1025,7 +1036,9 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
             }
         ),
     )
-    redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+    redis_job = dm_jobs_high_q.enqueue(
+        funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
+    )
     await new_job_details.update(redis_id=redis_job.id).apply()
 
     await job_details.update(
@@ -1105,7 +1118,11 @@ async def block(job_details_id, funcs):
                         }
                     ),
                 )
-                redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+                redis_job = dm_jobs_high_q.enqueue(
+                    funcs["dm"],
+                    new_job_details.id,
+                    retry=Retry(max=3, interval=[60, 120, 240]),
+                )
                 await new_job_details.update(redis_id=redis_job.id).apply()
 
                 # Wait 65 seconds before blocking, to ensure they receive the DM
@@ -1127,7 +1144,10 @@ async def block(job_details_id, funcs):
                 await new_job_details.update(redis_id=redis_job.id).apply()
 
         # Block the user
-        await client.api.blocks.create.post(screen_name=data["twitter_username"])
+        try:
+            await client.api.blocks.create.post(screen_name=data["twitter_username"])
+        except peony.exceptions.UserNotFound:
+            await log(job_details, f"UserNotFound: @{data['twitter_username']}")
 
     # Finished
     await job_details.update(
@@ -1151,10 +1171,19 @@ async def unblock(job_details_id, funcs):
 
     async with SemiphemeralAppPeonyClient() as client:
         # Are they already unblocked?
-        friendship = await client.api.friendships.show.get(
-            source_screen_name="semiphemeral",
-            target_screen_name=data["twitter_username"],
-        )
+        try:
+            friendship = await client.api.friendships.show.get(
+                source_screen_name="semiphemeral",
+                target_screen_name=data["twitter_username"],
+            )
+        except peony.exceptions.UserNotFound:
+            # User doesn't exist, so our work here is done
+            await job_details.update(
+                status="finished", finished_timestamp=datetime.now()
+            ).apply()
+            await log(job_details, f"UserNotFound @{data['twitter_username']}")
+            return
+
         if not friendship["relationship"]["source"]["blocking"]:
             # Update the user
             user = await User.query.where(User.id == job_details.user_id).gino.first()
