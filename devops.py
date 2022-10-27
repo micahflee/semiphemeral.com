@@ -209,6 +209,9 @@ def _get_ips(deploy_environment):
 
 
 def _write_ansible_inventory(deploy_environment):
+    terraform_output = _get_terraform_output("prod")
+    bastion_ip = terraform_output["bastion_ip"]
+
     app_ip, app_private_ip, db_ip, db_private_ip = _get_ips(deploy_environment)
     if not app_ip or not db_ip:
         return
@@ -220,13 +223,16 @@ def _write_ansible_inventory(deploy_environment):
     with open(inventory_filename, "w") as f:
         f.write("[app]\n")
         f.write(f"{app_ip}\n")
+        f.write("[app:vars]\n")
+        f.write(f"ansible_ssh_common_args='-J root@{bastion_ip}'\n")
         f.write("\n")
         f.write("[db]\n")
         f.write(f"{db_ip}\n")
+        f.write("[db:vars]\n")
+        f.write(f"ansible_ssh_common_args='-J root@{bastion_ip}'\n")
+        f.write("\n")
 
         if deploy_environment == "prod":
-            terraform_output = _get_terraform_output("prod")
-            bastion_ip = terraform_output["bastion_ip"]
             f.write("[bastion]\n")
             f.write(f"{bastion_ip}\n")
 
