@@ -18,10 +18,27 @@ provider "digitalocean" {
   token = var.do_token
 }
 
+# networking
+
 resource "digitalocean_vpc" "semiphemeral" {
   name   = "semiphemeral-${var.deploy_environment}"
   region = "nyc1"
 }
+
+# bastion
+
+resource "digitalocean_droplet" "bastion" {
+  name          = "bastion"
+  image         = "ubuntu-22-04-x64"
+  region        = "nyc1"
+  size          = "s-1vcpu-512mb"
+  vpc_uuid      = digitalocean_vpc.semiphemeral.id
+  monitoring    = true
+  droplet_agent = true
+  ssh_keys      = [var.ssh_fingerprint]
+}
+
+# app
 
 resource "digitalocean_droplet" "app" {
   name          = "app-${var.deploy_environment}"
@@ -96,6 +113,8 @@ resource "digitalocean_firewall" "app" {
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 }
+
+# db
 
 resource "digitalocean_droplet" "db" {
   name          = "db-${var.deploy_environment}"
@@ -178,6 +197,8 @@ resource "digitalocean_firewall" "db" {
   }
 }
 
+# DNS
+
 resource "digitalocean_domain" "domain" {
   name       = var.domain
   ip_address = digitalocean_droplet.app.ipv4_address
@@ -215,6 +236,8 @@ resource "digitalocean_record" "helm_cname" {
   value  = "mail._domainkey.hush.blue."
   ttl    = "3600"
 }
+
+# output
 
 output "app_ip" {
   value = digitalocean_droplet.app.ipv4_address

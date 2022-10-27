@@ -17,8 +17,8 @@ with warnings.catch_warnings():
 
 
 def _validate_env(deploy_environment):
-    if deploy_environment != "staging" and deploy_environment != "production":
-        click.echo("The environment must be either 'staging' or 'production'")
+    if deploy_environment != "staging" and deploy_environment != "prod":
+        click.echo("The environment must be either 'staging' or 'prod'")
         return False
     return True
 
@@ -92,7 +92,7 @@ def _get_devops_ip():
     return devops_ip
 
 
-def _terraform_apply(deploy_environment, ssh_ips, inbound_ips):
+def _terraform_apply(deploy_environment, ssh_ips):
     cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
 
     # terraform init
@@ -106,9 +106,7 @@ def _terraform_apply(deploy_environment, ssh_ips, inbound_ips):
         "terraform",
         "apply",
         "-var",
-        f"ssh_ips={json.dumps(ssh_ips)}",
-        "-var",
-        f"inbound_ips={json.dumps(inbound_ips)}",
+        f"ssh_ips={json.dumps(ssh_ips)}"
     ] + _terraform_variables(deploy_environment)
     print(cmd)
     p = subprocess.run(
@@ -315,11 +313,11 @@ def terraform(deploy_environment, open_firewall):
 
     devops_ip = _get_devops_ip()
 
-    if open_firewall or deploy_environment == "production":
-        _terraform_apply(deploy_environment, [devops_ip], ["0.0.0.0/0", "::/0"])
+    if open_firewall or deploy_environment == "prod":
+        _terraform_apply(deploy_environment, [devops_ip])
     else:
         _terraform_apply(
-            deploy_environment, ["0.0.0.0/0", "::/0"], ["0.0.0.0/0", "::/0"]
+            deploy_environment, ["0.0.0.0/0", "::/0"]
         )
 
 
@@ -333,9 +331,7 @@ def destroy_staging():
 
     ip_vars = [
         "-var",
-        f"ssh_ips={json.dumps([devops_ip])}",
-        "-var",
-        f"inbound_ips={json.dumps([devops_ip])}",
+        f"ssh_ips={json.dumps([devops_ip])}"
     ]
 
     # terraform destroy
@@ -494,17 +490,17 @@ def backup_restore_app(deploy_environment, backup_filename):
 @main.command()
 def backup_prod_to_staging():
     """Create backup on prod, restore it to"""
-    _, production_db_ip, _ = _get_ips("production")
+    _, prod_db_ip, _ = _get_ips("prod")
     _, staging_db_ip, _ = _get_ips("staging")
 
     # Generate an ssh key on prod
     _ssh(
-        "production",
+        "prod",
         "db",
         cmds=["rm", "/root/.ssh/id_ed25519", "/root/.ssh/id_ed25519.pub"],
     )
     _ssh(
-        "production",
+        "prod",
         "db",
         cmds=[
             "ssh-keygen",
@@ -521,7 +517,7 @@ def backup_prod_to_staging():
     subprocess.run(
         [
             "scp",
-            f"root@{production_db_ip}:/root/.ssh/id_ed25519.pub",
+            f"root@{prod_db_ip}:/root/.ssh/id_ed25519.pub",
             "./backups",
         ]
     )
@@ -535,13 +531,13 @@ def backup_prod_to_staging():
         ]
     )
 
-    # Save the backup on production
-    _ssh("production", "db", cmds=["/db/backup.sh"])
+    # Save the backup on prod
+    _ssh("prod", "db", cmds=["/db/backup.sh"])
 
     # Find the filename
     backup_filename = (
         _ssh(
-            "production",
+            "prod",
             "db",
             cmds=["ls", "/db/mnt/semiphemeral-*.sql.gz"],
             check_output=True,
@@ -553,7 +549,7 @@ def backup_prod_to_staging():
 
     # Accept the db-staging host key
     _ssh(
-        "production",
+        "prod",
         "db",
         cmds=[
             "ssh",
@@ -563,9 +559,9 @@ def backup_prod_to_staging():
         ],
     )
 
-    # Copy the backup from production to staging
+    # Copy the backup from prod to staging
     _ssh(
-        "production",
+        "prod",
         "db",
         cmds=[
             "rsync",
@@ -578,10 +574,10 @@ def backup_prod_to_staging():
     # Restore the backup on staging
     _ssh("staging", "db", cmds=["/db/restore.sh", basename])
 
-    # Delete the backup from production
-    if click.confirm("Are you ready to delete the backup on production?"):
+    # Delete the backup from prod
+    if click.confirm("Are you ready to delete the backup on prod?"):
         _ssh(
-            "production",
+            "prod",
             "db",
             cmds=["rm", backup_filename],
         )
