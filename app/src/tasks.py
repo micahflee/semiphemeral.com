@@ -455,11 +455,8 @@ async def _onetime_2022_10_fix_stalled_users():
                     pass
                 await job.update(status="canceled").apply()
 
-            # Pause, and force semiphemeral to download all tweets
-            await user.update(paused=True, since_id=None).apply()
-
-            # Start semiphemeral
-            await user.update(paused=False).apply()
+            # Force downloading all tweets
+            await user.update(since_id=None).apply()
 
             # Create a new delete job
             job_details = await JobDetails.create(
