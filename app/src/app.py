@@ -41,7 +41,7 @@ import worker_jobs
 import redis
 import rq
 from rq import Queue
-from rq.job import Job as RQJob
+from rq.job import Job as RQJob, RQRetry
 from rq.registry import FailedJobRegistry
 
 print(f"Connecting to redis at: {os.environ.get('REDIS_URL')}")
@@ -253,7 +253,12 @@ async def auth_twitter_callback(request):
             job_type="fetch",
             user_id=user.id,
         )
-        redis_job = jobs_q.enqueue(worker_jobs.fetch, job_details.id, job_timeout="24h")
+        redis_job = jobs_q.enqueue(
+            worker_jobs.fetch,
+            job_details.id,
+            job_timeout="24h",
+            retry=RQRetry(max=3, interval=[60, 120, 240]),
+        )
         await job_details.update(redis_id=redis_job.id).apply()
     else:
         # Make sure to update the user's twitter access token and secret
@@ -1109,7 +1114,11 @@ async def api_post_dashboard(request):
                     job_type="unblock",
                     data=json.dumps({"twitter_username": user.twitter_screen_name}),
                 )
-                redis_job = jobs_q.enqueue(worker_jobs.unblock, job_details.id)
+                redis_job = jobs_q.enqueue(
+                    worker_jobs.unblock,
+                    job_details.id,
+                    retry=RQRetry(max=3, interval=[60, 120, 240]),
+                )
                 await job_details.update(redis_id=redis_job.id).apply()
                 return web.json_response(
                     {"message": "You should be unblocked in the next few minutes"}
@@ -1150,7 +1159,10 @@ async def api_post_dashboard(request):
                 user_id=user.id,
             )
             redis_job = jobs_q.enqueue(
-                worker_jobs.fetch, job_details.id, job_timeout="24h"
+                worker_jobs.fetch,
+                job_details.id,
+                job_timeout="24h",
+                retry=RQRetry(max=3, interval=[60, 120, 240]),
             )
             await job_details.update(redis_id=redis_job.id).apply()
 
@@ -1189,7 +1201,10 @@ async def api_post_dashboard(request):
                 user_id=user.id,
             )
             redis_job = jobs_q.enqueue(
-                worker_jobs.delete, job_details.id, job_timeout="24h"
+                worker_jobs.delete,
+                job_details.id,
+                job_timeout="24h",
+                retry=RQRetry(max=3, interval=[60, 120, 240]),
             )
             await job_details.update(redis_id=redis_job.id).apply()
 
@@ -1229,7 +1244,10 @@ async def api_post_dashboard(request):
                 user_id=user.id,
             )
             redis_job = jobs_q.enqueue(
-                worker_jobs.fetch, job_details.id, job_timeout="24h"
+                worker_jobs.fetch,
+                job_details.id,
+                job_timeout="24h",
+                retry=RQRetry(max=3, interval=[60, 120, 240]),
             )
             await job_details.update(redis_id=redis_job.id).apply()
 
@@ -1442,12 +1460,18 @@ async def api_post_dms(request):
     )
     if dm_type == "dms":
         redis_job = jobs_q.enqueue(
-            worker_jobs.delete_dms, job_details.id, job_timeout="24h"
+            worker_jobs.delete_dms,
+            job_details.id,
+            job_timeout="24h",
+            retry=RQRetry(max=3, interval=[60, 120, 240]),
         )
         await job_details.update(redis_id=redis_job.id).apply()
     elif dm_type == "groups":
         redis_job = jobs_q.enqueue(
-            worker_jobs.delete_dm_groups, job_details.id, job_timeout="24h"
+            worker_jobs.delete_dm_groups,
+            job_details.id,
+            job_timeout="24h",
+            retry=RQRetry(max=3, interval=[60, 120, 240]),
         )
         await job_details.update(redis_id=redis_job.id).apply()
 
@@ -1711,7 +1735,11 @@ async def admin_api_post_fascists(request):
         job_details = await JobDetails.create(
             job_type="block", data=json.dumps({"twitter_username": data["username"]})
         )
-        redis_job = jobs_q.enqueue(worker_jobs.block, job_details.id)
+        redis_job = jobs_q.enqueue(
+            worker_jobs.block,
+            job_details.id,
+            retry=RQRetry(max=3, interval=[60, 120, 240]),
+        )
         await job_details.update(redis_id=redis_job.id).apply()
 
         return web.json_response(True)
@@ -1820,26 +1848,50 @@ async def main():
     for job_details in active_jobs:
         if job_details.job_type == "fetch":
             redis_job = jobs_q.enqueue(
-                worker_jobs.fetch, job_details.id, job_timeout="24h"
+                worker_jobs.fetch,
+                job_details.id,
+                job_timeout="24h",
+                retry=RQRetry(max=3, interval=[60, 120, 240]),
             )
         elif job_details.job_type == "delete":
             redis_job = jobs_q.enqueue(
-                worker_jobs.delete, job_details.id, job_timeout="24h"
+                worker_jobs.delete,
+                job_details.id,
+                job_timeout="24h",
+                retry=RQRetry(max=3, interval=[60, 120, 240]),
             )
         elif job_details.job_type == "delete_dms":
             redis_job = jobs_q.enqueue(
-                worker_jobs.delete_dms, job_details.id, job_timeout="24h"
+                worker_jobs.delete_dms,
+                job_details.id,
+                job_timeout="24h",
+                retry=RQRetry(max=3, interval=[60, 120, 240]),
             )
         elif job_details.job_type == "delete_dm_groups":
             redis_job = jobs_q.enqueue(
-                worker_jobs.delete_dm_groups, job_details.id, job_timeout="24h"
+                worker_jobs.delete_dm_groups,
+                job_details.id,
+                job_timeout="24h",
+                retry=RQRetry(max=3, interval=[60, 120, 240]),
             )
         elif job_details.job_type == "block":
-            redis_job = jobs_q.enqueue(worker_jobs.block, job_details.id)
+            redis_job = jobs_q.enqueue(
+                worker_jobs.block,
+                job_details.id,
+                retry=RQRetry(max=3, interval=[60, 120, 240]),
+            )
         elif job_details.job_type == "unblock":
-            redis_job = jobs_q.enqueue(worker_jobs.unblock, job_details.id)
+            redis_job = jobs_q.enqueue(
+                worker_jobs.unblock,
+                job_details.id,
+                retry=RQRetry(max=3, interval=[60, 120, 240]),
+            )
         elif job_details.job_type == "dm":
-            redis_job = dm_jobs_high_q.enqueue(worker_jobs.dm, job_details.id)
+            redis_job = dm_jobs_high_q.enqueue(
+                worker_jobs.dm,
+                job_details.id,
+                retry=RQRetry(max=3, interval=[60, 120, 240]),
+            )
         await job_details.update(status="pending", redis_id=redis_job.id).apply()
 
     # Init stripe

@@ -25,7 +25,7 @@ from sqlalchemy.sql import text
 from asyncpg.exceptions import ForeignKeyViolationError
 
 import redis
-from rq import Queue
+from rq import Queue, Retry
 
 conn = redis.from_url(os.environ.get("REDIS_URL"))
 jobs_q = Queue("jobs", connection=conn)
@@ -478,7 +478,11 @@ async def fetch(job_details_id, funcs):
                 {"twitter_username": user.twitter_screen_name, "user_id": user.id}
             ),
         )
-        redis_job = jobs_q.enqueue(funcs["block"], new_job_details.id)
+        redis_job = jobs_q.enqueue(
+            funcs["block"],
+            new_job_details.id,
+            retry=Retry(max=3, interval=[60, 120, 240]),
+        )
         await new_job_details.update(redis_id=redis_job.id).apply()
 
         # Don't send any DMs
@@ -508,7 +512,9 @@ async def fetch(job_details_id, funcs):
                 }
             ),
         )
-        redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        redis_job = dm_jobs_high_q.enqueue(
+            funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
+        )
         await new_job_details.update(redis_id=redis_job.id).apply()
 
     await job_details.update(
@@ -779,7 +785,9 @@ async def delete(job_details_id, funcs):
                 }
             ),
         )
-        redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        redis_job = dm_jobs_high_q.enqueue(
+            funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
+        )
         await new_job_details.update(redis_id=redis_job.id).apply()
 
         message = f"Semiphemeral is free, but running this service costs money. Care to chip in?\n\nIf you tip any amount, even just $1, I will stop nagging you for a year. Otherwise, I'll gently remind you once a month.\n\n(It's fine if you want to ignore these DMs. I won't care. I'm a bot, so I don't have feelings).\n\nVisit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
@@ -793,7 +801,9 @@ async def delete(job_details_id, funcs):
                 }
             ),
         )
-        redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+        redis_job = dm_jobs_high_q.enqueue(
+            funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
+        )
         await new_job_details.update(redis_id=redis_job.id).apply()
 
     else:
@@ -873,7 +883,11 @@ async def delete(job_details_id, funcs):
                     }
                 ),
             )
-            redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+            redis_job = dm_jobs_high_q.enqueue(
+                funcs["dm"],
+                new_job_details.id,
+                retry=Retry(max=3, interval=[60, 120, 240]),
+            )
             await new_job_details.update(redis_id=redis_job.id).apply()
 
 
@@ -1025,7 +1039,9 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
             }
         ),
     )
-    redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+    redis_job = dm_jobs_high_q.enqueue(
+        funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
+    )
     await new_job_details.update(redis_id=redis_job.id).apply()
 
     await job_details.update(
@@ -1105,7 +1121,11 @@ async def block(job_details_id, funcs):
                         }
                     ),
                 )
-                redis_job = dm_jobs_high_q.enqueue(funcs["dm"], new_job_details.id)
+                redis_job = dm_jobs_high_q.enqueue(
+                    funcs["dm"],
+                    new_job_details.id,
+                    retry=Retry(max=3, interval=[60, 120, 240]),
+                )
                 await new_job_details.update(redis_id=redis_job.id).apply()
 
                 # Wait 65 seconds before blocking, to ensure they receive the DM
