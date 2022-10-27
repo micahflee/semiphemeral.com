@@ -140,10 +140,16 @@ def _ssh(deploy_environment, server, args=None, check_output=False, cmds=None):
     if not app_ip or not db_ip:
         return
 
-    if server == "app":
-        ip = app_private_ip
-    elif server == "db":
-        ip = db_private_ip
+    if deploy_environment == "prod":
+        if server == "app":
+            ip = app_private_ip
+        elif server == "db":
+            ip = db_private_ip
+    elif deploy_environment == "staging":
+        if server == "app":
+            ip = app_ip
+        elif server == "db":
+            ip = db_ip
 
     if not args:
         args = []
