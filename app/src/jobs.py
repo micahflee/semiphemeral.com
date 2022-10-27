@@ -271,6 +271,7 @@ async def broken_and_cancel(user, job_details):
         status="canceled", finished_timestamp=datetime.now()
     ).apply()
 
+
 # Fetch job
 
 

@@ -22,6 +22,7 @@ jobs_q = Queue("jobs", connection=conn)
 dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
 dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
 
+
 async def _send_reminders():
     gino_db = await connect_db()
 
@@ -401,9 +402,10 @@ async def _onetime_2022_05_add_all_jobs():
 
     print()
 
+
 async def _onetime_2022_10_fix_stalled_users():
     await connect_db()
-    
+
     one_week_ago = datetime.now() - timedelta(days=7)
 
     # Find all the active users
@@ -429,10 +431,12 @@ async def _onetime_2022_10_fix_stalled_users():
                 is_stale = True
         else:
             is_stale = True
-        
+
         # If the user is stale, fix their account
         if is_stale:
-            print(f"[{i:,}/{count:,}, fixed {users_fixed:,}] user @{user.twitter_screen_name} is stale, fixing ...")
+            print(
+                f"[{i:,}/{count:,}, fixed {users_fixed:,}] user @{user.twitter_screen_name} is stale, fixing ..."
+            )
             # Cancel the pending and active jobs
             pending_jobs = (
                 await JobDetails.query.where(JobDetails.user_id == user.id)
@@ -468,7 +472,9 @@ async def _onetime_2022_10_fix_stalled_users():
             )
             await job_details.update(redis_id=redis_job.id).apply()
 
-    print()
+            users_fixed += 1
+
+        i += 1
 
 
 @click.group()
@@ -536,12 +542,14 @@ def onetime_2022_05_add_redis_jobs():
 def onetime_2022_05_add_all_jobs():
     asyncio.run(_onetime_2022_05_add_all_jobs())
 
+
 @main.command(
     "2022-10-fix-stalled-users",
     short_help="Pause and restart users that are stalled",
 )
 def onetime_2022_10_fix_stalled_users():
     asyncio.run(_onetime_2022_10_fix_stalled_users())
+
 
 if __name__ == "__main__":
     main()
