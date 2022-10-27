@@ -1,11 +1,7 @@
-# fingerprint of SSH key to add to new droplet
+variable "do_token" {}
 variable "ssh_fingerprint" {}
-
-# for DNS records
 variable "domain" {}
 
-# DigitalOcean token
-variable "do_token" {}
 provider "digitalocean" {
   token = var.do_token
 }

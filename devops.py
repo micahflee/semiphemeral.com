@@ -67,7 +67,7 @@ def _get_root_dir():
     return os.path.dirname(os.path.realpath(__file__))
 
 
-def _terraform_apply(deploy_environment):
+def _terraform_apply(deploy_environment, extra_vars=None):
     cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
 
     # terraform init
@@ -76,11 +76,22 @@ def _terraform_apply(deploy_environment):
         click.echo("Error running terraform init")
         return
 
+    # format extra_vars
+    terraform_vars = []
+    if extra_vars:
+        for key in extra_vars:
+            terraform_vars.append("-var")
+            terraform_vars.append(f"{key}={extra_vars[key]}")
+
     # terraform apply
-    cmd = [
-        "terraform",
-        "apply",
-    ] + _terraform_variables(deploy_environment)
+    cmd = (
+        [
+            "terraform",
+            "apply",
+        ]
+        + _terraform_variables(deploy_environment)
+        + terraform_vars
+    )
     print(cmd)
     p = subprocess.run(
         cmd,
@@ -310,20 +321,99 @@ def terraform(deploy_environment, open_firewall):
 
 
 @main.command()
-def destroy_staging():
-    """Destroy staging infrastructure"""
-    deploy_environment = "staging"
+def staging_create():
+    """Create staging infrastructure"""
+    snapshot_name = "backup-for-staging"
 
-    cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
+    # Save a snapshot of db-production
+    print("creating db-production snapshot")
+    volumes = json.loads(
+        subprocess.check_output(
+            ["doctl", "compute", "volume", "list", "--output", "json"]
+        )
+    )
+    volume_id = None
+    for volume in volumes:
+        if volume["name"] == "db-production":
+            volume_id = volume["id"]
+            break
+
+    if not volume_id:
+        print("volume with name 'db-production' not found")
+        return
+    subprocess.run(
+        [
+            "doctl",
+            "compute",
+            "volume",
+            "snapshot",
+            volume_id,
+            "--snapshot-name",
+            snapshot_name,
+        ]
+    )
+
+    # Get the snapshot_id
+    snapshots = json.loads(
+        subprocess.check_output(
+            ["doctl", "compute", "snapshot", "list", "--output", "json"]
+        )
+    )
+    snapshot_id = None
+    for snapshot in snapshots:
+        if snapshot["name"] == snapshot_name:
+            snapshot_id = snapshot["id"]
+            break
+
+    if not snapshot_id:
+        print("snapshot not found, weird ...")
+        return
+
+    # Get the bastion IP
+    terraform_output = _get_terraform_output("prod")
+    bastion_ip = terraform_output["bastion_ip"]
+
+    # Terraform apply staging
+    _terraform_apply(
+        "staging", {"db_volume_snapshot_id": snapshot_id, "bastion_ip": bastion_ip}
+    )
+
+    # Delete snapshot
+    print("deleting db-production snapshot")
+    subprocess.run(["doctl", "compute", "snapshot", "delete", "--force", snapshot_id])
+
+
+@main.command()
+def staging_destroy():
+    """Destroy staging infrastructure"""
+    cwd = os.path.join(_get_root_dir(), "terraform/staging")
+
+    # format extra_vars
+    terraform_output = _get_terraform_output("prod")
+    bastion_ip = terraform_output["bastion_ip"]
+    terraform_vars = [
+        "-var",
+        f"bastion_ip={terraform_output['bastion_ip']}",
+        "-var",
+        f"db_volume_snapshot_id={terraform_output['db_volume_snapshot_id']}",
+    ]
 
     # terraform destroy
+    cmd = (
+        [
+            "terraform",
+            "destroy",
+        ]
+        + _terraform_variables("staging")
+        + terraform_vars
+    )
+    print(cmd)
     p = subprocess.run(
-        ["terraform", "destroy"] + _terraform_variables(deploy_environment) + ip_vars,
+        cmd,
         cwd=cwd,
     )
     if p.returncode != 0:
         click.echo("Error running terraform destroy")
-        return
 
 
 @main.command()
