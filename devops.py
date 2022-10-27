@@ -7,8 +7,6 @@ import tempfile
 import tarfile
 import json
 import pipes
-import socket
-import random
 import warnings
 
 with warnings.catch_warnings():
@@ -69,17 +67,7 @@ def _get_root_dir():
     return os.path.dirname(os.path.realpath(__file__))
 
 
-def _get_devops_ip():
-    # get the current IP address
-    r = requests.get("https://ifconfig.co/ip")
-    if r.status_code != 200:
-        click.echo("Error loading https://ifconfig.co/ip")
-        return
-    devops_ip = r.text.strip()
-    return devops_ip
-
-
-def _terraform_apply(deploy_environment, ssh_ips):
+def _terraform_apply(deploy_environment):
     cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
 
     # terraform init
@@ -92,8 +80,6 @@ def _terraform_apply(deploy_environment, ssh_ips):
     cmd = [
         "terraform",
         "apply",
-        "-var",
-        f"ssh_ips={json.dumps(ssh_ips)}",
     ] + _terraform_variables(deploy_environment)
     print(cmd)
     p = subprocess.run(
@@ -136,22 +122,21 @@ def _ansible_apply(deploy_environment, playbook, extra_args=[]):
 
 
 def _ssh(deploy_environment, server, args=None, check_output=False, cmds=None):
-    if server == "bastion":
-        terraform_output = _get_terraform_output("prod")
-        ip = terraform_output["bastion_ip"]
-    else:
-        app_ip, db_ip, _ = _get_ips(deploy_environment)
-        if not app_ip or not db_ip:
-            return
+    terraform_output = _get_terraform_output("prod")
+    bastion_ip = terraform_output["bastion_ip"]
 
-        if server == "app":
-            ip = app_ip
-        elif server == "db":
-            ip = db_ip
+    app_ip, app_private_ip, db_ip, db_private_ip = _get_ips(deploy_environment)
+    if not app_ip or not db_ip:
+        return
+
+    if server == "app":
+        ip = app_private_ip
+    elif server == "db":
+        ip = db_private_ip
 
     if not args:
         args = []
-    args = ["ssh"] + args + [f"root@{ip}"]
+    args = ["ssh", "-J", f"root@{bastion_ip}"] + args + [f"root@{ip}"]
 
     if not cmds:
         cmds = []
@@ -191,6 +176,7 @@ def _get_ips(deploy_environment):
     terraform_output = _get_terraform_output(deploy_environment)
     if (
         ("app_ip" not in terraform_output)
+        or ("app_private_ip" not in terraform_output)
         or ("db_ip" not in terraform_output)
         or ("db_private_ip" not in terraform_output)
     ):
@@ -199,13 +185,14 @@ def _get_ips(deploy_environment):
 
     return (
         terraform_output["app_ip"],
+        terraform_output["app_private_ip"],
         terraform_output["db_ip"],
         terraform_output["db_private_ip"],
     )
 
 
 def _write_ansible_inventory(deploy_environment):
-    app_ip, db_ip, _ = _get_ips(deploy_environment)
+    app_ip, app_private_ip, db_ip, db_private_ip = _get_ips(deploy_environment)
     if not app_ip or not db_ip:
         return
 
@@ -319,12 +306,7 @@ def terraform(deploy_environment, open_firewall):
     if not _validate_env(deploy_environment):
         return
 
-    devops_ip = _get_devops_ip()
-
-    if open_firewall or deploy_environment == "prod":
-        _terraform_apply(deploy_environment, [devops_ip])
-    else:
-        _terraform_apply(deploy_environment, ["0.0.0.0/0", "::/0"])
+    _terraform_apply(deploy_environment)
 
 
 @main.command()
@@ -333,9 +315,6 @@ def destroy_staging():
     deploy_environment = "staging"
 
     cwd = os.path.join(_get_root_dir(), f"terraform/{deploy_environment}")
-    devops_ip = _get_devops_ip()
-
-    ip_vars = ["-var", f"ssh_ips={json.dumps([devops_ip])}"]
 
     # terraform destroy
     p = subprocess.run(
@@ -350,7 +329,13 @@ def destroy_staging():
 @main.command()
 def ssh_bastion():
     """SSH to bastion server"""
-    _ssh("", "bastion")
+    terraform_output = _get_terraform_output("prod")
+    ip = terraform_output["bastion_ip"]
+
+    args = ["ssh", f"root@{ip}"]
+    args_str = " ".join(pipes.quote(s) for s in args)
+    print(f"Executing: {args_str}")
+    subprocess.run(args)
 
 
 @main.command()
@@ -405,7 +390,7 @@ def backup_save_db(deploy_environment):
     if not _validate_env(deploy_environment):
         return
 
-    _, db_ip, _ = _get_ips(deploy_environment)
+    app_ip, app_private_ip, db_ip, db_private_ip = _get_ips(deploy_environment)
 
     # Save the backup
     _ssh(deploy_environment, "db", cmds=["/db/backup.sh"])
@@ -425,7 +410,7 @@ def backup_restore_db(deploy_environment, backup_filename):
     if not _validate_env(deploy_environment):
         return
 
-    _, db_ip, _ = _get_ips(deploy_environment)
+    app_ip, app_private_ip, db_ip, db_private_ip = _get_ips(deploy_environment)
 
     # Validate
     backup_type = None
@@ -451,7 +436,7 @@ def backup_save_app(deploy_environment):
     if not _validate_env(deploy_environment):
         return
 
-    app_ip, _, _ = _get_ips(deploy_environment)
+    app_ip, app_private_ip, db_ip, db_private_ip = _get_ips(deploy_environment)
 
     # Save the backup
     _ssh(deploy_environment, "app", cmds=["/opt/semiphemeral/backup.sh"])
@@ -477,7 +462,7 @@ def backup_restore_app(deploy_environment, backup_filename):
     if not _validate_env(deploy_environment):
         return
 
-    app_ip, _, _ = _get_ips(deploy_environment)
+    app_ip, app_private_ip, db_ip, db_private_ip = _get_ips(deploy_environment)
 
     # Validate
     backup_type = None
