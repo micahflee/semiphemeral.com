@@ -111,8 +111,6 @@ venv.bak/
 .terraform
 terraform.tfstate.backup
 terraform/*/.terraform.lock.hcl
-# staging tfstate
-terraform/staging/terraform.tfstate
 
 # secrets
 vars-ansible.json

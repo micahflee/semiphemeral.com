@@ -8,15 +8,16 @@ The hosted version of [semiphemeral](https://github.com/micahflee/semiphemeral).
 
 To backup and restore, you need `postgresql-client` installed.
 
-Install [terraform](https://www.terraform.io/downloads.html) (`snap install terraform`).
-
-You need python 3 and poetry:
+Install:
+- [terraform](https://www.terraform.io/downloads.html) (`snap install terraform`)
+- [doctl](https://docs.digitalocean.com/reference/doctl/how-to/install/) (`snap install doctl`), and authenticate
+- Python 3+, and these pip dependencies:
 
 ```sh
 poetry install
 ```
 
-Copy `vars-terraform-sample.json` to `.vars-terraform.json` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean. Copy `vars-ansible-sample.json` to `.vars-ansible.json` and edit it to add Twitter app credentials.
+Copy `vars-terraform-sample.json` to `vars-terraform.json` and edit it to add a DigitalOcean API token, and the fingerprint of an SSH key uploaded to DigitalOcean. Copy `vars-ansible-sample.json` to `vars-ansible.json` and edit it to add Twitter app credentials.
 
 Use `devops.py`. Each command requires passing in either `staging` or `prod`:
 

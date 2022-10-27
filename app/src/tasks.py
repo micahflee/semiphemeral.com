@@ -15,6 +15,7 @@ import redis
 import rq
 from rq import Queue
 from rq.job import Job as RQJob
+from rq.registry import FailedJobRegistry
 
 conn = redis.from_url(os.environ.get("REDIS_URL"))
 jobs_q = Queue("jobs", connection=conn)
@@ -100,7 +101,7 @@ async def _cleanup_users():
     for user in users:
         # See if the user has valid creds
         print(
-            f"\r[{i}/{count}] checking @{user.twitter_screen_name} ..." + " " * 20,
+            f"\r[{i:,}/{count:,}] checking @{user.twitter_screen_name} ..." + " " * 20,
             end="",
         )
         async with SemiphemeralPeonyClient(user) as client:
@@ -111,7 +112,7 @@ async def _cleanup_users():
                 peony.exceptions.NotAuthenticated,
             ) as e:
                 print(
-                    f"\r[{i}/{count}, deleted {users_deleted}] deleting @{user.twitter_screen_name}: {e}"
+                    f"\r[{i:,}/{count:,}, deleted {users_deleted:,}] deleting @{user.twitter_screen_name}: {e}"
                 )
                 await delete_user(user)
                 users_deleted += 1
@@ -402,6 +403,80 @@ async def _onetime_2022_05_add_all_jobs():
     print()
 
 
+async def _onetime_2022_10_fix_stalled_users():
+    await connect_db()
+
+    one_week_ago = datetime.now() - timedelta(days=7)
+
+    # Find all the active users
+    users = (
+        await User.query.where(User.blocked == False)
+        .where(User.paused == False)
+        .gino.all()
+    )
+    count = len(users)
+    i = 0
+    users_fixed = 0
+    for user in users:
+        # Check if the user hasn't had a finished job in the last week
+        is_stale = False
+        last_job = (
+            await JobDetails.query.where(JobDetails.user_id == user.id)
+            .where(JobDetails.status == "finished")
+            .order_by(JobDetails.finished_timestamp.desc())
+            .gino.first()
+        )
+        if last_job:
+            if last_job.finished_timestamp < one_week_ago:
+                is_stale = True
+        else:
+            is_stale = True
+
+        # If the user is stale, fix their account
+        if is_stale:
+            print(
+                f"[{i:,}/{count:,}, fixed {users_fixed:,}] user @{user.twitter_screen_name} is stale, fixing ..."
+            )
+            # Cancel the pending and active jobs
+            pending_jobs = (
+                await JobDetails.query.where(JobDetails.user_id == user.id)
+                .where(JobDetails.status == "pending")
+                .gino.all()
+            )
+            active_jobs = (
+                await JobDetails.query.where(JobDetails.user_id == user.id)
+                .where(JobDetails.status == "active")
+                .gino.all()
+            )
+            jobs = pending_jobs + active_jobs
+
+            for job in jobs:
+                try:
+                    redis_job = RQJob.fetch(job.redis_id, connection=conn)
+                    redis_job.cancel()
+                    redis_job.delete()
+                except rq.exceptions.NoSuchJobError:
+                    pass
+                await job.update(status="canceled").apply()
+
+            # Force downloading all tweets
+            await user.update(since_id=None).apply()
+
+            # Create a new delete job
+            job_details = await JobDetails.create(
+                job_type="delete",
+                user_id=user.id,
+            )
+            redis_job = jobs_q.enqueue(
+                worker_jobs.delete, job_details.id, job_timeout="24h"
+            )
+            await job_details.update(redis_id=redis_job.id).apply()
+
+            users_fixed += 1
+
+        i += 1
+
+
 @click.group()
 def main():
     """semiphemeral.com tasks"""
@@ -440,6 +515,19 @@ def unblock_users():
 
 
 @main.command(
+    "failed-jobs-registry",
+    short_help="View failed jobs from the redis queue",
+)
+def failed_jobs_registry():
+    registry = FailedJobRegistry(queue=jobs_q)
+
+    # Show all failed job IDs and the exceptions they caused during runtime
+    for job_id in registry.get_job_ids():
+        job = RQJob.fetch(job_id, connection=conn)
+        print(job_id, job.exc_info)
+
+
+@main.command(
     "2022-05-add-redis-jobs",
     short_help="Convert old jobs into JobDetails and redis jobs",
 )
@@ -453,6 +541,14 @@ def onetime_2022_05_add_redis_jobs():
 )
 def onetime_2022_05_add_all_jobs():
     asyncio.run(_onetime_2022_05_add_all_jobs())
+
+
+@main.command(
+    "2022-10-fix-stalled-users",
+    short_help="Pause and restart users that are stalled",
+)
+def onetime_2022_10_fix_stalled_users():
+    asyncio.run(_onetime_2022_10_fix_stalled_users())
 
 
 if __name__ == "__main__":
