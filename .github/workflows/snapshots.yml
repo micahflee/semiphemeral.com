@@ -28,7 +28,7 @@ jobs:
           doctl account get
 
       - name: Save a snapshot
-        run: python ./devops/save-snapshot.py
+        run: python ./github/scripts/save-snapshot.py
 
       - name: Delete old snapshot
-        run: python ./devops/delete-old-snapshots.py
+        run: python ./github/scripts/delete-old-snapshots.py
