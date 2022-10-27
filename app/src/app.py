@@ -41,7 +41,7 @@ import worker_jobs
 import redis
 import rq
 from rq import Queue
-from rq.job import Job as RQJob, RQRetry
+from rq.job import Job as RQJob, Retry as RQRetry
 from rq.registry import FailedJobRegistry
 
 print(f"Connecting to redis at: {os.environ.get('REDIS_URL')}")
