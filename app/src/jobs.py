@@ -1143,7 +1143,10 @@ async def block(job_details_id, funcs):
                 await new_job_details.update(redis_id=redis_job.id).apply()
 
         # Block the user
-        await client.api.blocks.create.post(screen_name=data["twitter_username"])
+        try:
+            await client.api.blocks.create.post(screen_name=data["twitter_username"])
+        except peony.exceptions.UserNotFound:
+            await log(job_details, f"UserNotFound: @{data['twitter_username']}")
 
     # Finished
     await job_details.update(
