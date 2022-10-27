@@ -1170,10 +1170,19 @@ async def unblock(job_details_id, funcs):
 
     async with SemiphemeralAppPeonyClient() as client:
         # Are they already unblocked?
-        friendship = await client.api.friendships.show.get(
-            source_screen_name="semiphemeral",
-            target_screen_name=data["twitter_username"],
-        )
+        try:
+            friendship = await client.api.friendships.show.get(
+                source_screen_name="semiphemeral",
+                target_screen_name=data["twitter_username"],
+            )
+        except peony.exceptions.UserNotFound:
+            # User doesn't exist, so our work here is done
+            await job_details.update(
+                status="finished", finished_timestamp=datetime.now()
+            ).apply()
+            await log(job_details, f"UserNotFound @{data['twitter_username']}")
+            return
+
         if not friendship["relationship"]["source"]["blocking"]:
             # Update the user
             user = await User.query.where(User.id == job_details.user_id).gino.first()
