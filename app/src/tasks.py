@@ -15,12 +15,12 @@ import redis
 import rq
 from rq import Queue
 from rq.job import Job as RQJob
+from rq.registry import FailedJobRegistry
 
 conn = redis.from_url(os.environ.get("REDIS_URL"))
 jobs_q = Queue("jobs", connection=conn)
 dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
 dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
-
 
 async def _send_reminders():
     gino_db = await connect_db()
@@ -509,6 +509,19 @@ def cleanup_dm_jobs():
 )
 def unblock_users():
     asyncio.run(_unblock_users())
+
+
+@main.command(
+    "failed-jobs-registry",
+    short_help="View failed jobs from the redis queue",
+)
+def failed_jobs_registry():
+    registry = FailedJobRegistry(queue=jobs_q)
+
+    # Show all failed job IDs and the exceptions they caused during runtime
+    for job_id in registry.get_job_ids():
+        job = RQJob.fetch(job_id, connection=conn)
+        print(job_id, job.exc_info)
 
 
 @main.command(
