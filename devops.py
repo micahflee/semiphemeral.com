@@ -551,6 +551,18 @@ def backup_prod_to_staging():
     )
     basename = os.path.basename(backup_filename)
 
+    # Accept the db-staging host key
+    _ssh(
+        "production",
+        "db",
+        cmds=[
+            "ssh",
+            "-oStrictHostKeyChecking=no",
+            f"root@{staging_db_ip}:{backup_filename}",
+            "id",
+        ],
+    )
+
     # Copy the backup from production to staging
     _ssh(
         "production",
@@ -563,15 +575,16 @@ def backup_prod_to_staging():
         ],
     )
 
-    # Delete the backup from production
-    _ssh(
-        "production",
-        "db",
-        cmds=["rm", backup_filename],
-    )
-
     # Restore the backup on staging
     _ssh("staging", "db", cmds=["/db/restore.sh", basename])
+
+    # Delete the backup from production
+    if click.confirm("Are you ready to delete the backup on production?"):
+        _ssh(
+            "production",
+            "db",
+            cmds=["rm", backup_filename],
+        )
 
 
 if __name__ == "__main__":
