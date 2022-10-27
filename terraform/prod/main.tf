@@ -1,9 +1,6 @@
 # fingerprint of SSH key to add to new droplet
 variable "ssh_fingerprint" {}
 
-# for firewall rules
-variable "ssh_ips" {}
-
 # for DNS records
 variable "domain" {}
 
@@ -46,6 +43,12 @@ resource "digitalocean_firewall" "bastion" {
   inbound_rule {
     protocol         = "icmp"
     source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  outbound_rule {
+    protocol              = "tcp"
+    port_range            = "22"
+    destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
   outbound_rule {
@@ -98,7 +101,7 @@ resource "digitalocean_firewall" "app" {
   inbound_rule {
     protocol         = "tcp"
     port_range       = "22"
-    source_addresses = jsondecode(var.ssh_ips)
+    source_addresses = [digitalocean_droplet.bastion.ipv4_address_private]
   }
 
   inbound_rule {
@@ -186,7 +189,7 @@ resource "digitalocean_firewall" "db" {
   inbound_rule {
     protocol         = "tcp"
     port_range       = "22"
-    source_addresses = jsondecode(var.ssh_ips)
+    source_addresses = [digitalocean_droplet.bastion.ipv4_address_private]
   }
 
   inbound_rule {
