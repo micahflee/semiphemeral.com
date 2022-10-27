@@ -350,13 +350,14 @@ async def fetch(job_details_id, funcs):
             for status in statuses:
                 if status.in_reply_to_status_id:
                     status_ids = await calculate_thread(user, status.id_str)
-                    root_status_id = status_ids[0]
-                    if root_status_id in threads:
-                        for status_id in status_ids:
-                            if status_id not in threads[root_status_id]:
-                                threads[root_status_id].append(status_id)
-                    else:
-                        threads[root_status_id] = status_ids
+                    if len(status_ids) > 0:
+                        root_status_id = status_ids[0]
+                        if root_status_id in threads:
+                            for status_id in status_ids:
+                                if status_id not in threads[root_status_id]:
+                                    threads[root_status_id].append(status_id)
+                        else:
+                            threads[root_status_id] = status_ids
 
             # For each thread, does this thread already exist, or do we create a new one?
             for root_status_id in threads:
