@@ -1,0 +1,6 @@
+---
+- name: install and configure bastion server
+  hosts: bastion
+  remote_user: root
+  roles:
+    - base
