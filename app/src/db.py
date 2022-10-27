@@ -1,6 +1,7 @@
 import os
-import ssl
+import asyncio
 from gino import Gino
+from asyncpg.exceptions import TooManyConnectionsError
 
 db = Gino()
 
@@ -204,4 +205,18 @@ class Fascist(db.Model):
 
 async def connect_db():
     database_uri = os.environ.get("DATABASE_URI")
-    return await db.set_bind(database_uri)
+
+    wait_min = 1
+    tries = 0
+    success = False
+    while not success:
+        try:
+            gino_db = await db.set_bind(database_uri)
+            success = True
+        except TooManyConnectionsError:
+            tries += 1
+            wait_min += 1
+            print(f"Try {tries}: Failed connecting to db, TooManyConnectionsError, waiting {wait_min} min")
+            await asyncio.sleep(60 * wait_min)
+
+    return gino_db
