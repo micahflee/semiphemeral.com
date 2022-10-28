@@ -1495,15 +1495,17 @@ async def privacy(request):
 async def app_main(request):
     with open(f"frontend/dist-{os.environ.get('DEPLOY_ENVIRONMENT')}/index.html") as f:
         body = f.read()
-    
+
     return web.Response(text=body, content_type="text/html")
 
 
 @admin_required
 async def app_admin(request):
-    with open(f"admin-frontend/dist-{os.environ.get('DEPLOY_ENVIRONMENT')}/index.html") as f:
+    with open(
+        f"admin-frontend/dist-{os.environ.get('DEPLOY_ENVIRONMENT')}/index.html"
+    ) as f:
         body = f.read()
-    
+
     return web.Response(text=body, content_type="text/html")
 
 
@@ -1916,8 +1918,14 @@ async def main():
         [
             # Static files
             web.static("/images", "images"),
-            web.static("/assets", f"frontend/dist-{os.environ.get('DEPLOY_ENVIRONMENT')}/assets"),
-            web.static("/admin-assets", f"admin-frontend/dist-{os.environ.get('DEPLOY_ENVIRONMENT')}/admin-assets"),
+            web.static(
+                "/assets",
+                f"frontend/dist-{os.environ.get('DEPLOY_ENVIRONMENT')}/assets",
+            ),
+            web.static(
+                "/admin-assets",
+                f"admin-frontend/dist-{os.environ.get('DEPLOY_ENVIRONMENT')}/admin-assets",
+            ),
             # Authentication
             web.get("/auth/login", auth_login),
             web.get("/auth/logout", auth_logout),
