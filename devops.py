@@ -487,100 +487,33 @@ def forward_postgres(deploy_environment):
 
 @main.command()
 @click.argument("deploy_environment", nargs=1)
-def backup_save_db(deploy_environment):
-    """Save db backup"""
+def update_app_code(deploy_environment):
+    """Just rsync the app code"""
     if not _validate_env(deploy_environment):
         return
 
-    app_ip, app_private_ip, db_ip, db_private_ip = _get_ips(deploy_environment)
-
-    # Save the backup
-    _ssh(deploy_environment, "db", cmds=["/db/backup.sh"])
-
-    # Download the backup
-    subprocess.run(["scp", f"root@{db_ip}:/db/mnt/semiphemeral-*.sql.gz", "./backups"])
-
-    # Delete the backup
-    _ssh(deploy_environment, "db", cmds=["rm", "/db/mnt/semiphemeral-*.sql.gz"])
-
-
-@main.command()
-@click.argument("deploy_environment", nargs=1)
-@click.argument("backup_filename", nargs=1)
-def backup_restore_db(deploy_environment, backup_filename):
-    """Restore db backup"""
-    if not _validate_env(deploy_environment):
-        return
+    terraform_output = _get_terraform_output("prod")
+    bastion_ip = terraform_output["bastion_ip"]
 
     app_ip, app_private_ip, db_ip, db_private_ip = _get_ips(deploy_environment)
 
-    # Validate
-    backup_type = None
-    if backup_filename.endswith(".sql.gz"):
-        backup_type = "db"
-    else:
-        click.echo("Backup must be a .sql.gz")
-        return
+    if deploy_environment == "prod":
+        ip = app_private_ip
+    elif deploy_environment == "staging":
+        ip = app_ip
 
-    basename = os.path.basename(backup_filename)
-
-    # Upload the backup
-    subprocess.run(["scp", backup_filename, f"root@{db_ip}:/db/mnt/"])
-
-    # Restore the backup
-    _ssh(deploy_environment, "db", cmds=["/db/restore.sh", basename])
-
-
-@main.command()
-@click.argument("deploy_environment", nargs=1)
-def backup_save_app(deploy_environment):
-    """Save app backup"""
-    if not _validate_env(deploy_environment):
-        return
-
-    app_ip, app_private_ip, db_ip, db_private_ip = _get_ips(deploy_environment)
-
-    # Save the backup
-    _ssh(deploy_environment, "app", cmds=["/opt/semiphemeral/backup.sh"])
-
-    # Download the backup
-    subprocess.run(
-        ["scp", f"root@{app_ip}:/opt/semiphemeral/semiphemeral-*.tar.gz", "./backups"]
-    )
-
-    # Delete the backup
-    _ssh(
-        deploy_environment,
-        "app",
-        cmds=["rm", "/opt/semiphemeral/semiphemeral-*.tar.gz"],
-    )
-
-
-@main.command()
-@click.argument("deploy_environment", nargs=1)
-@click.argument("backup_filename", nargs=1)
-def backup_restore_app(deploy_environment, backup_filename):
-    """Restore app backup"""
-    if not _validate_env(deploy_environment):
-        return
-
-    app_ip, app_private_ip, db_ip, db_private_ip = _get_ips(deploy_environment)
-
-    # Validate
-    backup_type = None
-    if backup_filename.endswith(".tar.gz"):
-        backup_type = "app"
-    else:
-        click.echo("Backup must be a .tar.gz file")
-        return
-
-    basename = os.path.basename(backup_filename)
-
-    # Upload the backup
-    subprocess.run(["scp", backup_filename, f"root@{app_ip}:/opt/semiphemeral/"])
-
-    # Restore the backup
-    _ssh(deploy_environment, "db", cmds=["/opt/semiphemeral/restore.sh", basename])
+    args = [
+        "rsync",
+        "-av",
+        "--delete",
+        "-e",
+        f"ssh -J root@{bastion_ip}",
+        "app/src/",
+        f"root@{ip}:/opt/semiphemeral/app/src",
+    ]
+    args_str = " ".join(pipes.quote(s) for s in args)
+    print(f"Executing: {args_str}")
+    subprocess.run(args)
 
 
 if __name__ == "__main__":
