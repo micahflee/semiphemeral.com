@@ -10,27 +10,35 @@ const props = defineProps({
 })
 
 function humanReadableTimestamp(timestamp) {
+  if (timestamp == null) {
+    return "null"
+  }
   var date = new Date(timestamp * 1000)
   return date.toLocaleDateString() + " at " + date.toLocaleTimeString()
 }
 
-function getProgressVal(data, key) {
-  var p = JSON.parse(data)
-  if (p && p["progress"]) {
-    return p["progress"][key]
-  } else {
-    return ""
-  }
-}
+// function getProgressVal(data, key) {
+//   try {
+//     var p = JSON.parse(data)
+//     if (p && p["progress"]) {
+//       return p["progress"][key]
+//     } else {
+//       return ""
+//     }
+//   } catch (error) {
+//     console.log("Error JSON parsing " + data)
+//     return ""
+//   }
+// }
 
-const progressTweetsFetched = getProgressVal(props.jobData.value, "tweets_fetched")
-const progressLikesFetched = getProgressVal(props.jobData.value, "likes_fetched")
-const progressTweetsDeleted = getProgressVal(props.jobData.value, "tweets_deleted")
-const progressRetweetsDeleted = getProgressVal(props.jobData.value, "retweets_deleted")
-const progressLikesDeleted = getProgressVal(props.jobData.value, "likes_deleted")
-const progressDMsDeleted = getProgressVal(props.jobData.value, "dms_deleted")
-const progressDMsSkipped = getProgressVal(props.jobData.value, "dms_skipped")
-const progressStatus = getProgressVal(props.jobData.value, "status")
+// const progressTweetsFetched = getProgressVal(props.jobData.value, "tweets_fetched")
+// const progressLikesFetched = getProgressVal(props.jobData.value, "likes_fetched")
+// const progressTweetsDeleted = getProgressVal(props.jobData.value, "tweets_deleted")
+// const progressRetweetsDeleted = getProgressVal(props.jobData.value, "retweets_deleted")
+// const progressLikesDeleted = getProgressVal(props.jobData.value, "likes_deleted")
+// const progressDMsDeleted = getProgressVal(props.jobData.value, "dms_deleted")
+// const progressDMsSkipped = getProgressVal(props.jobData.value, "dms_skipped")
+// const progressStatus = getProgressVal(props.jobData.value, "status")
 var scheduledTimestamp = Math.floor(props.jobScheduledTimestamp.value * 1000)
 var nowTimestamp = Date.now()
 const scheduledTimestampInThePast = scheduledTimestamp <= nowTimestamp
@@ -40,9 +48,9 @@ const humanReadableFinishedTimestamp = humanReadableTimestamp(props.jobFinishedT
 </script>
 
 <template>
-  <div v-bind:class="job.status">
-    <template v-if="job.job_type == 'fetch'">
-      <template v-if="job.status == 'pending'">
+  <div v-bind:class="jobStatus">
+    <template v-if="jobJobType == 'fetch'">
+      <template v-if="jobStatus == 'pending'">
         <p class="status" v-if="scheduledTimestampInThePast">
           Waiting to download all of your tweets and likes as soon as it's your
           turn in the queue
@@ -52,28 +60,28 @@ const humanReadableFinishedTimestamp = humanReadableTimestamp(props.jobFinishedT
           <em>{{ humanReadableScheduledTimestamp }}</em>
         </p>
       </template>
-      <template v-else-if="job.status == 'active'">
+      <template v-else-if="jobStatus == 'active'">
         <p class="status">{{ progressStatus }}</p>
         <p class="progress">
           Started downloading on
           <em>{{ humanReadableStartedTimestamp }}</em>
-          <br />Downloaded <strong>{{ progressTweetsFetched }} tweets</strong>,
-          <strong>{{ progressLikesFetched }} likes</strong> since then
+          <!-- <br />Downloaded <strong>{{ progressTweetsFetched }} tweets</strong>,
+          <strong>{{ progressLikesFetched }} likes</strong> since then -->
         </p>
       </template>
-      <template v-else-if="job.status == 'finished'">
+      <template v-else-if="jobStatus == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{
               humanReadableFinishedTimestamp
           }}</span>
-          <span class="progress">Downloaded {{ progressTweetsFetched }} tweets,
-            {{ progressLikesFetched }} likes</span>
+          <!-- <span class="progress">Downloaded {{ progressTweetsFetched }} tweets,
+            {{ progressLikesFetched }} likes</span> -->
         </p>
       </template>
     </template>
 
-    <template v-if="job.job_type == 'delete'">
-      <template v-if="job.status == 'pending'">
+    <template v-if="jobJobType == 'delete'">
+      <template v-if="jobStatus == 'pending'">
         <p class="status" v-if="scheduledTimestampInThePast">
           Waiting to delete your old tweets, likes, and/or direct messages as
           soon as it's your turn in the queue
@@ -84,38 +92,38 @@ const humanReadableFinishedTimestamp = humanReadableTimestamp(props.jobFinishedT
           <em>{{ humanReadableScheduledTimestamp }}</em>
         </p>
       </template>
-      <template v-else-if="job.status == 'active'">
+      <template v-else-if="jobStatus == 'active'">
         <p class="status">{{ progressStatus }}</p>
         <p class="progress">
           Started deleting on
           <em>{{ humanReadableStartedTimestamp }}</em>
-          <br />Downloaded <strong>{{ progressTweetsFetched }} tweets</strong>,
+          <!-- <br />Downloaded <strong>{{ progressTweetsFetched }} tweets</strong>,
           <strong>{{ progressLikesFetched }} likes</strong>
           <br />Deleted <strong>{{ progressTweetsDeleted }} tweets</strong>,
           <strong>{{ progressRetweetsDeleted }} retweets</strong>,
           <strong>{{ progressLikesDeleted }} likes</strong>,
-          <strong>{{ progressDMsDeleted }} direct messages</strong>
+          <strong>{{ progressDMsDeleted }} direct messages</strong> -->
         </p>
       </template>
-      <template v-else-if="job.status == 'finished'">
+      <template v-else-if="jobStatus == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{
               humanReadableFinishedTimestamp
           }}</span>
-          <span class="progress">
+          <!-- <span class="progress">
             Downloaded {{ progressTweetsFetched }} tweets,
             {{ progressLikesFetched }} likes and deleted
             {{ progressTweetsDeleted }} tweets,
             {{ progressRetweetsDeleted }} retweets,
             {{ progressLikesDeleted }} likes
             <span v-if="progressDMsDeleted != ''">and {{ progressDMsDeleted }} direct messages</span>
-          </span>
+          </span> -->
         </p>
       </template>
     </template>
 
-    <template v-if="job.job_type == 'delete_dms'">
-      <template v-if="job.status == 'pending'">
+    <template v-if="jobJobType == 'delete_dms'">
+      <template v-if="jobStatus == 'pending'">
         <p class="status" v-if="scheduledTimestampInThePast">
           Waiting to delete all of your old direct messages as soon as it's your
           turn in the queue
@@ -125,29 +133,29 @@ const humanReadableFinishedTimestamp = humanReadableTimestamp(props.jobFinishedT
           <em>{{ humanReadableScheduledTimestamp }}</em>
         </p>
       </template>
-      <template v-else-if="job.status == 'active'">
+      <template v-else-if="jobStatus == 'active'">
         <p class="status">{{ progressStatus }}</p>
         <p class="progress">
           Started deleting old direct messages on
           <em>{{ humanReadableStartedTimestamp }}</em>
           <br />Deleted
-          <strong>{{ progressDMsDeleted }} direct messages</strong>, skipped
-          <strong>{{ progressDMsSkipped }} direct messages</strong>
+          <!-- <strong>{{ progressDMsDeleted }} direct messages</strong>, skipped
+          <strong>{{ progressDMsSkipped }} direct messages</strong> -->
         </p>
       </template>
-      <template v-else-if="job.status == 'finished'">
+      <template v-else-if="jobStatus == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{
               humanReadableFinishedTimestamp
           }}</span>
-          <span class="progress">Deleted {{ progressDMsDeleted }} direct messages (skipped
-            {{ progressDMsSkipped }})</span>
+          <!-- <span class="progress">Deleted {{ progressDMsDeleted }} direct messages (skipped
+            {{ progressDMsSkipped }})</span> -->
         </p>
       </template>
     </template>
 
-    <template v-if="job.job_type == 'delete_dm_groups'">
-      <template v-if="job.status == 'pending'">
+    <template v-if="jobJobType == 'delete_dm_groups'">
+      <template v-if="jobStatus == 'pending'">
         <p class="status" v-if="scheduledTimestampInThePast">
           Waiting to delete all of your old group direct messages as soon as
           it's your turn in the queue
@@ -157,23 +165,23 @@ const humanReadableFinishedTimestamp = humanReadableTimestamp(props.jobFinishedT
           <em>{{ humanReadableScheduledTimestamp }}</em>
         </p>
       </template>
-      <template v-else-if="job.status == 'active'">
+      <template v-else-if="jobStatus == 'active'">
         <p class="status">{{ progressStatus }}</p>
         <p class="progress">
           Started deleting old group direct messages on
           <em>{{ humanReadableStartedTimestamp }}</em>
           <br />Deleted
-          <strong>{{ progressDMsDeleted }} direct messages</strong>
-          (skipped {{ progressDMsSkipped }})
+          <!-- <strong>{{ progressDMsDeleted }} direct messages</strong>
+          (skipped {{ progressDMsSkipped }}) -->
         </p>
       </template>
-      <template v-else-if="job.status == 'finished'">
+      <template v-else-if="jobStatus == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{
               humanReadableFinishedTimestamp
           }}</span>
-          <span class="progress">Deleted {{ progressDMsDeleted }} group direct messages (skipped
-            {{ progressDMsSkipped }})</span>
+          <!-- <span class="progress">Deleted {{ progressDMsDeleted }} group direct messages (skipped
+            {{ progressDMsSkipped }})</span> -->
         </p>
       </template>
     </template>
