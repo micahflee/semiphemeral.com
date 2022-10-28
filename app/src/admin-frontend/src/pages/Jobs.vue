@@ -11,7 +11,7 @@ const queued_jobs = ref([])
 const scheduled_jobs = ref([])
 const other_jobs = ref([])
 
-function fetchJobs () {
+function fetchJobs() {
   loading.value = true
 
   // Get lists of jobs
@@ -99,16 +99,14 @@ fetchJobs()
           <span class="job-id">{{ job.id }}</span>
           <span class="job-user" v-if="job.twitter_username != null">
             <a v-bind:href="job.twitter_link" target="_blank">{{
-              job.twitter_username
+                job.twitter_username
             }}</a>
           </span>
           <span class="job-user" v-else>
             <p>unknown user</p>
           </span>
           <span class="job-type">{{ job.job_type }}</span>
-          <span class="job-date"
-            >started {{ formatJobDate(job.started_timestamp) }} UTC</span
-          >
+          <span class="job-date">started {{ formatJobDate(job.started_timestamp) }} UTC</span>
           <span class="job-data">{{ job.data }}</span>
         </li>
       </ul>
@@ -121,7 +119,7 @@ fetchJobs()
           <span class="job-id">{{ job.id }}</span>
           <span class="job-user" v-if="job.twitter_username != null">
             <a v-bind:href="job.twitter_link" target="_blank">{{
-              job.twitter_username
+                job.twitter_username
             }}</a>
           </span>
           <span class="job-user" v-else>
@@ -140,16 +138,14 @@ fetchJobs()
           <span class="job-id">{{ job.id }}</span>
           <span class="job-user" v-if="job.twitter_username != null">
             <a v-bind:href="job.twitter_link" target="_blank">{{
-              job.twitter_username
+                job.twitter_username
             }}</a>
           </span>
           <span class="job-user" v-else>
             <p>unknown user</p>
           </span>
           <span class="job-type">{{ job.job_type }}</span>
-          <span class="job-date"
-            >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
-          >
+          <span class="job-date">scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span>
           <span class="job-data">{{ job.data }}</span>
         </li>
       </ul>
@@ -162,19 +158,15 @@ fetchJobs()
           <span class="job-id">{{ job.id }}</span>
           <span class="job-user" v-if="job.twitter_username != null">
             <a v-bind:href="job.twitter_link" target="_blank">{{
-              job.twitter_username
+                job.twitter_username
             }}</a>
           </span>
           <span class="job-user" v-else>
             <p>unknown user</p>
           </span>
           <span class="job-type">{{ job.job_type }}</span>
-          <span class="job-date"
-            >scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span
-          >
-          <span class="job-date"
-            >started {{ formatJobDate(job.started_timestamp) }} UTC</span
-          >
+          <span class="job-date">scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span>
+          <span class="job-date">started {{ formatJobDate(job.started_timestamp) }} UTC</span>
           <span class="job-data">redis: {{ job.redis_status }}</span>
           <span class="job-data">{{ job.data }}</span>
         </li>

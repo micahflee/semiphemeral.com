@@ -1,4 +1,4 @@
-<script>
+<script setup>
 const props = defineProps({
   userScreenName: String
 })
@@ -8,7 +8,8 @@ const props = defineProps({
   <div>
     <h1>Export your tweets</h1>
 
-    <p>Semiphemeral lets you export a spreadsheet (CSV file) of your tweets and retweets. Make sure that Semiphemeral has downloaded your latest tweets before exporting.</p>
+    <p>Semiphemeral lets you export a spreadsheet (CSV file) of your tweets and retweets. Make sure that Semiphemeral
+      has downloaded your latest tweets before exporting.</p>
 
     <p>
       <a class="button" href="/export/download">Download spreadsheet of tweets</a>

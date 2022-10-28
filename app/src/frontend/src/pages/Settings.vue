@@ -1,4 +1,4 @@
-<script>
+<script setup>
 import { ref } from "vue"
 
 const props = defineProps({
@@ -116,7 +116,7 @@ function authenticateDMs() {
       if (response.status !== 200) {
         console.log(
           "Error authenticating with Twitter, status code: " +
-            response.status
+          response.status
         )
         loading.value = false
         return
@@ -163,58 +163,30 @@ getSettings()
           <legend>Tweets</legend>
           <p>
             Delete tweets older than
-            <input
-              type="number"
-              class="small"
-              min="0"
-              v-model="tweetsDaysThreshold"
-              v-bind:disabled="!deleteTweets"
-            />
+            <input type="number" class="small" min="0" v-model="tweetsDaysThreshold" v-bind:disabled="!deleteTweets" />
             days
           </p>
           <p>
             <label>
-              <input
-                type="checkbox"
-                v-model="tweetsEnableRetweetThreshold"
-                v-bind:disabled="!deleteTweets"
-              />
+              <input type="checkbox" v-model="tweetsEnableRetweetThreshold" v-bind:disabled="!deleteTweets" />
               Unless they have at least
             </label>
-            <input
-              type="number"
-              class="small"
-              min="0"
-              v-model="tweetsRetweetThreshold"
-              v-bind:disabled="!deleteTweets || !tweetsEnableRetweetThreshold"
-            />
+            <input type="number" class="small" min="0" v-model="tweetsRetweetThreshold"
+              v-bind:disabled="!deleteTweets || !tweetsEnableRetweetThreshold" />
             retweets
           </p>
           <p>
             <label>
-              <input
-                type="checkbox"
-                v-model="tweetsEnableLikeThreshold"
-                v-bind:disabled="!deleteTweets"
-              />
+              <input type="checkbox" v-model="tweetsEnableLikeThreshold" v-bind:disabled="!deleteTweets" />
               Or at least
             </label>
-            <input
-              type="number"
-              class="small"
-              min="0"
-              v-model="tweetsLikeThreshold"
-              v-bind:disabled="!deleteTweets || !tweetsEnableLikeThreshold"
-            />
+            <input type="number" class="small" min="0" v-model="tweetsLikeThreshold"
+              v-bind:disabled="!deleteTweets || !tweetsEnableLikeThreshold" />
             likes
           </p>
           <p>
             <label>
-              <input
-                type="checkbox"
-                v-model="tweetsThreadsThreshold"
-                v-bind:disabled="!deleteTweets"
-              />
+              <input type="checkbox" v-model="tweetsThreadsThreshold" v-bind:disabled="!deleteTweets" />
               Don't delete tweets that are part of a thread that contains at least one tweet that meets these thresholds
             </label>
           </p>
@@ -232,41 +204,23 @@ getSettings()
 
           <p>
             <label>
-              <input
-                type="checkbox"
-                v-model="retweetsLikesDeleteRetweets"
-                v-bind:disabled="!retweetsLikes"
-              />
+              <input type="checkbox" v-model="retweetsLikesDeleteRetweets" v-bind:disabled="!retweetsLikes" />
               Unretweet tweets
             </label>
             older than
-            <input
-              type="number"
-              class="small"
-              min="0"
-              v-model="retweetsLikesRetweetsThreshold"
-              v-bind:disabled="!retweetsLikes"
-            />
+            <input type="number" class="small" min="0" v-model="retweetsLikesRetweetsThreshold"
+              v-bind:disabled="!retweetsLikes" />
             days
           </p>
 
           <p>
             <label>
-              <input
-                type="checkbox"
-                v-model="retweetsLikesDeleteLikes"
-                v-bind:disabled="!retweetsLikes"
-              />
+              <input type="checkbox" v-model="retweetsLikesDeleteLikes" v-bind:disabled="!retweetsLikes" />
               Unlike tweets
             </label>
             older than
-            <input
-              type="number"
-              class="small"
-              min="0"
-              v-model="retweetsLikesLikesThreshold"
-              v-bind:disabled="!retweetsLikes"
-            />
+            <input type="number" class="small" min="0" v-model="retweetsLikesLikesThreshold"
+              v-bind:disabled="!retweetsLikes" />
             days
           </p>
         </fieldset>
@@ -284,19 +238,14 @@ getSettings()
 
             <p>
               Delete direct messages older than
-              <input
-                type="number"
-                class="small"
-                min="0"
-                max="29"
-                v-model="directMessagesThreshold"
-                v-bind:disabled="!directMessages"
-              />
+              <input type="number" class="small" min="0" max="29" v-model="directMessagesThreshold"
+                v-bind:disabled="!directMessages" />
               days
             </p>
 
             <p class="dm-note">
-              Twitter only allows Semiphemeral access to the last 30 days of DMs, so you have to delete older DMs manually.
+              Twitter only allows Semiphemeral access to the last 30 days of DMs, so you have to delete older DMs
+              manually.
               <router-link to="/dms">Learn more</router-link>&nbsp;about how this works.
             </p>
           </fieldset>
@@ -305,10 +254,9 @@ getSettings()
           <fieldset>
             <legend class="disabled">Direct messages</legend>
             <p>
-              Semiphemeral can automatically delete your old direct messages for you. To enable this feature you must allow Semiphemeral access to your DMs.
-              <button
-                v-on:click="authenticateDMs()"
-              >Give Semiphemeral access to my DMs</button>
+              Semiphemeral can automatically delete your old direct messages for you. To enable this feature you must
+              allow Semiphemeral access to your DMs.
+              <button v-on:click="authenticateDMs()">Give Semiphemeral access to my DMs</button>
             </p>
           </fieldset>
         </template>
@@ -327,9 +275,8 @@ getSettings()
         <div class="danger">
           <h2>Danger Zone</h2>
           <p>
-            <button
-              v-on:click="deleteAccount()"
-            >Delete my Semiphemeral account, and all data associated with it</button>
+            <button v-on:click="deleteAccount()">Delete my Semiphemeral account, and all data associated with
+              it</button>
           </p>
         </div>
       </form>
@@ -341,6 +288,7 @@ getSettings()
 input.small {
   width: 3em;
 }
+
 .danger {
   margin-top: 100px;
   opacity: 80%;
@@ -349,6 +297,7 @@ input.small {
   padding: 5px 10px;
   display: inline-block;
 }
+
 .danger button {
   background-color: #df2e2e;
   border: none;
@@ -361,9 +310,11 @@ input.small {
   font-weight: bold;
   border-radius: 5px;
 }
+
 .danger h2 {
   margin: 5px;
 }
+
 .danger p {
   margin: 5px;
 }

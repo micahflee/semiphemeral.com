@@ -25,11 +25,10 @@ fetch("/api/user")
 
 <template>
   <div>
-    <NavBar
-      v-bind="{
-            userScreenName: userScreenName,
-            userProfileUrl: userProfileUrl }"
-    ></NavBar>
+    <NavBar v-bind="{
+      userScreenName: userScreenName,
+      userProfileUrl: userProfileUrl
+    }"></NavBar>
     <router-view v-bind="{
       userScreenName: userScreenName
     }"></router-view>

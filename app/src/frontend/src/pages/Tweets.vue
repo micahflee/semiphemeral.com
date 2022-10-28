@@ -185,27 +185,20 @@ fetchTweets()
         <div class="info">{{ info }}</div>
         <div class="pagination" v-if="this.numPages > 1">
           <span v-for="(pageNumber, index) in pageNumbers" v-bind:key="index">
-            <PageButton
-              v-bind="{
-                pageNumber: pageNumber,
-                currentPage: page,
-              }"
-              v-on:select-page="filterTweets(pageNumber)"
-            ></PageButton>
+            <PageButton v-bind="{
+              pageNumber: pageNumber,
+              currentPage: page,
+            }" v-on:select-page="filterTweets(pageNumber)"></PageButton>
           </span>
         </div>
       </div>
 
       <ul>
         <li v-for="(id, index) in pageIndices" v-bind:key="index">
-          <Tweet
-            v-bind="{
-              tweet: tweets[id],
-              userScreenName: userScreenName,
-            }"
-            v-on:exclude-true="changeExclude(id, true)"
-            v-on:exclude-false="changeExclude(id, false)"
-          ></Tweet>
+          <Tweet v-bind="{
+            tweet: tweets[id],
+            userScreenName: userScreenName,
+          }" v-on:exclude-true="changeExclude(id, true)" v-on:exclude-false="changeExclude(id, false)"></Tweet>
         </li>
       </ul>
     </template>
@@ -251,7 +244,8 @@ fetchTweets()
 
 ul {
   list-style: none;
-  margin: 0 0 150px 0; /* big margin at the bottom to make space for controls */
+  margin: 0 0 150px 0;
+  /* big margin at the bottom to make space for controls */
   padding: 0;
 }
 
