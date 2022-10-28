@@ -13,15 +13,15 @@ const filteredIndices = ref([]) // Indices for tweets after applying filter
 const pageIndices = ref([]) // Indices of tweets on the current page
 const filterQuery = ref("")
 const showReplies = ref(true)
-const page = ref(0)
-const numPages = ref(1)
-const countPerPage = ref(50)
-const pageNumbers = ref([])
+const countPerPage = 50
+var page = 0
+var numPages = 1
+var pageNumbers = []
 const info = ref("")
 
 function numberOfTweetsStagedForDeletion() {
   var count = 0
-  for (var i = 0; i < this.tweets.length; i++) {
+  for (var i = 0; i < tweets.length; i++) {
     if (!tweets[i].exclude) {
       count++
     }
@@ -63,11 +63,11 @@ function fetchTweets() {
 
 function filterTweets(pageClicked = 0) {
   if (pageClicked == "previous") {
-    page.value--
+    page--
   } else if (pageClicked == "next") {
-    page.value++
+    page++
   } else {
-    page.value = pageClicked
+    page = pageClicked
   }
 
   // filteredIndices is a list of tweets array indices that match the filter settings
@@ -88,32 +88,32 @@ function filterTweets(pageClicked = 0) {
   }
 
   // Calculate number of pages
-  numPages.value = Math.ceil(
-    filteredIndices.value.length / countPerPage.value
+  numPages = Math.ceil(
+    filteredIndices.value.length / countPerPage
   )
-  if (page.value >= numPages.value) {
-    page.value = 0
+  if (page >= numPages) {
+    page = 0
   }
 
   // Make the page numbers boxes
-  pageNumbers.value = []
-  if (page.value > 0) {
-    pageNumbers.value.push("previous")
+  pageNumbers = []
+  if (page > 0) {
+    pageNumbers.push("previous")
   }
-  for (var i = this.page - 3; i <= this.page + 3; i++) {
-    if (i >= 0 && i <= numPages.value - 1) {
-      pageNumbers.value.push(i)
+  for (var i = page - 3; i <= page + 3; i++) {
+    if (i >= 0 && i <= numPages - 1) {
+      pageNumbers.push(i)
     }
   }
-  if (page.value < numPages.value - 1) {
-    pageNumbers.value.push("next")
+  if (page < numPages - 1) {
+    pageNumbers.push("next")
   }
 
   // pageIndices is a list of tweets array indices to get displayed on the current page
   pageIndices.value = []
   for (
-    var i = page.value * countPerPage.value;
-    i < (page.value + 1) * countPerPage.value;
+    var i = page * countPerPage;
+    i < (page + 1) * countPerPage;
     i++
   ) {
     if (i < filteredIndices.value.length) {
@@ -122,32 +122,28 @@ function filterTweets(pageClicked = 0) {
   }
 
   // The info text box
-  this.updateInfo()
+  updateInfo()
 }
 
 function updateInfo() {
   info.value =
     "Page " +
-    commaFormatted(page.value) +
+    page.toLocaleString("en-US") +
     " of " +
-    commaFormatted(numPages.value) +
+    numPages.toLocaleString("en-US") +
     " | "
   if (filteredIndices.value.length != tweets.value.length) {
     info.value +=
       "Filtering to " +
-      filteredIndices.value.length +
+      filteredIndices.value.length.toLocaleString("en-US") +
       " of " +
-      tweets.value.length +
+      tweets.value.length.toLocaleString("en-US") +
       " tweets | "
   } else {
-    info.value += tweets.value.length + " tweets | "
+    info.value += tweets.value.length.toLocaleString("en-US") + " tweets | "
   }
   info.value +=
-    numberOfTweetsStagedForDeletion.value + " tweets okay to delete"
-}
-
-function commaFormatted(x) {
-  return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    numberOfTweetsStagedForDeletion().toLocaleString("en-US") + " tweets okay to delete"
 }
 
 function changeExclude(id, exclude) {
@@ -161,12 +157,6 @@ fetchTweets()
 <template>
   <div class="page">
     <h1>Choose which tweets should never get automatically deleted</h1>
-
-    <p>
-      You may need to disable your adblocker for semiphemeral.com for the
-      embedded tweets to show up properly (this website doesn't have ads).
-    </p>
-
     <template v-if="loading">
       <p>
         <img src="/images/loading.gif" alt="Loading" />
@@ -183,18 +173,18 @@ fetchTweets()
           </label>
         </div>
         <div class="info">{{ info }}</div>
-        <div class="pagination" v-if="this.numPages > 1">
-          <span v-for="(pageNumber, index) in pageNumbers" :key="index">
+        <div class="pagination" v-if="numPages > 1">
+          <span v-for="pageNumber in pageNumbers">
             <PageButton v-bind="{
-              pageNumber: pageNumber,
-              currentPage: page,
+              pageNumber: pageNumber.toString(),
+              isCurrent: page == pageNumber,
             }" v-on:select-page="filterTweets(pageNumber)"></PageButton>
           </span>
         </div>
       </div>
 
       <ul>
-        <li v-for="(id, index) in pageIndices" :key="index">
+        <li v-for="id in pageIndices">
           <Tweet v-bind="{
             tweet: tweets[id],
             userScreenName: userScreenName,

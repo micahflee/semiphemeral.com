@@ -1,15 +1,13 @@
 <script setup>
 const props = defineProps({
-  pageNumber: Number,
-  currentPage: Number
+  pageNumber: String,
+  isCurrent: Boolean
 })
-
-const isCurrentPage = (props['pageNumber'] == props['currentPage'])
 </script>
 
 <template>
   <span>
-    <template v-if="isCurrentPage">
+    <template v-if="isCurrent">
       <span class="button current">{{ pageNumber }}</span>
     </template>
     <template v-else-if="pageNumber == 'previous'">
