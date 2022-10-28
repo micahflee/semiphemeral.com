@@ -2,9 +2,9 @@
 import { ref } from "vue"
 import NavBar from "./layout/NavBar.vue"
 
-const userScreenName = ref(false)
-const userProfileUrl = ref(false)
-const lastFetch = ref(false)
+const userScreenName = ref("")
+const userProfileUrl = ref("")
+const lastFetch = ref("")
 
 fetch("/api/user")
   .then(function (response) {

@@ -118,7 +118,7 @@ watch(exclude, (newExclude, oldExclude) => {
         <span v-if="exclude" class="excluded">Tweet excluded from deletion</span>
         <span v-else>It's okay if this tweet gets deleted</span>
         <span v-if="loading">
-          <img src="/static/img/loading.gif" title="Loading" />
+          <img src="/images/loading.gif" title="Loading" />
         </span>
         <span v-if="error != ''" class="error">{{ error }}</span>
       </label>

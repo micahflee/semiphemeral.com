@@ -96,7 +96,7 @@ fetchTips()
           </span>
           <span class="tip-receipt">
             <a v-bind:href="tip.receipt_url" target="_blank">
-              <img title="Receipt" alt="Receipt" src="/static/img/receipt.png" />
+              <img title="Receipt" alt="Receipt" src="/images/receipt.png" />
             </a>
           </span>
         </li>

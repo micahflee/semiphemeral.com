@@ -12,7 +12,7 @@ const receipt_url = ref(null)
   <div>
     <h1>Thanks for the tip, @{{ this.userScreenName }}</h1>
     <p>
-      <img src="/static/img/logo.png" />
+      <img src="/images/logo.png" />
     </p>
     <p>I'm glad you find this service useful!</p>
     <p v-if="receipt_url">

@@ -14,7 +14,7 @@ function logoutTitle() {
   <div>
     <span class="logo">
       <a href="/">
-        <img src="/static/img/logo-small.png" />
+        <img src="/images/logo-small.png" />
       </a>
     </span>
     <ul>

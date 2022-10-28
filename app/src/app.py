@@ -1915,7 +1915,7 @@ async def main():
     app.add_routes(
         [
             # Static files
-            web.static("/static", "static"),
+            web.static("/images", "images"),
             web.static("/assets", f"frontend/dist-{os.environ.get('DEPLOY_ENVIRONMENT')}/assets"),
             web.static("/admin-assets", f"admin-frontend/dist-{os.environ.get('DEPLOY_ENVIRONMENT')}/admin-assets"),
             # Authentication
