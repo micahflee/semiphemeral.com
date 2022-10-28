@@ -1,13 +1,8 @@
 <script setup>
-
 const props = defineProps({
   userScreenName: String,
   userProfileUrl: String
 })
-
-function logoutTitle() {
-  return "Logged in as @" + userScreenName.value
-}
 </script>
 
 <template>
@@ -41,7 +36,7 @@ function logoutTitle() {
       </li>
     </ul>
     <span class="user">
-      <img v-if="userScreenName" v-bind:src="userProfileUrl" v-bind:title="logoutTitle" />
+      <img v-if="userScreenName" :src="userProfileUrl" :title="`Logged in as @${userScreenName}`" />
       <span>
         <a href="/auth/logout">Log out</a>
       </span>
@@ -89,6 +84,7 @@ span.user img {
   width: 30px;
   border-radius: 50%;
   vertical-align: middle;
+  margin-right: 0.5em;
 }
 
 span.user span {

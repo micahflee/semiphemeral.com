@@ -11,11 +11,11 @@ const loading = ref(false)
 const activeJobs = ref([])
 const pendingJobs = ref([])
 const finishedJobs = ref([])
-const settingPaused = ref(null)
-const settingBlocked = ref(null)
-const settingDeleteTweets = ref(null)
-const settingRetweetsLikes = ref(null)
-const settingDirectMessages = ref(null)
+const settingPaused = ref(false)
+const settingBlocked = ref(false)
+const settingDeleteTweets = ref(false)
+const settingRetweetsLikes = ref(false)
+const settingDirectMessages = ref(false)
 const fascistTweets = ref([])
 
 function state() {
@@ -190,7 +190,7 @@ fetchJobs()
   <div>
     <h1>
       Semiphemeral Dashboard
-      <img class="refresh" v-on:click="fetchJobs()" src="/images/refresh.png" alt="Refresh" title="Refresh" />
+      <img class="refresh" @click="fetchJobs()" src="/images/refresh.png" alt="Refresh" title="Refresh" />
     </h1>
 
     <template v-if="loading">
@@ -234,7 +234,7 @@ fetchJobs()
           </p>
 
           <p>
-            <button class="reactivate" v-on:click="reactivateAccount">
+            <button class="reactivate" @click="reactivateAccount()">
               I'm no longer blocked
             </button>
           </p>
@@ -247,20 +247,20 @@ fetchJobs()
           </p>
 
           <p>
-            <button class="reactivate" v-on:click="unblockAccount">
+            <button class="reactivate" @click="unblockAccount()">
               I've unliked these tweets so unblock me
             </button>
           </p>
 
           <p>
-            <button class="reactivate" v-on:click="reactivateAccount">
+            <button class="reactivate" @click="reactivateAccount()">
               I'm no longer blocked, reactivate my account
             </button>
           </p>
         </template>
       </div>
       <div v-else>
-        <div v-if="state == 'A'">
+        <div v-if="state() == 'A'">
           <p>
             Before you delete your old tweets, Semiphemeral needs to download a
             copy of your Twitter history. While you're waiting, make sure your
@@ -269,10 +269,10 @@ fetchJobs()
           </p>
         </div>
 
-        <div v-if="state == 'B'">
+        <div v-if="state() == 'B'">
           <p>
             You finished downloading a copy of your Twitter history on
-            <em>{{ mostRecentFetchFinished }}</em>, and Semiphemeral is currently <strong>paused</strong>. Before you
+            <em>{{ mostRecentFetchFinished() }}</em>, and Semiphemeral is currently <strong>paused</strong>. Before you
             proceed:
           </p>
           <ul>
@@ -298,24 +298,24 @@ fetchJobs()
           <p>When you're ready:</p>
           <ul class="buttons">
             <li>
-              <button class="start" v-on:click="startSemiphemeral">
+              <button class="start" @click="startSemiphemeral()">
                 Start Semiphemeral
               </button>
               or
             </li>
             <li>
-              <button class="download" v-on:click="downloadHistory">
+              <button class="download" @click="downloadHistory()">
                 Download my Twitter history again
               </button>
             </li>
           </ul>
         </div>
 
-        <div v-if="state == 'C'">
+        <div v-if="state() == 'C'">
           <p>
             Semiphemeral is
             <strong>active</strong>.
-            <button class="pause" v-on:click="pauseSemiphemeral">
+            <button class="pause" @click="pauseSemiphemeral()">
               Pause Semiphemeral
             </button>
           </p>
@@ -336,28 +336,19 @@ fetchJobs()
         </h2>
         <ul v-if="activeJobs.length > 0" class="jobs">
           <li v-for="(job, index) in activeJobs" v-bind:key="index">
-            <Job v-bind:jobId="job['id']" v-bind:jobJobType="job['job_type']" v-bind:jobData="job['data']"
-              v-bind:jobStatus="job['status']" v-bind:jobScheduledTimestamp="job['scheduled_timestamp']"
-              v-bind:jobStartedTimestamp="job['started_timestamp']"
-              v-bind:jobFinishedTimestamp="job['finished_timestamp']"></Job>
+            <Job v-bind:job="job"></Job>
           </li>
         </ul>
         <ul v-if="pendingJobs.length > 0" class="jobs">
           <li v-for="(job, index) in pendingJobs" v-bind:key="index">
-            <Job v-bind:jobId="job['id']" v-bind:jobJobType="job['job_type']" v-bind:jobData="job['data']"
-              v-bind:jobStatus="job['status']" v-bind:jobScheduledTimestamp="job['scheduled_timestamp']"
-              v-bind:jobStartedTimestamp="job['started_timestamp']"
-              v-bind:jobFinishedTimestamp="job['finished_timestamp']"></Job>
+            <Job v-bind:job="job"></Job>
           </li>
         </ul>
 
         <h2 v-if="finishedJobs.length > 0">Log</h2>
         <ul v-if="finishedJobs.length > 0" class="jobs">
           <li v-for="(job, index) in finishedJobs" v-bind:key="index">
-            <Job v-bind:jobId="job['id']" v-bind:jobJobType="job['job_type']" v-bind:jobData="job['data']"
-              v-bind:jobStatus="job['status']" v-bind:jobScheduledTimestamp="job['scheduled_timestamp']"
-              v-bind:jobStartedTimestamp="job['started_timestamp']"
-              v-bind:jobFinishedTimestamp="job['finished_timestamp']"></Job>
+            <Job v-bind:job="job"></Job>
           </li>
         </ul>
       </div>

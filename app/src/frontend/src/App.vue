@@ -4,7 +4,6 @@ import NavBar from "./layout/NavBar.vue"
 
 const userScreenName = ref("")
 const userProfileUrl = ref("")
-const lastFetch = ref("")
 
 fetch("/api/user")
   .then(function (response) {
@@ -15,7 +14,6 @@ fetch("/api/user")
     response.json().then(function (data) {
       userScreenName.value = data["user_screen_name"]
       userProfileUrl.value = data["user_profile_url"]
-      lastFetch.value = data["last_fetch"]
     });
   })
   .catch(function (err) {
