@@ -51,14 +51,8 @@ RUN chown -R user:user .
 USER user:user
 
 # Build the frontends
-RUN if ["$DEPLOY_ENVIRONMENT" = "staging"]; \
-    then cd frontend && npm run build_dev; \
-    else cd frontend && npm run build; \
-    fi
-RUN if ["$DEPLOY_ENVIRONMENT" = "staging"]; \
-    then cd admin-frontend && npm run build_dev; \
-    else cd admin-frontend && npm run build; \
-    fi
+RUN cd frontend && ./build.sh
+RUN cd admin-frontend && ./build.sh
 
 EXPOSE 8080
 CMD ["python", "-m", "poetry", "run", "python", "-u", "app.py"]
