@@ -190,18 +190,18 @@ fetchJobs()
   <div>
     <h1>
       Semiphemeral Dashboard
-      <img class="refresh" v-on:click="fetchJobs()" src="/static/img/refresh.png" alt="Refresh" title="Refresh" />
+      <img class="refresh" v-on:click="fetchJobs()" src="/images/refresh.png" alt="Refresh" title="Refresh" />
     </h1>
 
     <template v-if="loading">
       <p>
-        <img src="/static/img/loading.gif" alt="Loading" />
+        <img src="/images/loading.gif" alt="Loading" />
       </p>
     </template>
     <template v-else>
       <div v-if="settingBlocked">
         <p class="center">
-          <img src="/static/img/refuse.png" alt="We reserve the right to refuse service to anyone" />
+          <img src="/images/refuse.png" alt="We reserve the right to refuse service to anyone" />
         </p>
         <p>
           Semiphemeral is an antifascist service. In order to prevent fascists

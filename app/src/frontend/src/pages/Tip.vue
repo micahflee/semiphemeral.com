@@ -186,7 +186,7 @@ fetch("/api/tip")
       <button v-bind:disabled="loading" type="button" id="tip-stripe-button">
         Tip with Credit Card
       </button>
-      <img v-if="loading" src="/static/img/loading.gif" alt="Loading" />
+      <img v-if="loading" src="/images/loading.gif" alt="Loading" />
     </p>
 
     <div v-if="tips.length > 0" class="tips-history">
@@ -205,7 +205,7 @@ fetch("/api/tip")
           </span>
           <span class="tip-receipt">
             <a v-bind:href="tip.receipt_url" target="_blank">
-              <img title="Receipt" alt="Receipt" src="/static/img/receipt.png" />
+              <img title="Receipt" alt="Receipt" src="/images/receipt.png" />
             </a>
           </span>
         </li>

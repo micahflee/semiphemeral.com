@@ -169,7 +169,7 @@ fetchTweets()
 
     <template v-if="loading">
       <p>
-        <img src="/static/img/loading.gif" alt="Loading" />
+        <img src="/images/loading.gif" alt="Loading" />
       </p>
     </template>
     <template v-else>
