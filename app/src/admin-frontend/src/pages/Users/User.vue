@@ -1,4 +1,4 @@
-<script>
+<script setup>
 const props = defineProps({
   user: Object
 })
@@ -18,10 +18,10 @@ function impersonate() {
       twitter_id: props.user.twitter_id
     })
   })
-    .then(function(response) {
+    .then(function (response) {
       window.location.href = "/dashboard"
     })
-    .catch(function(err) {
+    .catch(function (err) {
       console.log("Error", err)
     })
 }

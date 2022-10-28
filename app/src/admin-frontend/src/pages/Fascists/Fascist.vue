@@ -14,10 +14,10 @@ function deleteFascist() {
       username: props['fascist']["username"]
     })
   })
-    .then(function(response) {
+    .then(function (response) {
       that.$emit("reload");
     })
-    .catch(function(err) {
+    .catch(function (err) {
       console.log("Error", err);
     })
 }
@@ -39,9 +39,11 @@ button {
   padding: 0;
   margin-right: 1em;
 }
+
 .username {
   margin-right: 1em;
 }
+
 .comment {
   font-size: 0.8em;
   color: #999;

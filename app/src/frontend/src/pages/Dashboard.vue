@@ -1,4 +1,4 @@
-<script>
+<script setup>
 import { ref } from "vue"
 import Job from "./Dashboard/Job.vue"
 import FascistTweet from "./Dashboard/FascistTweet.vue"
@@ -54,7 +54,7 @@ function mostRecentFetchFinished() {
   }
 }
 
-function postDashboard (action) {
+function postDashboard(action) {
   loading.value = true;
   fetch("/api/dashboard", {
     method: "POST",
@@ -190,13 +190,7 @@ fetchJobs()
   <div>
     <h1>
       Semiphemeral Dashboard
-      <img
-        class="refresh"
-        v-on:click="fetchJobs()"
-        src="/static/img/refresh.png"
-        alt="Refresh"
-        title="Refresh"
-      />
+      <img class="refresh" v-on:click="fetchJobs()" src="/static/img/refresh.png" alt="Refresh" title="Refresh" />
     </h1>
 
     <template v-if="loading">
@@ -207,10 +201,7 @@ fetchJobs()
     <template v-else>
       <div v-if="settingBlocked">
         <p class="center">
-          <img
-            src="/static/img/refuse.png"
-            alt="We reserve the right to refuse service to anyone"
-          />
+          <img src="/static/img/refuse.png" alt="We reserve the right to refuse service to anyone" />
         </p>
         <p>
           Semiphemeral is an antifascist service. In order to prevent fascists
@@ -220,10 +211,8 @@ fetchJobs()
           fascists.
         </p>
         <p>
-          <strong
-            >In the last six months, you have liked
-            {{ fascistTweets.length }} tweets from fascist influencers.</strong
-          >
+          <strong>In the last six months, you have liked
+            {{ fascistTweets.length }} tweets from fascist influencers.</strong>
           You have been blocked by
           <a href="https://twitter.com/semiphemeral">@semiphemeral</a>, so your
           account has been temporarily disabled.
@@ -231,12 +220,8 @@ fetchJobs()
         <p></p>
 
         <p>You were blocked because you liked these tweets:</p>
-        <FascistTweet
-          v-for="(tweet, index) in fascistTweets"
-          v-bind:statusId="tweet.status_id"
-          v-bind:permalink="tweet.permalink"
-          v-bind:key="index"
-        ></FascistTweet>
+        <FascistTweet v-for="(tweet, index) in fascistTweets" v-bind:statusId="tweet.status_id"
+          v-bind:permalink="tweet.permalink" v-bind:key="index"></FascistTweet>
 
         <template v-if="fascistTweets.length > 10">
           <p>
@@ -287,8 +272,7 @@ fetchJobs()
         <div v-if="state == 'B'">
           <p>
             You finished downloading a copy of your Twitter history on
-            <em>{{ mostRecentFetchFinished }}</em
-            >, and Semiphemeral is currently <strong>paused</strong>. Before you
+            <em>{{ mostRecentFetchFinished }}</em>, and Semiphemeral is currently <strong>paused</strong>. Before you
             proceed:
           </p>
           <ul>
@@ -335,18 +319,15 @@ fetchJobs()
               Pause Semiphemeral
             </button>
           </p>
-          <p
-            v-if="
-              !settingDeleteTweets &&
-              !settingRetweetsLikes &&
-              !settingDirectMessages
-            "
-            class="warning"
-          >
+          <p v-if="
+            !settingDeleteTweets &&
+            !settingRetweetsLikes &&
+            !settingDirectMessages
+          " class="warning">
             Warning: Your settings are configured to not delete any tweets,
             retweets, likes, or direct messages. Go
-            <router-link to="/settings">change your settings</router-link
-            >&nbsp;if you want Semiphemeral to delete your old tweets.
+            <router-link to="/settings">change your settings</router-link>&nbsp;if you want Semiphemeral to delete your
+            old tweets.
           </p>
         </div>
 
@@ -422,6 +403,7 @@ ul.jobs {
   font-weight: bold;
   font-style: italic;
 }
+
 .center {
   text-align: center;
 }

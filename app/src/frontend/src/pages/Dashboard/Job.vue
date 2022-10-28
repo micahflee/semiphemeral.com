@@ -29,7 +29,7 @@ var scheduledTimestamp = Math.floor(this.job["scheduled_timestamp"] * 1000)
 var nowTimestamp = Date.now()
 const scheduledTimestampInThePast = scheduledTimestamp <= nowTimestamp
 const humanReadableScheduledTimestamp = humanReadableTimestamp(job.value["scheduled_timestamp"])
-const humanReadableStartedTimestamp =humanReadableTimestamp(job.value["started_timestamp"])
+const humanReadableStartedTimestamp = humanReadableTimestamp(job.value["started_timestamp"])
 const humanReadableFinishedTimestamp = humanReadableTimestamp(job.value["finished_timestamp"])
 </script>
 
@@ -58,12 +58,10 @@ const humanReadableFinishedTimestamp = humanReadableTimestamp(job.value["finishe
       <template v-else-if="job.status == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{
-            humanReadableFinishedTimestamp
+              humanReadableFinishedTimestamp
           }}</span>
-          <span class="progress"
-            >Downloaded {{ progressTweetsFetched }} tweets,
-            {{ progressLikesFetched }} likes</span
-          >
+          <span class="progress">Downloaded {{ progressTweetsFetched }} tweets,
+            {{ progressLikesFetched }} likes</span>
         </p>
       </template>
     </template>
@@ -96,7 +94,7 @@ const humanReadableFinishedTimestamp = humanReadableTimestamp(job.value["finishe
       <template v-else-if="job.status == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{
-            humanReadableFinishedTimestamp
+              humanReadableFinishedTimestamp
           }}</span>
           <span class="progress">
             Downloaded {{ progressTweetsFetched }} tweets,
@@ -104,9 +102,7 @@ const humanReadableFinishedTimestamp = humanReadableTimestamp(job.value["finishe
             {{ progressTweetsDeleted }} tweets,
             {{ progressRetweetsDeleted }} retweets,
             {{ progressLikesDeleted }} likes
-            <span v-if="progressDMsDeleted != ''"
-              >and {{ progressDMsDeleted }} direct messages</span
-            >
+            <span v-if="progressDMsDeleted != ''">and {{ progressDMsDeleted }} direct messages</span>
           </span>
         </p>
       </template>
@@ -136,12 +132,10 @@ const humanReadableFinishedTimestamp = humanReadableTimestamp(job.value["finishe
       <template v-else-if="job.status == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{
-            humanReadableFinishedTimestamp
+              humanReadableFinishedTimestamp
           }}</span>
-          <span class="progress"
-            >Deleted {{ progressDMsDeleted }} direct messages (skipped
-            {{ progressDMsSkipped }})</span
-          >
+          <span class="progress">Deleted {{ progressDMsDeleted }} direct messages (skipped
+            {{ progressDMsSkipped }})</span>
         </p>
       </template>
     </template>
@@ -170,12 +164,10 @@ const humanReadableFinishedTimestamp = humanReadableTimestamp(job.value["finishe
       <template v-else-if="job.status == 'finished'">
         <p class="finished">
           <span class="finished-timestamp">{{
-            humanReadableFinishedTimestamp
+              humanReadableFinishedTimestamp
           }}</span>
-          <span class="progress"
-            >Deleted {{ progressDMsDeleted }} group direct messages (skipped
-            {{ progressDMsSkipped }})</span
-          >
+          <span class="progress">Deleted {{ progressDMsDeleted }} group direct messages (skipped
+            {{ progressDMsSkipped }})</span>
         </p>
       </template>
     </template>

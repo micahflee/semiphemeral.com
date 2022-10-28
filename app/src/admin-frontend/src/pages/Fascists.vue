@@ -74,21 +74,11 @@ fetchFascists()
           <legend>Add fascist</legend>
           <p>
             <label for="username">Username</label>
-            <input
-              type="text"
-              placeholder="TuckerCarlson"
-              name="username"
-              ref="username"
-            />
+            <input type="text" placeholder="TuckerCarlson" name="username" ref="username" />
           </p>
           <p>
             <label for="comment">Comment</label>
-            <input
-              type="text"
-              placeholder="US white nationalist propagandist"
-              name="comment"
-              ref="comment"
-            />
+            <input type="text" placeholder="US white nationalist propagandist" name="comment" ref="comment" />
           </p>
           <p>
             <input v-bind:disabled="loading" type="submit" value="Add" />
@@ -98,10 +88,7 @@ fetchFascists()
 
       <ul>
         <li v-for="(fascist, index) in fascists" v-bind:key="index">
-          <Fascist
-            v-bind:fascist="fascist"
-            v-on:reload="fetchFascists()"
-          ></Fascist>
+          <Fascist v-bind:fascist="fascist" v-on:reload="fetchFascists()"></Fascist>
         </li>
       </ul>
     </template>

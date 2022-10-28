@@ -3,11 +3,11 @@ const props = defineProps({
   job: String
 })
 
-function formatTipAmount (amount) {
+function formatTipAmount(amount) {
   return "$" + (amount / 100).toFixed(2)
 }
 
-function cancel () {
+function cancel() {
   fetch("/api/tip/cancel_recurring", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -19,7 +19,7 @@ function cancel () {
       if (response.status !== 200) {
         alert(
           "Error canceling recurring tip, please contact hi@semiphemeral.com: " +
-            response.status
+          response.status
         )
         return
       }
@@ -42,16 +42,9 @@ function cancel () {
 <template>
   <div>
     <p>
-      <span class="recurring-tip"
-        >You are currently tipping
-        {{ formatTipAmount(recurringTip.amount) }} every month. Thank you!</span
-      >
-      <button
-        v-on:click="cancel"
-        type="button"
-        id="cancel-recurring-tip"
-        class="cancel-button"
-      >
+      <span class="recurring-tip">You are currently tipping
+        {{ formatTipAmount(recurringTip.amount) }} every month. Thank you!</span>
+      <button v-on:click="cancel" type="button" id="cancel-recurring-tip" class="cancel-button">
         Cancel Recurring Tip
       </button>
     </p>

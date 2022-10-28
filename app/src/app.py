@@ -1491,16 +1491,20 @@ async def privacy(request):
     return {}
 
 
-@aiohttp_jinja2.template("app.jinja2")
 @authentication_required_302
 async def app_main(request):
-    return {"deploy_environment": os.environ.get("DEPLOY_ENVIRONMENT")}
+    with open("frontend/dist/index.html") as f:
+        body = f.read()
+    
+    return web.Response(text=body, content_type="text/html")
 
 
-@aiohttp_jinja2.template("admin.jinja2")
 @admin_required
 async def app_admin(request):
-    return {"deploy_environment": os.environ.get("DEPLOY_ENVIRONMENT")}
+    with open("admin-frontend/dist/index.html") as f:
+        body = f.read()
+    
+    return web.Response(text=body, content_type="text/html")
 
 
 @admin_required
@@ -1912,6 +1916,8 @@ async def main():
         [
             # Static files
             web.static("/static", "static"),
+            web.static("/assets", "frontend/dist/assets"),
+            web.static("/admin-assets", "admin-frontend/dist/admin-assets"),
             # Authentication
             web.get("/auth/login", auth_login),
             web.get("/auth/logout", auth_logout),

@@ -23,7 +23,7 @@ function addScript() {
 
 const embeddedTweetId = "tweet-" + this.statusId;
 
-function embedTweet () {
+function embedTweet() {
   // Delete everything in the tweet div
   while ($refs.embeddedTweet.firstChild) {
     $refs.embeddedTweet.removeChild(
@@ -65,6 +65,7 @@ nextTick(embedTweet)
   padding: 5px 5px 0 5px;
   margin: 0 10px 10px 0;
 }
+
 .error {
   color: #cc0000;
 }

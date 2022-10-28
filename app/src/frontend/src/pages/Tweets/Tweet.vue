@@ -29,7 +29,7 @@ const error = ref("")
 const twitterPermalink = "https://twitter.com/" + props['userScreenName'] + "/status/" + props['tweet'].status_id
 const embeddedTweetId = "tweet-" + props['tweet'].status_id
 
-function embedTweet () {
+function embedTweet() {
   // If the tweet itself hasn't changed, no need to re-embed it
   if (previousStatusId.value == props["tweet"]["status_id"]) {
     return
@@ -125,10 +125,7 @@ watch(exclude, (newExclude, oldExclude) => {
       <div class="stats">
         {{ tweet.retweet_count }} retweets,
         {{ tweet.like_count }} likes,
-        <a
-          target="_blank"
-          v-bind:href="twitterPermalink"
-        >permalink</a>
+        <a target="_blank" v-bind:href="twitterPermalink">permalink</a>
       </div>
     </div>
     <div ref="embeddedTweet" v-bind:id="embeddedTweetId"></div>
@@ -145,13 +142,16 @@ watch(exclude, (newExclude, oldExclude) => {
   padding: 5px 5px 0 5px;
   margin: 0 10px 10px 0;
 }
+
 .excluded {
   font-weight: bold;
 }
+
 .stats {
   font-size: 0.8em;
   color: #666666;
 }
+
 .error {
   color: #cc0000;
 }

@@ -1,4 +1,4 @@
-<script>
+<script setup>
 import { ref } from "vue"
 import RecurringTip from "./Tip/RecurringTip.vue";
 
@@ -112,10 +112,8 @@ fetch("/api/tip")
       Semiphemeral is free. Every day a bot will automatically delete your old
       tweets and likes (except for the ones you want to keep), keeping your
       social media presence a bit more private.
-      <strong
-        >Hosting this service costs money though, so tips are
-        appreciated.</strong
-      >
+      <strong>Hosting this service costs money though, so tips are
+        appreciated.</strong>
     </p>
 
     <template v-if="recurringTips.length > 0" class="recurring-tips">
@@ -164,11 +162,7 @@ fetch("/api/tip")
           </label>
           <span v-if="amount == 'other'">
             $
-            <input
-              type="text"
-              v-model.number="otherAmount"
-              class="other-amount"
-            />
+            <input type="text" v-model.number="otherAmount" class="other-amount" />
           </span>
         </li>
       </ul>
@@ -211,11 +205,7 @@ fetch("/api/tip")
           </span>
           <span class="tip-receipt">
             <a v-bind:href="tip.receipt_url" target="_blank">
-              <img
-                title="Receipt"
-                alt="Receipt"
-                src="/static/img/receipt.png"
-              />
+              <img title="Receipt" alt="Receipt" src="/static/img/receipt.png" />
             </a>
           </span>
         </li>

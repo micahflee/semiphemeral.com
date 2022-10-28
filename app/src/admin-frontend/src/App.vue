@@ -7,17 +7,17 @@ const userProfileUrl = ref(false)
 
 function getUser() {
   fetch("/api/user")
-    .then(function(response) {
+    .then(function (response) {
       if (response.status !== 200) {
         console.log("Error fetching user, status code: " + response.status)
         return
       }
-      response.json().then(function(data) {
+      response.json().then(function (data) {
         userScreenName.value = data["user_screen_name"]
         userProfileUrl.value = data["user_profile_url"]
       });
     })
-    .catch(function(err) {
+    .catch(function (err) {
       console.log("Error fetching user", err)
     })
 }
@@ -27,11 +27,10 @@ getUser()
 
 <template>
   <div>
-    <NavBar
-      v-bind="{
-            userScreenName: userScreenName,
-            userProfileUrl: userProfileUrl }"
-    ></NavBar>
+    <NavBar v-bind="{
+      userScreenName: userScreenName,
+      userProfileUrl: userProfileUrl
+    }"></NavBar>
     <router-view v-bind="{
       userScreenName: userScreenName
     }"></router-view>

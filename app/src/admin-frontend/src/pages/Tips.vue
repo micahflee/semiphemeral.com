@@ -8,7 +8,7 @@ const props = defineProps({
 const loading = ref(false)
 const tips = ref([])
 
-function fetchTips () {
+function fetchTips() {
   loading.value = true;
 
   // Get lists of tips
@@ -83,7 +83,7 @@ fetchTips()
         <li v-for="(tip, index) in tips" v-bind:key="index">
           <span class="tip-user">
             <a v-bind:href="tip.twitter_link" target="_blank">{{
-              tip.twitter_username
+                tip.twitter_username
             }}</a>
           </span>
           <span class="tip-date">{{ formatTipDate(tip.timestamp) }}</span>
@@ -96,11 +96,7 @@ fetchTips()
           </span>
           <span class="tip-receipt">
             <a v-bind:href="tip.receipt_url" target="_blank">
-              <img
-                title="Receipt"
-                alt="Receipt"
-                src="/static/img/receipt.png"
-              />
+              <img title="Receipt" alt="Receipt" src="/static/img/receipt.png" />
             </a>
           </span>
         </li>
