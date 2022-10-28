@@ -407,7 +407,7 @@ def staging_destroy():
         "-var",
         f"bastion_ip={terraform_output['bastion_ip']}",
         "-var",
-        f"db_volume_snapshot_id={terraform_output['db_volume_snapshot_id']}",
+        f"db_volume_snapshot_id=null",
     ]
 
     # terraform destroy
