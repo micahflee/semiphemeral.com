@@ -13,7 +13,7 @@ import CancelTip from "./pages/CancelTip.vue";
 import Faq from "./pages/Faq.vue";
 
 const routes = [
-    { path: '/dashboard', name: 'dashboard', component: Dashboard },
+    { path: '/', name: 'dashboard', component: Dashboard },
     { path: '/tweets', name: 'tweets', component: Tweets },
     { path: '/export', name: 'export', component: Export },
     { path: '/dms', name: 'dms', component: DirectMessages },
