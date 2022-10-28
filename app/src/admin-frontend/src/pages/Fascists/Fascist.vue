@@ -27,7 +27,7 @@ function deleteFascist() {
   <div>
     <button class="delete" v-on:click="deleteFascist">Delete</button>
     <span class="username">
-      <a v-bind:href="profileLink" target="_blank">{{ fascist['username'] }}</a>
+      <a :href="profileLink" target="_blank">{{ fascist['username'] }}</a>
     </span>
     <span class="comment">{{ fascist['comment'] }}</span>
   </div>

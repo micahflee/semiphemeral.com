@@ -33,7 +33,7 @@ function info() {
 
 <template>
   <div>
-    <a v-bind:href="profileLink">{{ user['twitter_screen_name'] }}</a>
+    <a :href="profileLink">{{ user['twitter_screen_name'] }}</a>
     <span>
       <button v-on:click="impersonate">impersonate</button>
     </span>

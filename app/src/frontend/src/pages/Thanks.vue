@@ -16,7 +16,7 @@ const receipt_url = ref(null)
     </p>
     <p>I'm glad you find this service useful!</p>
     <p v-if="receipt_url">
-      <a v-bind:href="receipt_url" target="_blank">Click here</a> for your
+      <a :href="receipt_url" target="_blank">Click here</a> for your
       receipt.
     </p>
   </div>

@@ -80,7 +80,7 @@ function scheduledTimestampInThePast() {
 </script>
 
 <template>
-    <div v-bind:class="job.status">
+    <div :class="job.status">
         <template v-if="job.status == 'pending'">
             <template v-if="job.job_type == 'fetch'">
                 <p class="status" v-if="scheduledTimestampInThePast()">

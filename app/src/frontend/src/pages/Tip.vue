@@ -117,8 +117,8 @@ fetch("/api/tip")
     </p>
 
     <template v-if="recurringTips.length > 0" class="recurring-tips">
-      <li v-for="(recurringTip, index) in recurringTips" v-bind:key="index">
-        <RecurringTip v-bind:recurringTip="recurringTip"></RecurringTip>
+      <li v-for="(recurringTip, index) in recurringTips" :key="index">
+        <RecurringTip :recurringTip="recurringTip"></RecurringTip>
       </li>
     </template>
 
@@ -126,37 +126,37 @@ fetch("/api/tip")
       <legend>How much would you like to tip?</legend>
       <ul>
         <li>
-          <label v-bind:class="amount == '100' ? 'selected' : ''">
+          <label :class="amount == '100' ? 'selected' : ''">
             <input type="radio" name="amount" value="100" v-model="amount" />
             $1
           </label>
         </li>
         <li>
-          <label v-bind:class="amount == '500' ? 'selected' : ''">
+          <label :class="amount == '500' ? 'selected' : ''">
             <input type="radio" name="amount" value="500" v-model="amount" />
             $5
           </label>
         </li>
         <li>
-          <label v-bind:class="amount == '1337' ? 'selected' : ''">
+          <label :class="amount == '1337' ? 'selected' : ''">
             <input type="radio" name="amount" value="1337" v-model="amount" />
             $13.37
           </label>
         </li>
         <li>
-          <label v-bind:class="amount == '2000' ? 'selected' : ''">
+          <label :class="amount == '2000' ? 'selected' : ''">
             <input type="radio" name="amount" value="2000" v-model="amount" />
             $20
           </label>
         </li>
         <li>
-          <label v-bind:class="amount == '10000' ? 'selected' : ''">
+          <label :class="amount == '10000' ? 'selected' : ''">
             <input type="radio" name="amount" value="10000" v-model="amount" />
             $100
           </label>
         </li>
         <li>
-          <label v-bind:class="amount == 'other' ? 'selected' : ''">
+          <label :class="amount == 'other' ? 'selected' : ''">
             <input type="radio" name="amount" value="other" v-model="amount" />
             Other
           </label>
@@ -168,13 +168,13 @@ fetch("/api/tip")
       </ul>
       <ul>
         <li>
-          <label v-bind:class="type == 'one-time' ? 'selected' : ''">
+          <label :class="type == 'one-time' ? 'selected' : ''">
             <input type="radio" name="type" value="one-time" v-model="type" />
             One-time
           </label>
         </li>
         <li>
-          <label v-bind:class="type == 'monthly' ? 'selected' : ''">
+          <label :class="type == 'monthly' ? 'selected' : ''">
             <input type="radio" name="type" value="monthly" v-model="type" />
             Monthly
           </label>
@@ -183,7 +183,7 @@ fetch("/api/tip")
     </fieldset>
 
     <p>
-      <button v-bind:disabled="loading" type="button" id="tip-stripe-button">
+      <button :disabled="loading" type="button" id="tip-stripe-button">
         Tip with Credit Card
       </button>
       <img v-if="loading" src="/images/loading.gif" alt="Loading" />
@@ -194,7 +194,7 @@ fetch("/api/tip")
         <strong>Your history of tips</strong>
       </p>
       <ul>
-        <li v-for="(tip, index) in tips" v-bind:key="index">
+        <li v-for="(tip, index) in tips" :key="index">
           <span class="tip-date">{{ formatTipDate(tip.timestamp) }}</span>
           <span class="tip-amount">
             <template v-if="tip.refunded">
@@ -204,7 +204,7 @@ fetch("/api/tip")
             <template v-else>{{ formatTipAmount(tip.amount) }}</template>
           </span>
           <span class="tip-receipt">
-            <a v-bind:href="tip.receipt_url" target="_blank">
+            <a :href="tip.receipt_url" target="_blank">
               <img title="Receipt" alt="Receipt" src="/images/receipt.png" />
             </a>
           </span>

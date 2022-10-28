@@ -184,7 +184,7 @@ fetchTweets()
         </div>
         <div class="info">{{ info }}</div>
         <div class="pagination" v-if="this.numPages > 1">
-          <span v-for="(pageNumber, index) in pageNumbers" v-bind:key="index">
+          <span v-for="(pageNumber, index) in pageNumbers" :key="index">
             <PageButton v-bind="{
               pageNumber: pageNumber,
               currentPage: page,
@@ -194,7 +194,7 @@ fetchTweets()
       </div>
 
       <ul>
-        <li v-for="(id, index) in pageIndices" v-bind:key="index">
+        <li v-for="(id, index) in pageIndices" :key="index">
           <Tweet v-bind="{
             tweet: tweets[id],
             userScreenName: userScreenName,

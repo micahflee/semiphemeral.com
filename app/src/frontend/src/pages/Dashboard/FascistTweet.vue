@@ -48,9 +48,9 @@ nextTick(embedTweet)
 
 <template>
   <div class="tweet-wrapper">
-    <div ref="embeddedTweet" v-bind:id="embeddedTweetId"></div>
+    <div ref="embeddedTweet" :id="embeddedTweetId"></div>
     <p>
-      <a target="_blank" v-bind:href="permalink">View on Twitter</a>
+      <a target="_blank" :href="permalink">View on Twitter</a>
     </p>
   </div>
 </template>
