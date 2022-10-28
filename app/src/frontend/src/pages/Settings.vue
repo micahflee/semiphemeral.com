@@ -159,34 +159,34 @@ getSettings()
             Delete old tweets
           </label>
         </p>
-        <fieldset v-bind:class="deleteTweets ? '' : 'disabled'">
+        <fieldset :class="deleteTweets ? '' : 'disabled'">
           <legend>Tweets</legend>
           <p>
             Delete tweets older than
-            <input type="number" class="small" min="0" v-model="tweetsDaysThreshold" v-bind:disabled="!deleteTweets" />
+            <input type="number" class="small" min="0" v-model="tweetsDaysThreshold" :disabled="!deleteTweets" />
             days
           </p>
           <p>
             <label>
-              <input type="checkbox" v-model="tweetsEnableRetweetThreshold" v-bind:disabled="!deleteTweets" />
+              <input type="checkbox" v-model="tweetsEnableRetweetThreshold" :disabled="!deleteTweets" />
               Unless they have at least
             </label>
             <input type="number" class="small" min="0" v-model="tweetsRetweetThreshold"
-              v-bind:disabled="!deleteTweets || !tweetsEnableRetweetThreshold" />
+              :disabled="!deleteTweets || !tweetsEnableRetweetThreshold" />
             retweets
           </p>
           <p>
             <label>
-              <input type="checkbox" v-model="tweetsEnableLikeThreshold" v-bind:disabled="!deleteTweets" />
+              <input type="checkbox" v-model="tweetsEnableLikeThreshold" :disabled="!deleteTweets" />
               Or at least
             </label>
             <input type="number" class="small" min="0" v-model="tweetsLikeThreshold"
-              v-bind:disabled="!deleteTweets || !tweetsEnableLikeThreshold" />
+              :disabled="!deleteTweets || !tweetsEnableLikeThreshold" />
             likes
           </p>
           <p>
             <label>
-              <input type="checkbox" v-model="tweetsThreadsThreshold" v-bind:disabled="!deleteTweets" />
+              <input type="checkbox" v-model="tweetsThreadsThreshold" :disabled="!deleteTweets" />
               Don't delete tweets that are part of a thread that contains at least one tweet that meets these thresholds
             </label>
           </p>
@@ -199,28 +199,28 @@ getSettings()
           </label>
         </p>
 
-        <fieldset v-bind:class="retweetsLikes ? '' : 'disabled'">
+        <fieldset :class="retweetsLikes ? '' : 'disabled'">
           <legend>Retweets and likes</legend>
 
           <p>
             <label>
-              <input type="checkbox" v-model="retweetsLikesDeleteRetweets" v-bind:disabled="!retweetsLikes" />
+              <input type="checkbox" v-model="retweetsLikesDeleteRetweets" :disabled="!retweetsLikes" />
               Unretweet tweets
             </label>
             older than
             <input type="number" class="small" min="0" v-model="retweetsLikesRetweetsThreshold"
-              v-bind:disabled="!retweetsLikes" />
+              :disabled="!retweetsLikes" />
             days
           </p>
 
           <p>
             <label>
-              <input type="checkbox" v-model="retweetsLikesDeleteLikes" v-bind:disabled="!retweetsLikes" />
+              <input type="checkbox" v-model="retweetsLikesDeleteLikes" :disabled="!retweetsLikes" />
               Unlike tweets
             </label>
             older than
             <input type="number" class="small" min="0" v-model="retweetsLikesLikesThreshold"
-              v-bind:disabled="!retweetsLikes" />
+              :disabled="!retweetsLikes" />
             days
           </p>
         </fieldset>
@@ -233,13 +233,13 @@ getSettings()
             </label>
           </p>
 
-          <fieldset v-bind:class="directMessages ? '' : 'disabled'">
+          <fieldset :class="directMessages ? '' : 'disabled'">
             <legend>Direct messages</legend>
 
             <p>
               Delete direct messages older than
               <input type="number" class="small" min="0" max="29" v-model="directMessagesThreshold"
-                v-bind:disabled="!directMessages" />
+                :disabled="!directMessages" />
               days
             </p>
 
@@ -269,7 +269,7 @@ getSettings()
         </p>
 
         <p>
-          <input v-bind:disabled="loading" type="submit" value="Save" />
+          <input :disabled="loading" type="submit" value="Save" />
         </p>
 
         <div class="danger">

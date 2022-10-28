@@ -29,7 +29,7 @@ const logoutTitle = "Logged in as @" + this.userScreenName
       </li>
     </ul>
     <span class="user">
-      <img v-if="userScreenName" v-bind:src="userProfileUrl" v-bind:title="logoutTitle" />
+      <img v-if="userScreenName" :src="userProfileUrl" :title="logoutTitle" />
       <span>
         <a href="/auth/logout">Log out</a>
       </span>

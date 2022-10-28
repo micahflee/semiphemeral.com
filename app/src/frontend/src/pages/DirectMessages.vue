@@ -128,7 +128,7 @@ getDMInfo()
             <form v-on:submit.prevent="onSubmit">
               <p>
                 <input ref="file" type="file" accept="text/javascript, application/x-javascript" />
-                <input v-bind:disabled="loading" class="button" type="submit" value="Delete these old DMs" />
+                <input :disabled="loading" class="button" type="submit" value="Delete these old DMs" />
               </p>
             </form>
           </template>

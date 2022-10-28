@@ -125,10 +125,10 @@ watch(exclude, (newExclude, oldExclude) => {
       <div class="stats">
         {{ tweet.retweet_count }} retweets,
         {{ tweet.like_count }} likes,
-        <a target="_blank" v-bind:href="twitterPermalink">permalink</a>
+        <a target="_blank" :href="twitterPermalink">permalink</a>
       </div>
     </div>
-    <div ref="embeddedTweet" v-bind:id="embeddedTweetId"></div>
+    <div ref="embeddedTweet" :id="embeddedTweetId"></div>
   </div>
 </template>
 
