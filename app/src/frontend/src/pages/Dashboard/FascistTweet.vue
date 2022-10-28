@@ -21,7 +21,7 @@ function addScript() {
   return addScriptPromise;
 }
 
-const embeddedTweetId = "tweet-" + this.statusId;
+const embeddedTweetId = "tweet-" + statusId.value;
 
 function embedTweet() {
   // Delete everything in the tweet div

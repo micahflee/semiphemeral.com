@@ -336,19 +336,28 @@ fetchJobs()
         </h2>
         <ul v-if="activeJobs.length > 0" class="jobs">
           <li v-for="(job, index) in activeJobs" v-bind:key="index">
-            <Job v-bind:job="job"></Job>
+            <Job v-bind:jobId="job['id']" v-bind:jobJobType="job['job_type']" v-bind:jobData="job['data']"
+              v-bind:jobStatus="job['status']" v-bind:jobScheduledTimestamp="job['scheduled_timestamp']"
+              v-bind:jobStartedTimestamp="job['started_timestamp']"
+              v-bind:jobFinishedTimestamp="job['finished_timestamp']"></Job>
           </li>
         </ul>
         <ul v-if="pendingJobs.length > 0" class="jobs">
           <li v-for="(job, index) in pendingJobs" v-bind:key="index">
-            <Job v-bind:job="job"></Job>
+            <Job v-bind:jobId="job['id']" v-bind:jobJobType="job['job_type']" v-bind:jobData="job['data']"
+              v-bind:jobStatus="job['status']" v-bind:jobScheduledTimestamp="job['scheduled_timestamp']"
+              v-bind:jobStartedTimestamp="job['started_timestamp']"
+              v-bind:jobFinishedTimestamp="job['finished_timestamp']"></Job>
           </li>
         </ul>
 
         <h2 v-if="finishedJobs.length > 0">Log</h2>
         <ul v-if="finishedJobs.length > 0" class="jobs">
           <li v-for="(job, index) in finishedJobs" v-bind:key="index">
-            <Job v-bind:job="job"></Job>
+            <Job v-bind:jobId="job['id']" v-bind:jobJobType="job['job_type']" v-bind:jobData="job['data']"
+              v-bind:jobStatus="job['status']" v-bind:jobScheduledTimestamp="job['scheduled_timestamp']"
+              v-bind:jobStartedTimestamp="job['started_timestamp']"
+              v-bind:jobFinishedTimestamp="job['finished_timestamp']"></Job>
           </li>
         </ul>
       </div>
