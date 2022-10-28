@@ -1,6 +1,12 @@
 <script setup>
 const props = defineProps({
-  job: String
+  jobId: Number,
+  jobJobType: String,
+  jobData: String,
+  jobStatus: String,
+  jobScheduledTimestamp: Number,
+  jobStartedTimestamp: Number,
+  jobFinishedTimestamp: Number
 })
 
 function humanReadableTimestamp(timestamp) {
@@ -17,20 +23,20 @@ function getProgressVal(data, key) {
   }
 }
 
-const progressTweetsFetched = getProgressVal(job.value.data, "tweets_fetched")
-const progressLikesFetched = getProgressVal(job.value.data, "likes_fetched")
-const progressTweetsDeleted = getProgressVal(job.value.data, "tweets_deleted")
-const progressRetweetsDeleted = getProgressVal(job.value.data, "retweets_deleted")
-const progressLikesDeleted = getProgressVal(job.value.data, "likes_deleted")
-const progressDMsDeleted = getProgressVal(job.value.data, "dms_deleted")
-const progressDMsSkipped = getProgressVal(job.value.data, "dms_skipped")
-const progressStatus = getProgressVal(job.value.data, "status")
-var scheduledTimestamp = Math.floor(this.job["scheduled_timestamp"] * 1000)
+const progressTweetsFetched = getProgressVal(props.jobData.value, "tweets_fetched")
+const progressLikesFetched = getProgressVal(props.jobData.value, "likes_fetched")
+const progressTweetsDeleted = getProgressVal(props.jobData.value, "tweets_deleted")
+const progressRetweetsDeleted = getProgressVal(props.jobData.value, "retweets_deleted")
+const progressLikesDeleted = getProgressVal(props.jobData.value, "likes_deleted")
+const progressDMsDeleted = getProgressVal(props.jobData.value, "dms_deleted")
+const progressDMsSkipped = getProgressVal(props.jobData.value, "dms_skipped")
+const progressStatus = getProgressVal(props.jobData.value, "status")
+var scheduledTimestamp = Math.floor(props.jobScheduledTimestamp.value * 1000)
 var nowTimestamp = Date.now()
 const scheduledTimestampInThePast = scheduledTimestamp <= nowTimestamp
-const humanReadableScheduledTimestamp = humanReadableTimestamp(job.value["scheduled_timestamp"])
-const humanReadableStartedTimestamp = humanReadableTimestamp(job.value["started_timestamp"])
-const humanReadableFinishedTimestamp = humanReadableTimestamp(job.value["finished_timestamp"])
+const humanReadableScheduledTimestamp = humanReadableTimestamp(props.jobScheduledTimestamp.value)
+const humanReadableStartedTimestamp = humanReadableTimestamp(props.jobStartedTimestamp.value)
+const humanReadableFinishedTimestamp = humanReadableTimestamp(props.jobFinishedTimestamp.value)
 </script>
 
 <template>
