@@ -220,8 +220,7 @@ fetchJobs()
         <p></p>
 
         <p>You were blocked because you liked these tweets:</p>
-        <FascistTweet v-for="(tweet, index) in fascistTweets" :statusId="tweet.status_id" :permalink="tweet.permalink"
-          :key="index"></FascistTweet>
+        <FascistTweet v-for="tweet in fascistTweets" :tweet="tweet"></FascistTweet>
 
         <template v-if="fascistTweets.length > 10">
           <p>
