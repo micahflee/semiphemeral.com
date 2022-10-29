@@ -12,8 +12,6 @@ const activeUsers = ref([])
 const pausedUsers = ref([])
 const blockedUsers = ref([])
 
-const impersonatingLink = "https://twitter.com/" + impersonatingTwitterUsername.value
-
 function fetchUsers() {
   loading.value = true
 
@@ -81,40 +79,49 @@ fetchUsers()
   <div>
     <h1>Users</h1>
 
-    <template v-if="impersonatingTwitterUsername != null">
+    <template v-if="loading">
       <p>
-        You are impersonating twitter user
-        <a target="_blank" v-bind:href="impersonatingLink">@{{ impersonatingTwitterUsername }}</a>.
-        <button v-on:click="stopImpersonating">Stop impersonating.</button>
+        <img src="/images/loading.gif" alt="Loading" />
       </p>
     </template>
+    <template v-else>
+      <template v-if="impersonatingTwitterUsername != null">
+        <p>
+          You are impersonating twitter user
+          <a target="_blank" v-bind:href="`https://twitter.com/${impersonatingTwitterUsername}`">@{{
+              impersonatingTwitterUsername
+          }}</a>.
+          <button v-on:click="stopImpersonating">Stop impersonating.</button>
+        </p>
+      </template>
 
-    <div v-if="activeUsers.length > 0" class="column">
-      <h2>{{ activeUsers.length }} active users</h2>
-      <ul>
-        <li v-for="(user, index) in activeUsers" v-bind:key="index">
-          <User v-bind:user="user"></User>
-        </li>
-      </ul>
-    </div>
+      <div v-if="activeUsers.length > 0" class="column">
+        <h2>{{ activeUsers.length }} active users</h2>
+        <ul>
+          <li v-for="(user, index) in activeUsers" v-bind:key="index">
+            <User v-bind:user="user"></User>
+          </li>
+        </ul>
+      </div>
 
-    <div v-if="pausedUsers.length > 0" class="column">
-      <h2>{{ pausedUsers.length }} paused users</h2>
-      <ul>
-        <li v-for="(user, index) in pausedUsers" v-bind:key="index">
-          <User v-bind:user="user"></User>
-        </li>
-      </ul>
-    </div>
+      <div v-if="pausedUsers.length > 0" class="column">
+        <h2>{{ pausedUsers.length }} paused users</h2>
+        <ul>
+          <li v-for="(user, index) in pausedUsers" v-bind:key="index">
+            <User v-bind:user="user"></User>
+          </li>
+        </ul>
+      </div>
 
-    <div v-if="blockedUsers.length > 0" class="column">
-      <h2>{{ blockedUsers.length }} blocked users</h2>
-      <ul>
-        <li v-for="(user, index) in blockedUsers" v-bind:key="index">
-          <User v-bind:user="user"></User>
-        </li>
-      </ul>
-    </div>
+      <div v-if="blockedUsers.length > 0" class="column">
+        <h2>{{ blockedUsers.length }} blocked users</h2>
+        <ul>
+          <li v-for="(user, index) in blockedUsers" v-bind:key="index">
+            <User v-bind:user="user"></User>
+          </li>
+        </ul>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -122,5 +129,17 @@ fetchUsers()
 .column {
   display: inline-block;
   vertical-align: top;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+li {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 </style>
