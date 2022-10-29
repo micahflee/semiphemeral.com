@@ -938,7 +938,7 @@ async def api_get_tip_recent(request):
     user = await _logged_in_user(session)
 
     tip = (
-        await Tip.query.where(Tip.id == user.id)
+        await Tip.query.where(Tip.user_id == user.id)
         .where(Tip.paid == True)
         .where(Tip.refunded == False)
         .order_by(Tip.timestamp.desc())
