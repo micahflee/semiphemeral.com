@@ -7,18 +7,18 @@ const props = defineProps({
 })
 
 const loading = ref(false)
-const errorMessage = ref(null)
-const stripePublishableKey = ref(false)
-const stripe = ref(false)
 const amount = ref("500")
 const otherAmount = ref("")
 const type = ref("one-time")
 const tips = ref([])
 const recurringTips = ref([])
 
+var stripePublishableKey = null
+var stripe = null
+
 function initStripe() {
   // Initialize Stripe
-  stripe.value = Stripe(this.stripePublishableKey);
+  stripe = Stripe(stripePublishableKey);
   var tipButton = document.getElementById("tip-stripe-button");
 
   tipButton.addEventListener("click", function () {
@@ -35,7 +35,7 @@ function initStripe() {
         return response.json()
       })
       .then(function (session) {
-        return stripe.value.redirectToCheckout({ sessionId: session.id })
+        return stripe.redirectToCheckout({ sessionId: session.id })
       })
       .then(function (result) {
         if (result.error) {
@@ -93,7 +93,7 @@ fetch("/api/tip")
       return
     }
     response.json().then(function (data) {
-      stripePublishableKey.value = data["stripe_publishable_key"];
+      stripePublishableKey = data["stripe_publishable_key"];
       tips.value = data["tips"];
       recurringTips.value = data["recurring_tips"];
 
@@ -198,7 +198,7 @@ fetch("/api/tip")
           <span class="tip-date">{{ formatTipDate(tip.timestamp) }}</span>
           <span class="tip-amount">
             <template v-if="tip.refunded">
-              <strike>{{ formatTipAmount(tip.amount) }}</strike>
+              <span class="refunded-amount">{{ formatTipAmount(tip.amount) }}</span>
               <span class="refunded">refunded</span>
             </template>
             <template v-else>{{ formatTipAmount(tip.amount) }}</template>
@@ -301,6 +301,10 @@ button {
 
 .tips-history li .tip-amount .refunded {
   color: #cc0000;
+}
+
+.tips-history li .tip-amount .refunded-amount {
+  text-decoration: line-through
 }
 
 .tips-history li .tip-receipt {
