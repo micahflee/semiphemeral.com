@@ -1026,7 +1026,11 @@ async def api_get_dashboard(request):
         fascist_tweets = [
             {
                 "status_id": tweet.status_id,
+                "retweet_count": tweet.retweet_count,
+                "like_count": tweet.favorite_count,
                 "permalink": f"https://twitter.com/{tweet.twitter_user_screen_name}/status/{tweet.status_id}",
+                "text": tweet.text,
+                "created_at": tweet.created_at.timestamp(),
             }
             for tweet in fascist_tweets
         ]

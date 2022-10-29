@@ -1194,14 +1194,14 @@ async def unblock(job_details_id, funcs):
             await job_details.update(
                 status="finished", finished_timestamp=datetime.now()
             ).apply()
-            await log(job_details, f"already unblocked @{data['twitter_username']}")
+            await log(job_details, f"Already unblocked @{data['twitter_username']}")
             return
 
         # Unblock them
         try:
             await client.api.blocks.destroy.post(screen_name=data["twitter_username"])
         except peony.exceptions.DoesNotExist:
-            pass
+            await log(job_details, f"DoesNotExist @{data['twitter_username']}")
 
     # If we're unblocking a semiphemeral user
     if "user_id" in data:
@@ -1209,6 +1209,10 @@ async def unblock(job_details_id, funcs):
         if user and user.blocked:
             # Update the user
             await user.update(paused=True, blocked=False).apply()
+            await log(
+                job_details,
+                f"User @{data['twitter_username']} unblock in semiphemeral db",
+            )
 
     # Finished
     await job_details.update(
