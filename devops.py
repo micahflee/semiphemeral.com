@@ -222,12 +222,18 @@ def _write_ansible_inventory(deploy_environment):
     )
     with open(inventory_filename, "w") as f:
         f.write("[app]\n")
-        f.write(f"{app_ip}\n")
+        if deploy_environment == "staging":
+            f.write(f"{app_ip}\n")
+        else:
+            f.write(f"{app_private_ip}\n")
         f.write("[app:vars]\n")
         f.write(f"ansible_ssh_common_args='-J root@{bastion_ip}'\n")
         f.write("\n")
         f.write("[db]\n")
-        f.write(f"{db_ip}\n")
+        if deploy_environment == "staging":
+            f.write(f"{db_ip}\n")
+        else:
+            f.write(f"{db_private_ip}\n")
         f.write("[db:vars]\n")
         f.write(f"ansible_ssh_common_args='-J root@{bastion_ip}'\n")
         f.write("\n")
