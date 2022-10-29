@@ -4,6 +4,7 @@ import NavBar from "./layout/NavBar.vue"
 
 const userScreenName = ref("")
 const userProfileUrl = ref("")
+const canSwitch = ref(false)
 
 fetch("/api/user")
   .then(function (response) {
@@ -14,6 +15,7 @@ fetch("/api/user")
     response.json().then(function (data) {
       userScreenName.value = data["user_screen_name"]
       userProfileUrl.value = data["user_profile_url"]
+      canSwitch.value = data["can_switch"]
     });
   })
   .catch(function (err) {
@@ -25,7 +27,8 @@ fetch("/api/user")
   <div>
     <NavBar v-bind="{
       userScreenName: userScreenName,
-      userProfileUrl: userProfileUrl
+      userProfileUrl: userProfileUrl,
+      canSwitch: canSwitch
     }"></NavBar>
     <router-view v-bind="{
       userScreenName: userScreenName
