@@ -31,19 +31,19 @@ function switchBack() {
     </span>
     <ul>
       <li>
-        <router-link to="/">Home</router-link>
+        <router-link to="/admin">Home</router-link>
       </li>
       <li>
-        <router-link to="/jobs">Jobs</router-link>
+        <router-link to="/admin/jobs">Jobs</router-link>
       </li>
       <li>
-        <router-link to="/users">Users</router-link>
+        <router-link to="/admin/users">Users</router-link>
       </li>
       <li>
-        <router-link to="/fascists">Fascists</router-link>
+        <router-link to="/admin/fascists">Fascists</router-link>
       </li>
       <li>
-        <router-link to="/tips">Tips</router-link>
+        <router-link to="/admin/tips">Tips</router-link>
       </li>
     </ul>
     <span class="user">

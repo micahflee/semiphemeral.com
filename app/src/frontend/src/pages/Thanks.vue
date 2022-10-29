@@ -6,6 +6,22 @@ const props = defineProps({
 })
 
 const receipt_url = ref(null)
+
+fetch("/api/tip/recent")
+  .then(function (response) {
+    if (response.status !== 200) {
+      console.log(
+        "Error fetching tip info, status code: " + response.status
+      );
+      return
+    }
+    response.json().then(function (data) {
+      receipt_url.value = data["receipt_url"]
+    })
+  })
+  .catch(function (err) {
+    console.log("Error fetching recent tip", err);
+  })
 </script>
 
 <template>
@@ -16,8 +32,7 @@ const receipt_url = ref(null)
     </p>
     <p>I'm glad you find this service useful!</p>
     <p v-if="receipt_url">
-      <a :href="receipt_url" target="_blank">Click here</a> for your
-      receipt.
+      <a :href="receipt_url" target="_blank">Click here</a> for your receipt.
     </p>
   </div>
 </template>

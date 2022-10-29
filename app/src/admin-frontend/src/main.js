@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 
 import App from './App.vue';
 import Home from "./pages/Home.vue";
@@ -9,15 +9,15 @@ import Fascists from "./pages/Fascists.vue";
 import Tips from "./pages/Tips.vue";
 
 const routes = [
-    { path: '/', name: 'home', component: Home },
-    { path: '/jobs', name: 'jobs', component: Jobs },
-    { path: '/users', name: 'users', component: Users },
-    { path: '/fascists', name: 'fascists', component: Fascists },
-    { path: '/tips', name: 'tips', component: Tips }
+    { path: '/admin', name: 'home', component: Home },
+    { path: '/admin/jobs', name: 'jobs', component: Jobs },
+    { path: '/admin/users', name: 'users', component: Users },
+    { path: '/admin/fascists', name: 'fascists', component: Fascists },
+    { path: '/admin/tips', name: 'tips', component: Tips }
 ]
 
 const router = createRouter({
-    history: createWebHashHistory(),
+    history: createWebHistory(),
     routes
 })
 

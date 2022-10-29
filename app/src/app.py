@@ -1978,6 +1978,10 @@ async def main():
             web.get("/faq", app_main),
             # Admin
             web.get("/admin", app_admin),
+            web.get("/admin/jobs", app_admin),
+            web.get("/admin/users", app_admin),
+            web.get("/admin/fascists", app_admin),
+            web.get("/admin/tips", app_admin),
             # Admin API
             web.get("/admin_api/jobs", admin_api_get_jobs),
             web.get("/admin_api/users", admin_api_get_users),
