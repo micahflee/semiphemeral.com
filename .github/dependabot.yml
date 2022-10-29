@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/app/src/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "npm"
+    directory: "app/src/frontend/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "npm"
+    directory: "app/src/admin-frontend/"
+    schedule:
+      interval: "weekly"
