@@ -116,10 +116,7 @@ terraform/*/.terraform.lock.hcl
 vars-ansible.json
 vars-terraform.json
 ansible/inventory-*
-backups/*.sql
-backups/*.sql.gz
-backups/*.tar.gz
-backups/id_ed25519.pub
+backups/*
 
 # frontend
 app/src/frontend/node_modules
