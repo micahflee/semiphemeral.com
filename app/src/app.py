@@ -1510,11 +1510,6 @@ async def app_admin(request):
 
 
 @admin_required
-async def app_admin_redirect(request):
-    raise web.HTTPFound(location="/admin/jobs")
-
-
-@admin_required
 async def admin_api_get_jobs(request):
     jobs = (
         await JobDetails.query.where(
@@ -1962,11 +1957,7 @@ async def main():
             web.get("/cancel-tip", app_main),
             web.get("/faq", app_main),
             # Admin
-            web.get("/admin", app_admin_redirect),
-            web.get("/admin/jobs", app_admin),
-            web.get("/admin/users", app_admin),
-            web.get("/admin/fascists", app_admin),
-            web.get("/admin/tips", app_admin),
+            web.get("/admin", app_admin),
             # Admin API
             web.get("/admin_api/jobs", admin_api_get_jobs),
             web.get("/admin_api/users", admin_api_get_users),

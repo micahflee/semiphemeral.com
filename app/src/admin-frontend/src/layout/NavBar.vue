@@ -3,8 +3,6 @@ const props = defineProps({
   userScreenName: String,
   userProfileUrl: String
 })
-
-const logoutTitle = "Logged in as @" + this.userScreenName
 </script>
 
 <template>
@@ -16,20 +14,23 @@ const logoutTitle = "Logged in as @" + this.userScreenName
     </span>
     <ul>
       <li>
-        <router-link to="/admin/jobs">Jobs</router-link>
+        <router-link to="/">Home</router-link>
       </li>
       <li>
-        <router-link to="/admin/users">Users</router-link>
+        <router-link to="/jobs">Jobs</router-link>
       </li>
       <li>
-        <router-link to="/admin/fascists">Fascists</router-link>
+        <router-link to="/users">Users</router-link>
       </li>
       <li>
-        <router-link to="/admin/tips">Tips</router-link>
+        <router-link to="/fascists">Fascists</router-link>
+      </li>
+      <li>
+        <router-link to="/tips">Tips</router-link>
       </li>
     </ul>
     <span class="user">
-      <img v-if="userScreenName" :src="userProfileUrl" :title="logoutTitle" />
+      <img v-if="userScreenName" :src="userProfileUrl" :title="`Logged in as @${userScreenName}`" />
       <span>
         <a href="/auth/logout">Log out</a>
       </span>
@@ -77,6 +78,7 @@ span.user img {
   width: 30px;
   border-radius: 50%;
   vertical-align: middle;
+  margin-right: 0.5em;
 }
 
 span.user span {

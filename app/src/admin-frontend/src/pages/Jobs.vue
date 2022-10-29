@@ -79,9 +79,9 @@ function formatJobDate(timestamp) {
     ", " +
     date.getUTCFullYear() +
     " " +
-    this.addZero(date.getUTCHours()) +
+    addZero(date.getUTCHours()) +
     ":" +
-    this.addZero(date.getUTCMinutes())
+    addZero(date.getUTCMinutes())
   )
 }
 
