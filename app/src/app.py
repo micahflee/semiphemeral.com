@@ -72,10 +72,6 @@ async def _logged_in_user(session):
             user.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
             and "impersonating_twitter_id" in session
         ):
-            await log(
-                None,
-                f"Admin impersonating user with id {session['impersonating_twitter_id']}",
-            )
             impersonating_user = await User.query.where(
                 User.twitter_id == session["impersonating_twitter_id"]
             ).gino.first()
@@ -442,6 +438,7 @@ async def api_get_user(request):
     Respond with information about the logged in user
     """
     session = await get_session(request)
+    can_switch = False
 
     # Get the actual logged in user
     user = await User.query.where(User.twitter_id == session["twitter_id"]).gino.first()
@@ -458,6 +455,12 @@ async def api_get_user(request):
             twitter_user = await client.api.users.lookup.get(
                 screen_name=user.twitter_screen_name
             )
+
+        can_switch = True
+        await log(
+            None,
+            f"Admin impersonating user @{user.twitter_screen_name}",
+        )
     else:
         # Just a normal user
         async with SemiphemeralPeonyClient(user) as client:
@@ -472,6 +475,7 @@ async def api_get_user(request):
             "user_screen_name": user.twitter_screen_name,
             "user_profile_url": twitter_user.profile_image_url_https,
             "last_fetch": user.last_fetch,
+            "can_switch": can_switch,
         }
     )
 

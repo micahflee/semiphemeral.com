@@ -1,8 +1,25 @@
 <script setup>
 const props = defineProps({
   userScreenName: String,
-  userProfileUrl: String
+  userProfileUrl: String,
+  canSwitch: Boolean
 })
+
+function switchBack() {
+  fetch("/admin_api/users/impersonate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      twitter_id: "0",
+    }),
+  })
+    .then(function (response) {
+      window.location.reload(true)
+    })
+    .catch(function (err) {
+      console.log("Error", err)
+    })
+}
 </script>
 
 <template>
@@ -36,6 +53,7 @@ const props = defineProps({
       </li>
     </ul>
     <span class="user">
+      <button v-if="canSwitch" @click="switchBack()">switch back</button>
       <img v-if="userScreenName" :src="userProfileUrl" :title="`Logged in as @${userScreenName}`" />
       <span>
         <a href="/auth/logout">Log out</a>
@@ -84,6 +102,7 @@ span.user img {
   width: 30px;
   border-radius: 50%;
   vertical-align: middle;
+  margin-left: 0.5em;
   margin-right: 0.5em;
 }
 
