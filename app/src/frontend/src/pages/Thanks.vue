@@ -10,7 +10,7 @@ const receipt_url = ref(null)
 
 <template>
   <div>
-    <h1>Thanks for the tip, @{{ this.userScreenName }}</h1>
+    <h1>Thanks for the tip, @{{ userScreenName }}</h1>
     <p>
       <img src="/images/logo.png" />
     </p>
