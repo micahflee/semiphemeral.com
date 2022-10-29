@@ -11,18 +11,13 @@ const props = defineProps({
     <h2>What if something is broken?</h2>
     <p>
       Semiphemeral is still a beta service. If something isn't working like it should, or is confusing, please report
-      it. You can send a Twitter message to
-      <a href="https://twitter.com/semiphemeral" target="_blank">@semiphemeral</a>.
+      it. You can email semiphemeral@gmail.com. Make sure to include your Twitter username in your report!.
     </p>
 
     <h2>Why aren't tweets showing up on the tweets page?</h2>
-    <p>The tweets page should embed all of the tweets that will get automatically deleted the next time it's your turn
-      to delete. If you just created your account, you need to wait for your tweets to finish downloading the first time
-      first.</p>
-    <p>If you've already finished downloading tweets and they're still not getting displayed, this is probably because
-      your web browser is blocking them. Do you have browser extensions like Privacy Badger, or is Firefox's tracking
-      protection blocking the script from twitter.com? Try disabling those thing for semiphemeral.com, and the tweets
-      should get displayed.</p>
+    <p>The tweets page should show you all of the tweets in your account, including which ones will automatically get
+      deleted the next time it's your turn to delete. If you just created your account, you need to wait for your tweets
+      to finish downloading the first time first.</p>
 
     <h2>Why is Semiphemeral only deleting my most recent 3,000 tweets?</h2>
     <p>Twitter's API works in mysterious ways. For some users, when you tell the API "give me a list of all of my
@@ -45,6 +40,11 @@ const props = defineProps({
       you really want to (and you're enough of a tech nerd) you can do this using the self-hosted
       <a href="https://github.com/micahflee/semiphemeral">open source semiphemeral project</a>.
     </p>
+
+    <h2>I have authenticated with the Semiphemeral app to delete DMs. Why won't it let me upload my Twitter archive file
+      file?</h2>
+    <p>You need to go to Settings and check the "Delete old direct messages" box first. Without that checked,
+      Semiphemeral won't delete any DMs, even bulk ones.</p>
 
     <h2>Can I tell my friends?</h2>
     <p>Yes! This is a free service and everyone is welcome to use it so long as they don't support fascists (who will
