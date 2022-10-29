@@ -1,6 +1,6 @@
 <script setup>
 const props = defineProps({
-  job: String
+  recurringTip: Object
 })
 
 function formatTipAmount(amount) {
@@ -12,7 +12,7 @@ function cancel() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      recurring_tip_id: recurringTip.value.id
+      recurring_tip_id: props.recurringTip.id
     })
   })
     .then(function (response) {
@@ -24,8 +24,8 @@ function cancel() {
         return
       }
       response.json().then(function (data) {
-        if (that.error) {
-          alert(error_message)
+        if (data['error']) {
+          alert(data['error_message'])
         } else {
           // Success, reload the tips page
           alert("Monthly tip canceled")
@@ -44,7 +44,7 @@ function cancel() {
     <p>
       <span class="recurring-tip">You are currently tipping
         {{ formatTipAmount(recurringTip.amount) }} every month. Thank you!</span>
-      <button v-on:click="cancel" type="button" id="cancel-recurring-tip" class="cancel-button">
+      <button @click="cancel()" type="button" id="cancel-recurring-tip" class="cancel-button">
         Cancel Recurring Tip
       </button>
     </p>
@@ -64,7 +64,7 @@ button {
 }
 
 .recurring-tip {
-  font-style: italic;
-  font-size: 0.9em;
+  font-weight: bold;
+  font-size: 1.1em;
 }
 </style>

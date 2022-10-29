@@ -117,9 +117,9 @@ fetch("/api/tip")
     </p>
 
     <template v-if="recurringTips.length > 0" class="recurring-tips">
-      <li v-for="(recurringTip, index) in recurringTips" :key="index">
+      <div v-for="recurringTip in recurringTips">
         <RecurringTip :recurringTip="recurringTip"></RecurringTip>
-      </li>
+      </div>
     </template>
 
     <fieldset>
