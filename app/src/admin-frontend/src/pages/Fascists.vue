@@ -8,6 +8,8 @@ const props = defineProps({
 
 const loading = ref(false)
 const fascists = ref([])
+const username = ref(null)
+const comment = ref(null)
 
 function onCreateSubmit() {
   loading.value = true;
@@ -16,8 +18,8 @@ function onCreateSubmit() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       action: "create",
-      username: $refs.username.value,
-      comment: $refs.comment.value,
+      username: username.value.value,
+      comment: comment.value.value,
     }),
   })
     .then(function (response) {
@@ -52,7 +54,7 @@ function fetchFascists() {
       })
     })
     .catch(function (err) {
-      console.log("Error fetching users", err)
+      console.log("Error fetching fascists", err)
       loading.value = false
     })
 }
@@ -87,7 +89,7 @@ fetchFascists()
       </form>
 
       <ul>
-        <li v-for="(fascist, index) in fascists" v-bind:key="index">
+        <li v-for="fascist in fascists">
           <Fascist v-bind:fascist="fascist" v-on:reload="fetchFascists()"></Fascist>
         </li>
       </ul>

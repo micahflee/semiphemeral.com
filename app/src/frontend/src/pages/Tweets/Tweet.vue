@@ -13,8 +13,6 @@ const exclude = ref(props.tweet.exclude)
 const excludeCheckbox = ref(null)
 const error = ref("")
 
-const twitterPermalink = "https://twitter.com/" + props['userScreenName'] + "/status/" + props['tweet'].status_id
-
 function formatDate() {
   var date = new Date(props.tweet.created_at * 1000)
   return "" + date.getFullYear() +
@@ -78,7 +76,8 @@ watch(exclude, (newExclude, oldExclude) => {
       <div class="stats">
         {{ tweet.retweet_count }} retweets,
         {{ tweet.like_count }} likes,
-        <a target="_blank" :href="twitterPermalink">see on Twitter</a>
+        <a target="_blank" :href="`https://twitter.com/${userScreenName}/status/${tweet.status_id}`">see on
+          Twitter</a>
       </div>
     </div>
     <div class="tweet-text">{{ tweet.text }}</div>
