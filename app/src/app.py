@@ -1782,7 +1782,11 @@ async def admin_api_post_fascists(request):
 @admin_required
 async def admin_api_get_tips(request):
     users = {}
-    tips = await Tip.query.order_by(Tip.timestamp.desc()).gino.all()
+    tips = (
+        await Tip.query.where(Tip.paid == True)
+        .order_by(Tip.timestamp.desc())
+        .gino.all()
+    )
 
     for tip in tips:
         if tip.user_id not in users:
