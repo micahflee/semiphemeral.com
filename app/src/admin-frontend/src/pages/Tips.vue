@@ -77,31 +77,38 @@ fetchTips()
   <div>
     <h1>Tips</h1>
 
-    <div v-if="tips.length > 0">
-      <h2>{{ tips.length }} tips</h2>
-      <ul>
-        <li v-for="(tip, index) in tips" v-bind:key="index">
-          <span class="tip-user">
-            <a v-bind:href="tip.twitter_link" target="_blank">{{
-                tip.twitter_username
-            }}</a>
-          </span>
-          <span class="tip-date">{{ formatTipDate(tip.timestamp) }}</span>
-          <span class="tip-amount">
-            <template v-if="tip.refunded">
-              <strike>{{ formatTipAmount(tip.amount) }}</strike>
-              <span class="refunded">refunded</span>
-            </template>
-            <template v-else>{{ formatTipAmount(tip.amount) }}</template>
-          </span>
-          <span class="tip-receipt">
-            <a v-bind:href="tip.receipt_url" target="_blank">
-              <img title="Receipt" alt="Receipt" src="/images/receipt.png" />
-            </a>
-          </span>
-        </li>
-      </ul>
-    </div>
+    <template v-if="loading">
+      <p>
+        <img src="/images/loading.gif" alt="Loading" />
+      </p>
+    </template>
+    <template v-else>
+      <div v-if="tips.length > 0">
+        <h2>{{ tips.length }} tips</h2>
+        <ul>
+          <li v-for="(tip, index) in tips" v-bind:key="index">
+            <span class="tip-user">
+              <a v-bind:href="tip.twitter_link" target="_blank">{{
+                  tip.twitter_username
+              }}</a>
+            </span>
+            <span class="tip-date">{{ formatTipDate(tip.timestamp) }}</span>
+            <span class="tip-amount">
+              <template v-if="tip.refunded">
+                <span class="refunded-amount">{{ formatTipAmount(tip.amount) }}</span>
+                <span class="refunded">refunded</span>
+              </template>
+              <template v-else>{{ formatTipAmount(tip.amount) }}</template>
+            </span>
+            <span class="tip-receipt">
+              <a v-bind:href="tip.receipt_url" target="_blank">
+                <img title="Receipt" alt="Receipt" src="/images/receipt.png" />
+              </a>
+            </span>
+          </li>
+        </ul>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -140,6 +147,10 @@ li .tip-amount {
   color: #009900;
   min-width: 80px;
   margin-right: 10px;
+}
+
+li .tip-amount .refunded-amount {
+  text-decoration: line-through
 }
 
 li .tip-amount .refunded {
