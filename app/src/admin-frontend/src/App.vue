@@ -2,8 +2,8 @@
 import { ref } from "vue"
 import NavBar from "./layout/NavBar.vue";
 
-const userScreenName = ref(false)
-const userProfileUrl = ref(false)
+const userScreenName = ref("")
+const userProfileUrl = ref("")
 
 function getUser() {
   fetch("/api/user")
