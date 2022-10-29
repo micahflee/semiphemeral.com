@@ -1,17 +1,26 @@
 <script setup>
-import { ref, nextTick, onBeforeUpdate, onUpdated, watch } from "vue"
+import { ref, watch } from "vue"
 
 const props = defineProps({
   tweet: Object,
   userScreenName: String
 })
 
+const emit = defineEmits(["exclude-true", "exclude-false"])
+
 const loading = ref(false)
 const exclude = ref(props.tweet.exclude)
+const excludeCheckbox = ref(null)
 const error = ref("")
 
 const twitterPermalink = "https://twitter.com/" + props['userScreenName'] + "/status/" + props['tweet'].status_id
-const embeddedTweetId = "tweet-" + props['tweet'].status_id
+
+function formatDate() {
+  var date = new Date(props.tweet.created_at * 1000)
+  return "" + date.getFullYear() +
+    "/" + (date.getMonth() + 1) +
+    "/" + date.getDate()
+}
 
 watch(exclude, (newExclude, oldExclude) => {
   // Skip if this is the first time
@@ -19,14 +28,14 @@ watch(exclude, (newExclude, oldExclude) => {
     return
   }
   if (newExclude) {
-    $emit("exclude-true")
+    emit("exclude-true")
   } else {
-    $emit("exclude-false")
+    emit("exclude-false")
   }
 
   loading.value = true
   error.value = ""
-  $refs.excludeCheckbox.disabled = true
+  excludeCheckbox.disabled = true
 
   fetch("/api/tweets", {
     method: "POST",
@@ -38,12 +47,12 @@ watch(exclude, (newExclude, oldExclude) => {
   })
     .then(function (response) {
       loading.value = false
-      $refs.excludeCheckbox.disabled = false
+      excludeCheckbox.disabled = false
     })
     .catch(function (err) {
       console.log("Error toggling exclude", err)
       loading.value = false
-      $refs.excludeCheckbox.disabled = false
+      excludeCheckbox.disabled = false
 
       // Toggle back
       var oldExclude = exclude.value
@@ -73,6 +82,7 @@ watch(exclude, (newExclude, oldExclude) => {
       </div>
     </div>
     <div class="tweet-text">{{ tweet.text }}</div>
+    <div class="created-at">{{ formatDate() }}</div>
   </div>
 </template>
 
@@ -86,6 +96,12 @@ watch(exclude, (newExclude, oldExclude) => {
   padding: 5px 5px 0 5px;
   margin: 0 10px 10px 0;
   overflow: hidden;
+}
+
+.created-at {
+  font-size: 0.9em;
+  color: #666666;
+  text-align: right;
 }
 
 .excluded {
