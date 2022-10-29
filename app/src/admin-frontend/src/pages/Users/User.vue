@@ -3,13 +3,6 @@ const props = defineProps({
   user: Object
 })
 
-const profileLink = "https://twitter.com/" + this.user["twitter_screen_name"]
-
-function humanReadableTimestamp(timestamp) {
-  var date = new Date(timestamp * 1000)
-  return date.toLocaleDateString() + " at " + date.toLocaleTimeString()
-}
-
 function impersonate() {
   fetch("/admin_api/users/impersonate", {
     method: "POST",
@@ -33,7 +26,7 @@ function info() {
 
 <template>
   <div>
-    <a :href="profileLink">{{ user['twitter_screen_name'] }}</a>
+    <a :href="`https://twitter.com/${user['twitter_screen_name']}`">{{ user['twitter_screen_name'] }}</a>
     <span>
       <button v-on:click="impersonate">impersonate</button>
     </span>
