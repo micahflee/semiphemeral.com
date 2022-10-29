@@ -1711,6 +1711,18 @@ async def admin_api_post_fascists(request):
     if data["action"] != "create" and data["action"] != "delete":
         raise web.HTTPBadRequest(text="action must be 'create' or 'delete'")
 
+    # Get a Peony client to look up this fascist user
+    session = await get_session(request)
+    user = await User.query.where(User.twitter_id == session["twitter_id"]).gino.first()
+    async with SemiphemeralPeonyClient(user) as client:
+        fascist_twitter_user = await client.api.users.lookup.get(
+            screen_name=data["username"]
+        )
+        if len(fascist_twitter_user) != 1:
+            return web.json_response(False)
+
+    fascist_twitter_user_id = fascist_twitter_user[0]["id_str"]
+
     if data["action"] == "create":
         await _api_validate({"action": str, "username": str, "comment": str}, data)
 
@@ -1729,10 +1741,10 @@ async def admin_api_post_fascists(request):
 
         # Mark all the tweets from this user as is_fascist=True
         await Tweet.update.values(is_fascist=True).where(
-            Tweet.twitter_user_screen_name.ilike(data["username"])
+            Tweet.twitter_user_id == fascist_twitter_user_id
         ).gino.status()
 
-        # Make sure the facist is blocked
+        # Make sure the fascist is blocked
         job_details = await JobDetails.create(
             job_type="block", data=json.dumps({"twitter_username": data["username"]})
         )
@@ -1757,7 +1769,7 @@ async def admin_api_post_fascists(request):
 
         # Mark all the tweets from this user as is_fascist=False
         await Tweet.update.values(is_fascist=False).where(
-            Tweet.twitter_user_screen_name == data["username"]
+            Tweet.twitter_user_id == fascist_twitter_user_id
         ).gino.status()
 
         return web.json_response(True)

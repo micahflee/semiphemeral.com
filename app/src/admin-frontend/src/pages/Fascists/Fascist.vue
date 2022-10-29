@@ -1,9 +1,9 @@
 <script setup>
 const props = defineProps({
-  fascist: String
+  fascist: Object
 })
 
-const profileLink = "https://twitter.com/" + this.fascist["username"]
+const emit = defineEmits(["reload"])
 
 function deleteFascist() {
   fetch("/admin_api/fascists", {
@@ -15,7 +15,7 @@ function deleteFascist() {
     })
   })
     .then(function (response) {
-      that.$emit("reload");
+      emit("reload");
     })
     .catch(function (err) {
       console.log("Error", err);
@@ -27,7 +27,7 @@ function deleteFascist() {
   <div>
     <button class="delete" v-on:click="deleteFascist">Delete</button>
     <span class="username">
-      <a :href="profileLink" target="_blank">{{ fascist['username'] }}</a>
+      <a :href="`https://twitter.com/${fascist['username']}`" target="_blank">{{ fascist['username'] }}</a>
     </span>
     <span class="comment">{{ fascist['comment'] }}</span>
   </div>
