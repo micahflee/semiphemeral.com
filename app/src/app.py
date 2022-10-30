@@ -13,6 +13,7 @@ from aiohttp_session.cookie_storage import EncryptedCookieStorage
 import jinja2
 import aiohttp_jinja2
 import stripe
+from sqlalchemy.sql import text
 
 import peony
 
@@ -27,6 +28,7 @@ from common import (
     SemiphemeralPeonyClient,
 )
 from db import (
+    db,
     connect_db,
     User,
     Tip,
@@ -52,6 +54,8 @@ dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
 
 jobs_registry = FailedJobRegistry(queue=jobs_q)
 dm_jobs_registry = FailedJobRegistry(queue=dm_jobs_high_q)
+
+gino_db = None
 
 
 async def _logged_in_user(session):
@@ -1519,13 +1523,44 @@ async def app_admin(request):
 
 @admin_required
 async def admin_api_get_jobs(request):
-    jobs = (
-        await JobDetails.query.where(
-            or_(JobDetails.status == "active", JobDetails.status == "pending")
-        )
+    global gino_db
+
+    active_jobs = (
+        await JobDetails.query.where(JobDetails.status == "active")
         .order_by(JobDetails.id)
         .gino.all()
     )
+
+    async with gino_db.acquire() as gino_conn:
+        result = await gino_conn.all(
+            text(
+                """SELECT
+	COUNT(id)
+FROM
+	job_details
+WHERE
+	status = 'pending'
+	AND (job_type = 'fetch' OR job_type = 'delete')
+	AND (scheduled_timestamp IS NULL OR scheduled_timestamp <= NOW())
+    """
+            )
+        )
+        pending_jobs_count = result[0][0]
+
+        result = await gino_conn.all(
+            text(
+                """SELECT
+	COUNT(id)
+FROM
+	job_details
+WHERE
+	status = 'pending'
+	AND (job_type = 'fetch' OR job_type = 'delete')
+	AND scheduled_timestamp > NOW()
+    """
+            )
+        )
+        scheduled_jobs_count = result[0][0]
 
     async def to_client(job):
         if job.scheduled_timestamp:
@@ -1564,28 +1599,11 @@ async def admin_api_get_jobs(request):
             "redis_status": redis_status,
         }
 
-    started_jobs = []
-    queued_jobs = []
-    scheduled_jobs = []
-    other_jobs = []
-
-    for job in jobs:
-        job_json = await to_client(job)
-        if job_json["redis_status"] == "started":
-            started_jobs.append(job_json)
-        elif job_json["redis_status"] == "queued":
-            queued_jobs.append(job_json)
-        elif job_json["redis_status"] == "scheduled":
-            scheduled_jobs.append(job_json)
-        else:
-            other_jobs.append(job_json)
-
     return web.json_response(
         {
-            "started_jobs": started_jobs,
-            "queued_jobs": queued_jobs,
-            "scheduled_jobs": scheduled_jobs,
-            "other_jobs": other_jobs,
+            "active_jobs": [await to_client(job) for job in active_jobs],
+            "pending_jobs_count": pending_jobs_count,
+            "scheduled_jobs_count": scheduled_jobs_count,
         }
     )
 
@@ -1835,7 +1853,8 @@ async def maintenance_refresh_logging(request=None):
 
 async def main():
     print("Connecting to the database")
-    await connect_db()
+    global gino_db
+    gino_db = await connect_db()
 
     await send_admin_notification(
         f"Semiphemeral container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"

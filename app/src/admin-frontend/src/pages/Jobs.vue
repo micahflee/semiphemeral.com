@@ -6,10 +6,9 @@ const props = defineProps({
 })
 
 const loading = ref(false)
-const started_jobs = ref([])
-const queued_jobs = ref([])
-const scheduled_jobs = ref([])
-const other_jobs = ref([])
+const active_jobs = ref([])
+const pending_jobs_count = ref(0)
+const scheduled_jobs_count = ref(0)
 
 function fetchJobs() {
   loading.value = true
@@ -18,16 +17,15 @@ function fetchJobs() {
   fetch("/admin_api/jobs")
     .then(function (response) {
       if (response.status !== 200) {
-        console.log("Error fetching tips, status code: " + response.status)
+        console.log("Error fetching jobs, status code: " + response.status)
         loading.value = false
         return
       }
       response.json().then(function (data) {
         loading.value = false
-        started_jobs.value = data["started_jobs"]
-        queued_jobs.value = data["queued_jobs"]
-        scheduled_jobs.value = data["scheduled_jobs"]
-        other_jobs.value = data["other_jobs"]
+        active_jobs.value = data["active_jobs"]
+        pending_jobs_count.value = data["pending_jobs_count"]
+        scheduled_jobs_count.value = data["scheduled_jobs_count"]
       });
     })
     .catch(function (err) {
@@ -98,19 +96,17 @@ fetchJobs()
       </p>
     </template>
     <template v-else>
-      <div v-if="started_jobs.length > 0">
-        <h2>{{ started_jobs.length }} started jobs</h2>
+      <div v-if="active_jobs.length > 0">
+        <h2>{{ active_jobs.length.toLocaleString("en-US") }} active jobs</h2>
         <ul>
-          <li v-for="(job, index) in started_jobs" v-bind:key="index">
+          <li v-for="job in active_jobs">
             <span class="job-id">{{ job.id }}</span>
             <span class="job-user" v-if="job.twitter_username != null">
               <a v-bind:href="job.twitter_link" target="_blank">{{
                   job.twitter_username
               }}</a>
             </span>
-            <span class="job-user" v-else>
-              <p>unknown user</p>
-            </span>
+            <span class="job-user" v-else></span>
             <span class="job-type">{{ job.job_type }}</span>
             <span class="job-date">started {{ formatJobDate(job.started_timestamp) }} UTC</span>
             <span class="job-data">{{ job.data }}</span>
@@ -118,66 +114,10 @@ fetchJobs()
         </ul>
       </div>
 
-      <div v-if="queued_jobs.length > 0">
-        <h2>{{ queued_jobs.length }} queued jobs</h2>
-        <ul>
-          <li v-for="(job, index) in queued_jobs" v-bind:key="index">
-            <span class="job-id">{{ job.id }}</span>
-            <span class="job-user" v-if="job.twitter_username != null">
-              <a v-bind:href="job.twitter_link" target="_blank">{{
-                  job.twitter_username
-              }}</a>
-            </span>
-            <span class="job-user" v-else>
-              <p>unknown user</p>
-            </span>
-            <span class="job-type">{{ job.job_type }}</span>
-            <span class="job-data">{{ job.data }}</span>
-          </li>
-        </ul>
-      </div>
-
-      <div v-if="scheduled_jobs.length > 0">
-        <h2>{{ scheduled_jobs.length }} scheduled jobs</h2>
-        <ul>
-          <li v-for="(job, index) in scheduled_jobs" v-bind:key="index">
-            <span class="job-id">{{ job.id }}</span>
-            <span class="job-user" v-if="job.twitter_username != null">
-              <a v-bind:href="job.twitter_link" target="_blank">{{
-                  job.twitter_username
-              }}</a>
-            </span>
-            <span class="job-user" v-else>
-              <p>unknown user</p>
-            </span>
-            <span class="job-type">{{ job.job_type }}</span>
-            <span class="job-date">scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span>
-            <span class="job-data">{{ job.data }}</span>
-          </li>
-        </ul>
-      </div>
-
-      <div v-if="other_jobs.length > 0">
-        <h2>{{ other_jobs.length }} other jobs</h2>
-        <ul>
-          <li v-for="(job, index) in other_jobs" v-bind:key="index">
-            <span class="job-id">{{ job.id }}</span>
-            <span class="job-user" v-if="job.twitter_username != null">
-              <a v-bind:href="job.twitter_link" target="_blank">{{
-                  job.twitter_username
-              }}</a>
-            </span>
-            <span class="job-user" v-else>
-              <p>unknown user</p>
-            </span>
-            <span class="job-type">{{ job.job_type }}</span>
-            <span class="job-date">scheduled {{ formatJobDate(job.scheduled_timestamp) }} UTC</span>
-            <span class="job-date">started {{ formatJobDate(job.started_timestamp) }} UTC</span>
-            <span class="job-data">redis: {{ job.redis_status }}</span>
-            <span class="job-data">{{ job.data }}</span>
-          </li>
-        </ul>
-      </div>
+      <p>
+        <strong>{{ pending_jobs_count.toLocaleString("en-US") }}</strong> pending jobs<br />
+        <strong>{{ scheduled_jobs_count.toLocaleString("en-US") }}</strong> scheduled jobs
+      </p>
     </template>
   </div>
 </template>
