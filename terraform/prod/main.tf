@@ -83,7 +83,7 @@ resource "digitalocean_droplet" "app" {
   name          = "app-production"
   image         = "ubuntu-22-04-x64"
   region        = "nyc1"
-  size          = "s-4vcpu-8gb"
+  size          = "s-8vcpu-16gb"
   vpc_uuid      = digitalocean_vpc.semiphemeral.id
   monitoring    = true
   droplet_agent = true
