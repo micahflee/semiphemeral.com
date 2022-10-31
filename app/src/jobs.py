@@ -470,116 +470,103 @@ async def delete(job_details_id, funcs):
         ).apply()
         return
 
-    async with SemiphemeralPeonyClient(user) as client:
-        await log(job_details, "Delete started")
+    client = tweepy_client(user)
+    await log(job_details, "Delete started")
 
-        # Start the progress
-        data = json.loads(job_details.data)
-        data["progress"]["tweets_deleted"] = 0
-        data["progress"]["retweets_deleted"] = 0
-        data["progress"]["likes_deleted"] = 0
-        data["progress"]["dms_deleted"] = 0
+    # Start the progress
+    data = json.loads(job_details.data)
+    data["progress"]["tweets_deleted"] = 0
+    data["progress"]["retweets_deleted"] = 0
+    data["progress"]["likes_deleted"] = 0
+    data["progress"]["dms_deleted"] = 0
 
-        # Unretweet and unlike tweets
-        if user.retweets_likes:
+    # Unretweet and unlike tweets
+    if user.retweets_likes:
 
-            # Unretweet
-            if user.retweets_likes_delete_retweets:
-                days = user.retweets_likes_retweets_threshold
-                if days > 99999:
-                    days = 99999
-                datetime_threshold = datetime.utcnow() - timedelta(days=days)
-                tweets = (
-                    await Tweet.query.where(Tweet.user_id == user.id)
-                    .where(Tweet.twitter_user_id == user.twitter_id)
-                    .where(Tweet.is_deleted == False)
-                    .where(Tweet.is_retweet == True)
-                    .where(Tweet.created_at < datetime_threshold)
-                    .order_by(Tweet.created_at)
-                    .gino.all()
-                )
-
-                data["progress"][
-                    "status"
-                ] = f"Deleting {len(tweets)} retweets, starting with the earliest"
-                await job_details.update(data=json.dumps(data)).apply()
-
-                for tweet in tweets:
-                    # Delete retweet
-                    try:
-                        await client.api.statuses.unretweet[tweet.status_id].post()
-                        await tweet.update(is_deleted=True).apply()
-                    except Exception as e:
-                        # await log(
-                        #     job_details,
-                        #     f"Skipped deleting retweet {tweet.status_id} {e}",
-                        # )
-                        await tweet.update(is_deleted=True).apply()
-
-                    data["progress"]["retweets_deleted"] += 1
-                    await job_details.update(data=json.dumps(data)).apply()
-
-            # Unlike
-            if user.retweets_likes_delete_likes:
-                days = user.retweets_likes_likes_threshold
-                if days > 99999:
-                    days = 99999
-                datetime_threshold = datetime.utcnow() - timedelta(days=days)
-                tweets = (
-                    await Tweet.query.where(Tweet.user_id == user.id)
-                    .where(Tweet.twitter_user_id != user.twitter_id)
-                    .where(Tweet.is_unliked == False)
-                    .where(Tweet.favorited == True)
-                    .where(Tweet.created_at < datetime_threshold)
-                    .order_by(Tweet.created_at)
-                    .gino.all()
-                )
-
-                data["progress"][
-                    "status"
-                ] = f"Unliking {len(tweets)} tweets, starting with the earliest"
-                await job_details.update(data=json.dumps(data)).apply()
-
-                for tweet in tweets:
-                    # Delete like
-
-                    try:
-                        await client.api.favorites.destroy.post(id=tweet.status_id)
-                        await tweet.update(is_unliked=True).apply()
-                        # await log(job_details, f"Deleted like {tweet.status_id}")
-                    except Exception as e:
-                        # await log(
-                        #     job_details,
-                        #     f"Skipped deleting like {tweet.status_id} {e}",
-                        # )
-                        await tweet.update(is_unliked=True).apply()
-
-                    data["progress"]["likes_deleted"] += 1
-                    await job_details.update(data=json.dumps(data)).apply()
-
-        # Deleting tweets
-        if user.delete_tweets:
-            tweets = tweets = await tweets_to_delete(user)
+        # Unretweet
+        if user.retweets_likes_delete_retweets:
+            days = user.retweets_likes_retweets_threshold
+            if days > 99999:
+                days = 99999
+            datetime_threshold = datetime.utcnow() - timedelta(days=days)
+            tweets = (
+                await Tweet.query.where(Tweet.user_id == user.id)
+                .where(Tweet.is_deleted == False)
+                .where(Tweet.is_retweet == True)
+                .where(Tweet.created_at < datetime_threshold)
+                .order_by(Tweet.created_at)
+                .gino.all()
+            )
 
             data["progress"][
                 "status"
-            ] = f"Deleting {len(tweets)} tweets, starting with the earliest"
+            ] = f"Deleting {len(tweets):,} retweets, starting with the earliest"
             await job_details.update(data=json.dumps(data)).apply()
 
             for tweet in tweets:
-                # Delete tweet
+                # Delete retweet
                 try:
-                    await client.api.statuses.destroy.post(id=tweet.status_id)
-                    await tweet.update(is_deleted=True).apply()
+                    client.delete_tweet(tweet.twitter_id, user_auth=True)
                 except Exception as e:
-                    # await log(
-                    #     job_details,
-                    #     f"Skipped deleting retweet {tweet.status_id} {e}",
-                    # )
-                    await tweet.update(is_deleted=True).apply()
+                    await log(job_details, f"Error deleting retweet: {e}")
 
-                data["progress"]["tweets_deleted"] += 1
+                await tweet.update(is_deleted=True).apply()
+
+                data["progress"]["retweets_deleted"] += 1
                 await job_details.update(data=json.dumps(data)).apply()
+
+        # Unlike
+        if user.retweets_likes_delete_likes:
+            days = user.retweets_likes_likes_threshold
+            if days > 99999:
+                days = 99999
+            datetime_threshold = datetime.utcnow() - timedelta(days=days)
+            likes = (
+                await Like.query.where(Like.user_id == user.id)
+                .where(Like.is_deleted == False)
+                .where(Like.created_at < datetime_threshold)
+                .order_by(Like.created_at)
+                .gino.all()
+            )
+
+            data["progress"][
+                "status"
+            ] = f"Unliking {len(likes):,} tweets, starting with the earliest"
+            await job_details.update(data=json.dumps(data)).apply()
+
+            for like in likes:
+                # Delete like
+
+                try:
+                    client.unlike(like.twitter_id, user_auth=True)
+                except Exception as e:
+                    await log(job_details, f"Error deleting like: {e}")
+
+                await like.update(is_deleted=True).apply()
+
+                data["progress"]["likes_deleted"] += 1
+                await job_details.update(data=json.dumps(data)).apply()
+
+    # Deleting tweets
+    if user.delete_tweets:
+        tweets = tweets = await tweets_to_delete(user)
+
+        data["progress"][
+            "status"
+        ] = f"Deleting {len(tweets):,} tweets, starting with the earliest"
+        await job_details.update(data=json.dumps(data)).apply()
+
+        for tweet in tweets:
+            # Delete tweet
+            try:
+                client.delete_tweet(tweet.twitter_id, user_auth=True)
+            except Exception as e:
+                await log(job_details, f"Error deleting retweet: {e}")
+
+            await tweet.update(is_deleted=True).apply()
+
+            data["progress"]["tweets_deleted"] += 1
+            await job_details.update(data=json.dumps(data)).apply()
 
     # Deleting direct messages
     if user.direct_messages:
@@ -696,7 +683,7 @@ async def delete(job_details_id, funcs):
         )
 
         # The user has never been nagged, so this is the first delete
-        message = f"Congratulations! Semiphemeral has deleted {data['progress']['tweets_deleted']} tweets, unretweeted {data['progress']['retweets_deleted']} tweets, and unliked {data['progress']['likes_deleted']} tweets. Doesn't that feel nice?\n\nEach day, I will download your latest tweets and likes and then delete the old ones based on your settings. You can sit back, relax, and enjoy the privacy.\n\nYou can always change your settings, mark new tweets to never delete, and pause Semiphemeral from the website https://{os.environ.get('DOMAIN')}/dashboard."
+        message = f"Congratulations! Semiphemeral has deleted {data['progress']['tweets_deleted']:,} tweets, unretweeted {data['progress']['retweets_deleted']:,} tweets, and unliked {data['progress']['likes_deleted']:,} tweets. Doesn't that feel nice?\n\nEach day, I will download your latest tweets and likes and then delete the old ones based on your settings. You can sit back, relax, and enjoy the privacy.\n\nYou can always change your settings, mark new tweets to never delete, and pause Semiphemeral from the website https://{os.environ.get('DOMAIN')}/dashboard."
 
         new_job_details = await JobDetails.create(
             job_type="dm",
@@ -794,7 +781,7 @@ async def delete(job_details_id, funcs):
                                 "progress"
                             ]["likes_deleted"]
 
-            message = f"Since you've been using Semiphemeral, I have deleted {total_progress['tweets_deleted']} tweets, unretweeted {total_progress['retweets_deleted']} tweets, and unliked {total_progress['likes_deleted']} tweets for you.\n\nJust since last month, I've deleted {total_progress_since_last_nag['tweets_deleted']} tweets, unretweeted {total_progress_since_last_nag['retweets_deleted']} tweets, and unliked {total_progress_since_last_nag['likes_deleted']} tweets.\n\nSemiphemeral is free, but running this service costs money. Care to chip in? Visit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
+            message = f"Since you've been using Semiphemeral, I have deleted {total_progress['tweets_deleted']:,} tweets, unretweeted {total_progress['retweets_deleted']:,} tweets, and unliked {total_progress['likes_deleted']:,} tweets for you.\n\nJust since last month, I've deleted {total_progress_since_last_nag['tweets_deleted']:,} tweets, unretweeted {total_progress_since_last_nag['retweets_deleted']:,} tweets, and unliked {total_progress_since_last_nag['likes_deleted']:,} tweets.\n\nSemiphemeral is free, but running this service costs money. Care to chip in? Visit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
 
             new_job_details = await JobDetails.create(
                 job_type="dm",
