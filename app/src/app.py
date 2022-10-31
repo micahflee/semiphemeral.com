@@ -1213,17 +1213,16 @@ async def api_get_tweets(request):
         .gino.all()
     ):
         created_at = tweet.created_at.timestamp()
-        is_reply = tweet.in_reply_to_status_id is not None
         tweets_for_client.append(
             {
                 "created_at": created_at,
                 "status_id": str(
-                    tweet.status_id
+                    tweet.twitter_id
                 ),  # Typecast it to a string, to avoid javascript issues
                 "text": tweet.text,
-                "is_reply": is_reply,
+                "is_reply": tweet.is_reply,
                 "retweet_count": tweet.retweet_count,
-                "like_count": tweet.favorite_count,
+                "like_count": tweet.like_count,
                 "exclude": tweet.exclude_from_delete,
             }
         )
