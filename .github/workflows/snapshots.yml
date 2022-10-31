@@ -2,7 +2,7 @@ name: Snapshots
 run-name: Save db-production volume snapshots
 on:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 15 * * *"
 
 jobs:
   snapshots:
@@ -28,7 +28,7 @@ jobs:
           doctl account get
 
       - name: Save a snapshot
-        run: python ./github/scripts/save-snapshot.py
+        run: python ./.github/scripts/save-snapshot.py
 
       - name: Delete old snapshot
-        run: python ./github/scripts/delete-old-snapshots.py
+        run: python ./.github/scripts/delete-old-snapshots.py
