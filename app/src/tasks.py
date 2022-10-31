@@ -5,10 +5,9 @@ import asyncio
 import click
 from datetime import datetime, timedelta
 
-import peony
 import db
 from db import connect_db, User, JobDetails
-from common import send_admin_notification, SemiphemeralPeonyClient, delete_user
+from common import send_admin_notification, tweepy_client, delete_user
 import worker_jobs
 
 import redis
@@ -104,18 +103,15 @@ async def _cleanup_users():
             f"\r[{i:,}/{count:,}] checking @{user.twitter_screen_name} ..." + " " * 20,
             end="",
         )
-        async with SemiphemeralPeonyClient(user) as client:
-            try:
-                await client.user
-            except (
-                peony.exceptions.InvalidOrExpiredToken,
-                peony.exceptions.NotAuthenticated,
-            ) as e:
-                print(
-                    f"\r[{i:,}/{count:,}, deleted {users_deleted:,}] deleting @{user.twitter_screen_name}: {e}"
-                )
-                await delete_user(user)
-                users_deleted += 1
+        client = tweepy_client(user)
+        try:
+            client.get_me()
+        except Exception as e:
+            print(
+                f"\r[{i:,}/{count:,}, deleted {users_deleted:,}] deleting @{user.twitter_screen_name}: {e}"
+            )
+            await delete_user(user)
+            users_deleted += 1
 
         i += 1
 
@@ -155,40 +151,40 @@ async def _cleanup_dm_jobs():
     await send_admin_notification(admin_message)
 
 
-async def _unblock_users():
-    gino_db = await connect_db()
+# async def _unblock_users():
+#     gino_db = await connect_db()
 
-    blocked_users = await User.query.where(User.blocked == True).gino.all()
-    i = 0
-    unblocked_user_count = 0
-    count = len(blocked_users)
-    for user in blocked_users:
-        print(
-            f"\r[{i}/{count}] checking @{user.twitter_screen_name} ..." + " " * 20,
-            end="",
-        )
+#     blocked_users = await User.query.where(User.blocked == True).gino.all()
+#     i = 0
+#     unblocked_user_count = 0
+#     count = len(blocked_users)
+#     for user in blocked_users:
+#         print(
+#             f"\r[{i}/{count}] checking @{user.twitter_screen_name} ..." + " " * 20,
+#             end="",
+#         )
 
-        # Are they already unblocked?
-        try:
-            async with SemiphemeralPeonyClient(user) as client:
-                friendship = await client.api.friendships.show.get(
-                    source_screen_name=user.twitter_screen_name,
-                    target_screen_name="semiphemeral",
-                )
+#         # Are they already unblocked?
+#         try:
+#             async with SemiphemeralPeonyClient(user) as client:
+#                 friendship = await client.api.friendships.show.get(
+#                     source_screen_name=user.twitter_screen_name,
+#                     target_screen_name="semiphemeral",
+#                 )
 
-            if not friendship["relationship"]["source"]["blocked_by"]:
-                unblocked_user_count += 1
-                await user.update(paused=True, blocked=False).apply()
-                print(
-                    f"\r[{i}/{count}, unblocked {unblocked_user_count}], set @{user.twitter_screen_name} to unblocked"
-                )
-        except Exception as e:
-            print(f"\r[{i}/{count}, deleting @{user.twitter_screen_name}: {e}")
-            await delete_user(user)
+#             if not friendship["relationship"]["source"]["blocked_by"]:
+#                 unblocked_user_count += 1
+#                 await user.update(paused=True, blocked=False).apply()
+#                 print(
+#                     f"\r[{i}/{count}, unblocked {unblocked_user_count}], set @{user.twitter_screen_name} to unblocked"
+#                 )
+#         except Exception as e:
+#             print(f"\r[{i}/{count}, deleting @{user.twitter_screen_name}: {e}")
+#             await delete_user(user)
 
-        i += 1
+#         i += 1
 
-    print("")
+#     print("")
 
 
 async def _onetime_2022_05_add_redis_jobs():
@@ -506,12 +502,12 @@ def cleanup_dm_jobs():
     asyncio.run(_cleanup_dm_jobs())
 
 
-@main.command(
-    "unblock-users",
-    short_help="Set users to unblocked if they shouldn't be blocked",
-)
-def unblock_users():
-    asyncio.run(_unblock_users())
+# @main.command(
+#     "unblock-users",
+#     short_help="Set users to unblocked if they shouldn't be blocked",
+# )
+# def unblock_users():
+#     asyncio.run(_unblock_users())
 
 
 @main.command(

@@ -15,8 +15,6 @@ import aiohttp_jinja2
 import stripe
 from sqlalchemy.sql import text
 
-import peony
-
 from sqlalchemy import or_
 
 from common import (
@@ -25,7 +23,8 @@ from common import (
     delete_user,
     peony_oauth_step1,
     peony_oauth_step3,
-    SemiphemeralPeonyClient,
+    tweepy_client,
+    tweepy_semiphemeral_client,
 )
 from db import (
     db,
@@ -94,7 +93,7 @@ async def _api_validate(expected_fields, json_data):
         invalid_type = False
         if type(expected_fields[field]) == list:
             if type(json_data[field]) not in expected_fields[field]:
-                invald_type = True
+                invalid_type = True
         else:
             if type(json_data[field]) != expected_fields[field]:
                 invalid_type = True
@@ -110,15 +109,15 @@ async def _api_validate_dms_authenticated(user):
         and user.twitter_dms_access_token_secret != ""
     ):
         # Check if user is authenticated with DMs twitter app
-        async with SemiphemeralPeonyClient(user, dms=True) as dms_client:
-            try:
-                twitter_user = await dms_client.user
-                return True
-            except Exception as e:
-                await log(
-                    None,
-                    f"DM permissions for @{user.twitter_screen_name} failed to validate: {e}",
-                )
+        try:
+            dms_client = tweepy_client(user, dms=True)
+            dms_client.get_me()
+            return True
+        except Exception as e:
+            await log(
+                None,
+                f"DM permissions for @{user.twitter_screen_name} failed to validate: {e}",
+            )
 
     return False
 
@@ -171,16 +170,13 @@ async def auth_login(request):
     user = await _logged_in_user(session)
     if user:
         # If we're already logged in, redirect
-        async with SemiphemeralPeonyClient(user) as client:
-            try:
-                twitter_user = await client.user
-                if twitter_user.id_str == str(User.twitter_id):
-                    raise web.HTTPFound("/dashboard")
-            except (
-                peony.exceptions.InvalidOrExpiredToken,
-                peony.exceptions.NotAuthenticated,
-            ):
-                pass
+        try:
+            client = tweepy_client(user)
+            response = client.get_me()
+            if response["data"]["id"] == User.twitter_id:
+                raise web.HTTPFound("/dashboard")
+        except Exception as e:
+            pass
 
     # Otherwise, authorize with Twitter
     redirect_url, token = await peony_oauth_step1(
@@ -452,32 +448,22 @@ async def api_get_user(request):
         user.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
         and "impersonating_twitter_id" in session
     ):
-        # Load the API using the admin user
-        async with SemiphemeralPeonyClient(user) as client:
-            # Load the impersonated user
-            user = await _logged_in_user(session)
-            twitter_user = await client.api.users.lookup.get(
-                screen_name=user.twitter_screen_name
-            )
-
         can_switch = True
         await log(
             None,
             f"Admin impersonating user @{user.twitter_screen_name}",
         )
-    else:
-        # Just a normal user
-        async with SemiphemeralPeonyClient(user) as client:
-            twitter_user = await client.api.users.lookup.get(
-                screen_name=user.twitter_screen_name
-            )
 
-    twitter_user = twitter_user[0]
-
+    client = tweepy_client(user)
+    response = client.get_user(
+        username=user.twitter_screen_name,
+        user_fields=["profile_image_url"],
+        user_auth=True,
+    )
     return web.json_response(
         {
             "user_screen_name": user.twitter_screen_name,
-            "user_profile_url": twitter_user.profile_image_url_https,
+            "user_profile_url": response["data"]["profile_image_url"],
             "last_fetch": user.last_fetch,
             "can_switch": can_switch,
         }
@@ -1096,50 +1082,18 @@ async def api_post_dashboard(request):
         if not user.blocked:
             raise web.HTTPBadRequest(text="Can only 'unblock' if the user is blocked")
 
-        # Are we still blocked?
-        async with SemiphemeralPeonyClient(user) as client:
-            friendship = await client.api.friendships.show.get(
-                source_screen_name=user.twitter_screen_name,
-                target_screen_name="semiphemeral",
+        # Unblock the user
+        semiphemeral_client = tweepy_semiphemeral_client(user)
+        try:
+            semiphemeral_client.unblock(target_user_id=user.twitter_id)
+        except Exception as e:
+            await log(
+                None,
+                f"Error unblocking: {e}",
             )
 
-        if friendship["relationship"]["source"]["blocked_by"]:
-            # Still blocked by semiphemeral. Should we unblock?
-
-            # Count fascist tweets
-            fascist_tweets = (
-                await Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.favorited == True)
-                .where(Tweet.is_fascist == True)
-                .order_by(Tweet.created_at.desc())
-                .gino.all()
-            )
-            if len(fascist_tweets) > 15:
-                return web.json_response(
-                    {
-                        "message": "You've liked too many fascist tweets to be allowed to automatically unblock yourself"
-                    }
-                )
-            else:
-                # They liked few enough fascist tweets, so create an unblock job
-                job_details = await JobDetails.create(
-                    job_type="unblock",
-                    data=json.dumps({"twitter_username": user.twitter_screen_name}),
-                )
-                redis_job = jobs_q.enqueue(
-                    worker_jobs.unblock,
-                    job_details.id,
-                    retry=RQRetry(max=3, interval=[60, 120, 240]),
-                )
-                await job_details.update(redis_id=redis_job.id).apply()
-                return web.json_response(
-                    {"message": "You should be unblocked in the next few minutes"}
-                )
-        else:
-            # The user is already unblocked, so update them in the db
-            await user.update(blocked=False, since_id=None).apply()
-
-            return web.json_response({"message": "You are already unblocked"})
+        await user.update(blocked=False, since_id=None).apply()
+        return web.json_response({"message": "You are unblocked"})
 
     if data["action"] == "reactivate":
         if not user.blocked:
@@ -1147,38 +1101,28 @@ async def api_post_dashboard(request):
                 text="Can only 'reactivate' if the user is blocked"
             )
 
-        # Are we still blocked?
-        async with SemiphemeralPeonyClient(user) as client:
-            friendship = await client.api.friendships.show.get(
-                source_screen_name=user.twitter_screen_name,
-                target_screen_name="semiphemeral",
-            )
+        # Delete the user's likes so we can start over and check them all
+        await Tweet.delete.where(Tweet.user_id == user.id).where(
+            Tweet.favorited == True
+        ).gino.status()
 
-        if friendship["relationship"]["source"]["blocked_by"]:
-            return web.json_response({"unblocked": False})
-        else:
-            # Delete the user's likes so we can start over and check them all
-            await Tweet.delete.where(Tweet.user_id == user.id).where(
-                Tweet.favorited == True
-            ).gino.status()
+        # User has been unblocked
+        await user.update(blocked=False, since_id=None).apply()
 
-            # User has been unblocked
-            await user.update(blocked=False, since_id=None).apply()
+        # Create a new fetch job
+        job_details = await JobDetails.create(
+            job_type="fetch",
+            user_id=user.id,
+        )
+        redis_job = jobs_q.enqueue(
+            worker_jobs.fetch,
+            job_details.id,
+            job_timeout="24h",
+            retry=RQRetry(max=3, interval=[60, 120, 240]),
+        )
+        await job_details.update(redis_id=redis_job.id).apply()
 
-            # Create a new fetch job
-            job_details = await JobDetails.create(
-                job_type="fetch",
-                user_id=user.id,
-            )
-            redis_job = jobs_q.enqueue(
-                worker_jobs.fetch,
-                job_details.id,
-                job_timeout="24h",
-                retry=RQRetry(max=3, interval=[60, 120, 240]),
-            )
-            await job_details.update(redis_id=redis_job.id).apply()
-
-            return web.json_response({"unblocked": True})
+        return web.json_response({"unblocked": True})
 
     else:
         # Get pending and active jobs
@@ -1737,17 +1681,16 @@ async def admin_api_post_fascists(request):
     if data["action"] != "create" and data["action"] != "delete":
         raise web.HTTPBadRequest(text="action must be 'create' or 'delete'")
 
-    # Get a Peony client to look up this fascist user
+    # Get a twitter client to look up this fascist user
     session = await get_session(request)
     user = await User.query.where(User.twitter_id == session["twitter_id"]).gino.first()
-    async with SemiphemeralPeonyClient(user) as client:
-        fascist_twitter_user = await client.api.users.lookup.get(
-            screen_name=data["username"]
-        )
-        if len(fascist_twitter_user) != 1:
-            return web.json_response(False)
 
-    fascist_twitter_user_id = fascist_twitter_user[0]["id_str"]
+    client = tweepy_client(user)
+    response = client.get_user(username=data["username"], user_auth=True)
+    if "errors" in response:
+        return web.json_response(False)
+
+    fascist_twitter_user_id = response["data"]["id"]
 
     if data["action"] == "create":
         await _api_validate({"action": str, "username": str, "comment": str}, data)

@@ -22,6 +22,7 @@ click = "*"
 redis = "*"
 rq = "*"
 importlib-resources = "*"
+tweepy = "^4.12.0"
 
 [tool.poetry.dev-dependencies]
 

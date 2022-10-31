@@ -14,6 +14,8 @@ services:
       - DEPLOY_ENVIRONMENT={{ deploy_environment }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_SEMIPHEMERAL_ACCESS_TOKEN={{ twitter_semiphemeral_access_token }}
+      - TWITTER_SEMIPHEMERAL_ACCESS_KEY_KEY={{ twitter_semiphemeral_access_secret }}
       - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
       - DATABASE_URI=postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
@@ -59,6 +61,8 @@ services:
       - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_SEMIPHEMERAL_ACCESS_TOKEN={{ twitter_semiphemeral_access_token }}
+      - TWITTER_SEMIPHEMERAL_ACCESS_KEY_KEY={{ twitter_semiphemeral_access_secret }}
       - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
       - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
@@ -99,6 +103,8 @@ services:
       - DOMAIN={{ domain }}
       - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
       - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_SEMIPHEMERAL_ACCESS_TOKEN={{ twitter_semiphemeral_access_token }}
+      - TWITTER_SEMIPHEMERAL_ACCESS_KEY_KEY={{ twitter_semiphemeral_access_secret }}
       - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
       - TWITTER_DM_ACCESS_TOKEN={{ twitter_dm_access_token }}
