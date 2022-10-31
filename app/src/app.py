@@ -14,15 +14,14 @@ import jinja2
 import aiohttp_jinja2
 import stripe
 from sqlalchemy.sql import text
-
 from sqlalchemy import or_
+import tweepy
 
 from common import (
     log,
     send_admin_notification,
     delete_user,
-    peony_oauth_step1,
-    peony_oauth_step3,
+    create_tweepy_client,
     tweepy_client,
     tweepy_semiphemeral_client,
 )
@@ -115,12 +114,7 @@ async def _api_validate_dms_authenticated(user):
             dms_client.get_me()
             return True
         except Exception as e:
-            await log(
-                None,
-                f"DM permissions for @{user.twitter_screen_name} failed to validate: {e}",
-            )
-
-    return False
+            return False
 
 
 def authentication_required_401(func):
@@ -180,13 +174,16 @@ async def auth_login(request):
             pass
 
     # Otherwise, authorize with Twitter
-    redirect_url, token = await peony_oauth_step1(
+    oauth1_user_handler = tweepy.OAuth1UserHandler(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
-        "/auth/twitter_callback",
+        callback=f"https://{os.environ.get('DOMAIN')}/auth/twitter_callback",
     )
-    session["oauth_token"] = token["oauth_token"]
-    session["oauth_token_secret"] = token["oauth_token_secret"]
+    redirect_url = oauth1_user_handler.get_authorization_url()
+    session["oath_request_token"] = oauth1_user_handler.request_token["oauth_token"]
+    session["oath_request_secret"] = oauth1_user_handler.request_token[
+        "oauth_token_secret"
+    ]
     raise web.HTTPFound(location=redirect_url)
 
 
@@ -212,35 +209,45 @@ async def auth_twitter_callback(request):
     oauth_verifier = params["oauth_verifier"]
 
     session = await get_session(request)
-
-    if oauth_token != session["oauth_token"]:
+    if oauth_token != session["oath_request_token"]:
         raise web.HTTPUnauthorized(text="Error, invalid oath_token in the session")
 
-    # Authenticate with twitter
-    token = await peony_oauth_step3(
+    oauth1_user_handler = tweepy.OAuth1UserHandler(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
-        session["oauth_token"],
-        session["oauth_token_secret"],
-        oauth_verifier,
+        callback=f"https://{os.environ.get('DOMAIN')}/auth/twitter_callback",
     )
-    twitter_access_token = token["oauth_token"]
-    twitter_access_token_secret = token["oauth_token_secret"]
-    twitter_id = token["user_id"]
-    twitter_screen_name = token["screen_name"]
+    oauth1_user_handler.request_token = {
+        "oauth_token": session["oath_request_token"],
+        "oauth_token_secret": session["oath_request_secret"],
+    }
+    access_token, access_token_secret = oauth1_user_handler.get_access_token(
+        oauth_verifier
+    )
+
+    # Authenticate with twitter
+    client = create_tweepy_client(
+        os.environ.get("TWITTER_CONSUMER_TOKEN"),
+        os.environ.get("TWITTER_CONSUMER_KEY"),
+        access_token,
+        access_token_secret,
+    )
+    me = client.get_me()
+    twitter_id = me["data"]["id"]
+    username = me["data"]["username"]
 
     # Save values in the session
-    session["twitter_id"] = str(twitter_id)
+    session["twitter_id"] = twitter_id
 
     # Does this user already exist?
-    user = await User.query.where(User.twitter_id == str(twitter_id)).gino.first()
+    user = await User.query.where(User.twitter_id == twitter_id).gino.first()
     if user is None:
         # Create a new user
         user = await User.create(
-            twitter_id=str(twitter_id),
-            twitter_screen_name=twitter_screen_name,
-            twitter_access_token=twitter_access_token,
-            twitter_access_token_secret=twitter_access_token_secret,
+            twitter_id=twitter_id,
+            twitter_screen_name=username,
+            twitter_access_token=access_token,
+            twitter_access_token_secret=access_token_secret,
             paused=True,
             blocked=False,
         )
@@ -261,8 +268,8 @@ async def auth_twitter_callback(request):
         # Make sure to update the user's twitter access token and secret
         await log(None, f"Authenticating user @{user.twitter_screen_name}")
         await user.update(
-            twitter_access_token=twitter_access_token,
-            twitter_access_token_secret=twitter_access_token_secret,
+            twitter_access_token=access_token,
+            twitter_access_token_secret=access_token_secret,
         ).apply()
 
     # Redirect to app
@@ -271,7 +278,6 @@ async def auth_twitter_callback(request):
 
 async def auth_twitter_dms_callback(request):
     params = request.rel_url.query
-    # If denied, I guess just redirect to homepage?
     if "denied" in params:
         raise web.HTTPFound(location="/")
 
@@ -284,24 +290,34 @@ async def auth_twitter_dms_callback(request):
     oauth_verifier = params["oauth_verifier"]
 
     session = await get_session(request)
+    if oauth_token != session["dms_oath_request_token"]:
+        raise web.HTTPUnauthorized(text="Error, invalid oath_token in the session")
 
-    if oauth_token != session["dms_oauth_token"]:
-        raise web.HTTPUnauthorized(text="Error, invalid dms_oauth_token in the session")
-
-    # Authenticate with twitter
-    token = await peony_oauth_step3(
+    oauth1_user_handler = tweepy.OAuth1UserHandler(
         os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_DM_CONSUMER_KEY"),
-        session["dms_oauth_token"],
-        session["dms_oauth_token_secret"],
-        oauth_verifier,
+        callback=f"https://{os.environ.get('DOMAIN')}/auth/twitter_dms_callback",
     )
-    twitter_access_token = token["oauth_token"]
-    twitter_access_token_secret = token["oauth_token_secret"]
-    twitter_id = token["user_id"]
+    oauth1_user_handler.request_token = {
+        "oauth_token": session["dms_oath_request_token"],
+        "oauth_token_secret": session["dms_oath_request_secret"],
+    }
+    access_token, access_token_secret = oauth1_user_handler.get_access_token(
+        oauth_verifier
+    )
+
+    # Authenticate with twitter
+    client = create_tweepy_client(
+        os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
+        os.environ.get("TWITTER_DM_CONSUMER_KEY"),
+        access_token,
+        access_token_secret,
+    )
+    me = client.get_me()
+    twitter_id = me["data"]["id"]
 
     # Does this user already exist?
-    user = await User.query.where(User.twitter_id == str(twitter_id)).gino.first()
+    user = await User.query.where(User.twitter_id == twitter_id).gino.first()
     if user is None:
         # Uh, that's weird, there really should already be a user... so just ignore in that case
         await log(None, f"Authenticating DMs: user is None, this should never happen")
@@ -309,8 +325,8 @@ async def auth_twitter_dms_callback(request):
         # Update the user's DM twitter access token and secret
         await log(None, f"Authenticating DMs for user @{user.twitter_screen_name}")
         await user.update(
-            twitter_dms_access_token=twitter_access_token,
-            twitter_dms_access_token_secret=twitter_access_token_secret,
+            twitter_dms_access_token=access_token,
+            twitter_dms_access_token_secret=access_token_secret,
         ).apply()
 
     # Redirect to settings page again
@@ -577,13 +593,18 @@ async def api_post_settings(request):
 
     if data["action"] == "authenticate_dms":
         # Authorize with Twitter
-        redirect_url, token = await peony_oauth_step1(
+        oauth1_user_handler = tweepy.OAuth1UserHandler(
             os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
             os.environ.get("TWITTER_DM_CONSUMER_KEY"),
-            "/auth/twitter_dms_callback",
+            callback=f"https://{os.environ.get('DOMAIN')}/auth/twitter_dms_callback",
         )
-        session["dms_oauth_token"] = token["oauth_token"]
-        session["dms_oauth_token_secret"] = token["oauth_token_secret"]
+        redirect_url = oauth1_user_handler.get_authorization_url()
+        session["dms_oath_request_token"] = oauth1_user_handler.request_token[
+            "oauth_token"
+        ]
+        session["dms_oath_request_secret"] = oauth1_user_handler.request_token[
+            "oauth_token_secret"
+        ]
         return web.json_response({"error": False, "redirect_url": redirect_url})
 
 

@@ -4,10 +4,7 @@ from datetime import datetime, timedelta
 
 import tweepy
 
-from peony import PeonyClient
-from peony.oauth_dance import get_oauth_token, get_access_token
-
-from db import Tweet, Thread, Nag, Job, Tip
+from db import Tweet, Like, Thread, Nag, Job, Tip
 
 
 async def log(job_details, s):
@@ -17,35 +14,17 @@ async def log(job_details, s):
         print(f"[{datetime.now().strftime('%c')}] {s}")
 
 
-async def peony_oauth_step1(
-    twitter_consumer_token, twitter_consumer_key, callback_path
+def create_tweepy_client(
+    consumer_key, consumer_secret, access_token, access_token_secret
 ):
-    token = await get_oauth_token(
-        twitter_consumer_token,
-        twitter_consumer_key,
-        callback_uri=f"https://{os.environ.get('DOMAIN')}{callback_path}",
+    return tweepy.Client(
+        consumer_key=consumer_key,
+        consumer_secret=consumer_secret,
+        access_token=access_token,
+        access_token_secret=access_token_secret,
+        return_type=dict,
+        wait_on_rate_limit=True,
     )
-    redirect_url = (
-        f"https://api.twitter.com/oauth/authorize?oauth_token={token['oauth_token']}"
-    )
-    return redirect_url, token
-
-
-async def peony_oauth_step3(
-    twitter_consumer_token,
-    twitter_consumer_key,
-    oauth_token,
-    oauth_token_secret,
-    oauth_verifier,
-):
-    token = await get_access_token(
-        twitter_consumer_token,
-        twitter_consumer_key,
-        oauth_token,
-        oauth_token_secret,
-        oauth_verifier,
-    )
-    return token
 
 
 def tweepy_client(user, dms=False):
@@ -60,13 +39,8 @@ def tweepy_client(user, dms=False):
         access_token = user.twitter_access_token
         access_token_secret = user.twitter_access_token_secret
 
-    return tweepy.Client(
-        consumer_key=consumer_key,
-        consumer_secret=consumer_secret,
-        access_token=access_token,
-        access_token_secret=access_token_secret,
-        return_type=dict,
-        wait_on_rate_limit=True,
+    return create_tweepy_client(
+        consumer_key, consumer_secret, access_token, access_token_secret
     )
 
 
@@ -75,65 +49,9 @@ def tweepy_semiphemeral_client():
     consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
     access_token = os.environ.get("TWITTER_DM_ACCESS_TOKEN")
     access_token_secret = os.environ.get("TWITTER_DM_ACCESS_KEY")
-    return tweepy.Client(
-        consumer_key=consumer_key,
-        consumer_secret=consumer_secret,
-        access_token=access_token,
-        access_token_secret=access_token_secret,
-        return_type=dict,
-        wait_on_rate_limit=True,
+    return create_tweepy_client(
+        consumer_key, consumer_secret, access_token, access_token_secret
     )
-
-
-class SemiphemeralPeonyClient:
-    def __init__(self, user, dms=False):
-        if dms:
-            self.consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
-            self.consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
-            self.access_token = user.twitter_dms_access_token
-            self.access_token_secret = user.twitter_dms_access_token_secret
-        else:
-            self.consumer_key = os.environ.get("TWITTER_CONSUMER_TOKEN")
-            self.consumer_secret = os.environ.get("TWITTER_CONSUMER_KEY")
-            self.access_token = user.twitter_access_token
-            self.access_token_secret = user.twitter_access_token_secret
-
-    async def __aenter__(self):
-        self.client = PeonyClient(
-            consumer_key=self.consumer_key,
-            consumer_secret=self.consumer_secret,
-            access_token=self.access_token,
-            access_token_secret=self.access_token_secret,
-        )
-        return self.client
-
-    async def __aexit__(self, exc_type, exc_value, exc_tb):
-        await self.client.close()
-        if exc_type:
-            print(f"Exception: {exc_type}, {exc_value}, {exc_tb}")
-
-
-# For sending DMs from the @semiphemeral account
-class SemiphemeralAppPeonyClient:
-    def __init__(self):
-        self.consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
-        self.consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
-        self.access_token = os.environ.get("TWITTER_DM_ACCESS_TOKEN")
-        self.access_token_secret = os.environ.get("TWITTER_DM_ACCESS_KEY")
-
-    async def __aenter__(self):
-        self.client = PeonyClient(
-            consumer_key=self.consumer_key,
-            consumer_secret=self.consumer_secret,
-            access_token=self.access_token,
-            access_token_secret=self.access_token_secret,
-        )
-        return self.client
-
-    async def __aexit__(self, exc_type, exc_value, exc_tb):
-        await self.client.close()
-        if exc_type:
-            print(f"Exception: {exc_type}, {exc_value}, {exc_tb}")
 
 
 async def tweets_to_delete(user, include_manually_excluded=False):
@@ -207,5 +125,6 @@ async def delete_user(user):
     await Nag.delete.where(Nag.user_id == user.id).gino.status()
     await Job.delete.where(Job.user_id == user.id).gino.status()
     await Tweet.delete.where(Tweet.user_id == user.id).gino.status()
+    await Like.delete.where(Like.user_id == user.id).gino.status()
     await Thread.delete.where(Thread.user_id == user.id).gino.status()
     await user.delete()
