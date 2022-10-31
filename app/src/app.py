@@ -33,6 +33,7 @@ from db import (
     Tip,
     RecurringTip,
     Tweet,
+    Like,
     Fascist,
     JobDetails,
 )
@@ -625,16 +626,12 @@ async def api_get_export_download(request):
     )
     with open(csv_filename, "w") as f:
         fieldnames = [
+            "Tweet ID",  # twitter_id
             "Date",  # created_at
-            "Username",  # twitter_user_screen_name
-            "Tweet ID",  # status_id
             "Text",  # text
-            "Replying to Username",  # in_reply_to_screen_name
-            "Replying to Tweet ID",  # in_reply_to_status_id
             "Retweets",  # retweet_count
-            "Likes",  # favorite_count
-            "Retweeted",  # is_retweet
-            "Liked",  # favorited
+            "Likes",  # retweet_count
+            "Is Retweet",  # is_retweet
             "URL",
         ]
         writer = csv.DictWriter(f, fieldnames=fieldnames, dialect="unix")
@@ -642,28 +639,22 @@ async def api_get_export_download(request):
 
         tweets = (
             await Tweet.query.where(Tweet.user_id == user.id)
-            .where(Tweet.twitter_user_id == user.twitter_id)
             .where(Tweet.is_deleted == False)
-            .where(Tweet.is_unliked == False)
             .order_by(Tweet.created_at.desc())
             .gino.all()
         )
         for tweet in tweets:
-            url = f"https://twitter.com/{user.twitter_screen_name}/status/{tweet.status_id}"
+            url = f"https://twitter.com/{user.twitter_screen_name}/status/{tweet.twitter_id}"
 
             # Write the row
             writer.writerow(
                 {
+                    "Tweet ID": str(tweet.twitter_id),
                     "Date": tweet.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                    "Username": tweet.twitter_user_screen_name,
-                    "Tweet ID": str(tweet.status_id),
                     "Text": tweet.text,
-                    "Replying to Username": tweet.in_reply_to_screen_name,
-                    "Replying to Tweet ID": str(tweet.in_reply_to_status_id),
                     "Retweets": str(tweet.retweet_count),
-                    "Likes": str(tweet.favorite_count),
-                    "Retweeted": str(tweet.is_retweet),
-                    "Liked": str(tweet.favorited),
+                    "Likes": str(tweet.like_count),
+                    "Is Retweet": str(tweet.is_retweet),
                     "URL": url,
                 }
             )
@@ -1001,28 +992,25 @@ async def api_get_dashboard(request):
             )
         return jobs_json
 
-    fascist_tweets = []
+    fascist_likes = []
     if user.blocked:
         # Get fascist tweets that this user has liked
         six_months_ago = datetime.now() - timedelta(days=180)
-        fascist_tweets = (
-            await Tweet.query.where(Tweet.user_id == user.id)
-            .where(Tweet.favorited == True)
-            .where(Tweet.is_fascist == True)
-            .where(Tweet.created_at > six_months_ago)
-            .order_by(Tweet.created_at.desc())
+        fascist_likes = (
+            await Like.query.where(Like.user_id == user.id)
+            .where(Like.is_fascist == True)
+            .where(Like.created_at > six_months_ago)
+            .order_by(Like.created_at.desc())
             .gino.all()
         )
-        fascist_tweets = [
+        fascist_likes = [
             {
-                "status_id": tweet.status_id,
-                "retweet_count": tweet.retweet_count,
-                "like_count": tweet.favorite_count,
-                "permalink": f"https://twitter.com/{tweet.twitter_user_screen_name}/status/{tweet.status_id}",
-                "text": tweet.text,
-                "created_at": tweet.created_at.timestamp(),
+                "twitter_id": like.twitter_id,
+                "author_id": like.author_id,
+                "permalink": f"https://twitter.com/semiphemeral/status/{like.twitter_id}",
+                "created_at": like.created_at.timestamp(),
             }
-            for tweet in fascist_tweets
+            for like in fascist_likes
         ]
 
     return web.json_response(
@@ -1035,7 +1023,7 @@ async def api_get_dashboard(request):
             "setting_delete_tweets": user.delete_tweets,
             "setting_retweets_likes": user.retweets_likes,
             "setting_direct_messages": user.direct_messages,
-            "fascist_tweets": fascist_tweets,
+            "fascist_likes": fascist_likes,
         }
     )
 
@@ -1102,9 +1090,7 @@ async def api_post_dashboard(request):
             )
 
         # Delete the user's likes so we can start over and check them all
-        await Tweet.delete.where(Tweet.user_id == user.id).where(
-            Tweet.favorited == True
-        ).gino.status()
+        await Like.delete.where(Like.user_id == user.id).gino.status()
 
         # User has been unblocked
         await user.update(blocked=False, since_id=None).apply()
@@ -1221,7 +1207,6 @@ async def api_get_tweets(request):
     tweets_for_client = []
     for tweet in (
         await Tweet.query.where(Tweet.user_id == user.id)
-        .where(Tweet.twitter_user_id == user.twitter_id)
         .where(Tweet.is_deleted == False)
         .where(Tweet.is_retweet == False)
         .order_by(Tweet.created_at.desc())
@@ -1259,8 +1244,7 @@ async def api_post_tweets(request):
     await _api_validate({"status_id": str, "exclude": bool}, data)
     tweet = (
         await Tweet.query.where(Tweet.user_id == user.id)
-        .where(Tweet.twitter_user_id == user.twitter_id)
-        .where(Tweet.status_id == data["status_id"])
+        .where(Tweet.twitter_id == data["status_id"])
         .gino.first()
     )
     if not tweet:
@@ -1613,16 +1597,15 @@ async def admin_api_get_user(request):
         return web.json_response(False)
 
     # Get fascist tweets that this user has liked
-    fascist_tweets = (
-        await Tweet.query.where(Tweet.user_id == user_id)
-        .where(Tweet.favorited == True)
-        .where(Tweet.is_fascist == True)
-        .order_by(Tweet.created_at.desc())
+    fascist_likes = (
+        await Like.query.where(Like.user_id == user_id)
+        .where(Like.is_fascist == True)
+        .order_by(Like.created_at.desc())
         .gino.all()
     )
     fascist_tweet_urls = [
-        f"https://twitter.com/{tweet.twitter_user_screen_name}/status/{tweet.status_id}"
-        for tweet in fascist_tweets
+        f"https://twitter.com/semiphemeral/status/{like.twitter_id}"
+        for like in fascist_likes
     ]
 
     return web.json_response(
@@ -1700,17 +1683,21 @@ async def admin_api_post_fascists(request):
             Fascist.username == data["username"]
         ).gino.first()
         if fascist:
-            await fascist.update(comment=data["comment"]).apply()
+            await fascist.update(
+                twitter_id=fascist_twitter_user_id, comment=data["comment"]
+            ).apply()
             return web.json_response(True)
 
         # Create the fascist
         fascist = await Fascist.create(
-            username=data["username"], comment=data["comment"]
+            username=data["username"],
+            twitter_id=fascist_twitter_user_id,
+            comment=data["comment"],
         )
 
         # Mark all the tweets from this user as is_fascist=True
-        await Tweet.update.values(is_fascist=True).where(
-            Tweet.twitter_user_id == fascist_twitter_user_id
+        await Like.update.values(is_fascist=True).where(
+            Like.author_id == fascist_twitter_user_id
         ).gino.status()
 
         # Make sure the fascist is blocked
@@ -1737,8 +1724,8 @@ async def admin_api_post_fascists(request):
             await fascist.delete()
 
         # Mark all the tweets from this user as is_fascist=False
-        await Tweet.update.values(is_fascist=False).where(
-            Tweet.twitter_user_id == fascist_twitter_user_id
+        await Like.update.values(is_fascist=False).where(
+            Like.author_id == fascist_twitter_user_id
         ).gino.status()
 
         return web.json_response(True)
