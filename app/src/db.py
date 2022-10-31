@@ -181,6 +181,7 @@ class Tweet(db.Model):
     text = db.Column(db.String)
     is_retweet = db.Column(db.Boolean)
     retweet_id = db.Column(db.String)
+    is_reply = db.Column(db.Boolean)
     retweet_count = db.Column(db.Integer)
     like_count = db.Column(db.Integer)
     exclude_from_delete = db.Column(db.Boolean)

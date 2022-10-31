@@ -30,11 +30,11 @@ def upgrade():
     op.drop_column("tweets", "favorited")
     op.drop_column("tweets", "is_unliked")
     op.drop_column("tweets", "is_fascist")
-    op.drop_index("tweets_twitter_user_id_idx")
-    op.drop_index("tweets_retweeted_idx")
-    op.drop_index("tweets_favorited_idx")
-    op.drop_index("tweets_is_unliked_idx")
-    op.drop_index("tweets_is_fascist_idx")
+    # op.drop_index("tweets_twitter_user_id_idx")
+    # op.drop_index("tweets_retweeted_idx")
+    # op.drop_index("tweets_favorited_idx")
+    # op.drop_index("tweets_is_unliked_idx")
+    # op.drop_index("tweets_is_fascist_idx")
 
     # Update threads table
     op.alter_column("threads", "root_status_id", new_column_name="conversation_id")

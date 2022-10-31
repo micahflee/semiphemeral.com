@@ -230,12 +230,16 @@ async def fetch(job_details_id, funcs):
                 "author_id",
                 "conversation_id",
                 "created_at",
+                "in_reply_to_user_id",
                 "public_metrics",
                 "referenced_tweets",
             ],
             pagination_token=pagination_token,
             user_auth=True,
         )
+        if response["meta"]["result_count"] == 0:
+            await log(job_details, f"No new tweets")
+            break
 
         await log(job_details, f"Importing {len(response['data'])} tweets")
 
@@ -264,20 +268,23 @@ async def fetch(job_details_id, funcs):
                 # Save the tweet
                 is_retweet = False
                 retweet_id = None
-                for referenced_tweet in api_tweet["referenced_tweets"]:
-                    if referenced_tweet["type"] == "retweet":
-                        is_retweet = True
-                        retweet_id = referenced_tweet["id"]
-                        break
+                if "referenced_tweets" in api_tweet:
+                    for referenced_tweet in api_tweet["referenced_tweets"]:
+                        if referenced_tweet["type"] == "retweet":
+                            is_retweet = True
+                            retweet_id = referenced_tweet["id"]
+                            break
+
+                is_reply = "in_reply_to_user_id" in api_tweet
 
                 await Tweet.create(
                     user_id=user.id,
                     twitter_id=api_tweet["id"],
                     created_at=datetime.fromisoformat(api_tweet["created_at"][0:19]),
                     text=api_tweet["text"],
-                    conversation_id=api_tweet["conversation_id"],
                     is_retweet=is_retweet,
                     retweet_id=retweet_id,
+                    is_reply=is_reply,
                     retweet_count=api_tweet["public_metrics"]["retweet_count"],
                     like_count=api_tweet["public_metrics"]["like_count"],
                     exclude_from_delete=False,
@@ -312,6 +319,9 @@ async def fetch(job_details_id, funcs):
             ],
             user_auth=True,
         )
+        if response["meta"]["result_count"] == 0:
+            await log(job_details, f"No new likes")
+            break
 
         await log(job_details, f"Importing {len(response['data'])} likes")
 
@@ -354,7 +364,7 @@ async def fetch(job_details_id, funcs):
         await conn.all("BEGIN")
         r = await conn.all(
             text(
-                "SELECT status_id FROM tweets WHERE user_id=:user_id AND twitter_user_id=:twitter_user_id ORDER BY CAST(twitter_id AS bigint) DESC LIMIT 1"
+                "SELECT twitter_id FROM tweets WHERE user_id=:user_id ORDER BY CAST(twitter_id AS bigint) DESC LIMIT 1"
             ),
             user_id=user.id,
             twitter_user_id=user.twitter_id,
