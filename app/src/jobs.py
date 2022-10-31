@@ -3,6 +3,7 @@ import json
 import os
 from datetime import datetime, timedelta, timezone
 
+import tweepy
 import peony
 
 from common import (
@@ -10,6 +11,8 @@ from common import (
     tweets_to_delete,
     SemiphemeralPeonyClient,
     SemiphemeralAppPeonyClient,
+    tweepy_client,
+    tweepy_semiphemeral_client,
 )
 from db import (
     connect_db,
@@ -66,18 +69,18 @@ def test_api_creds(func):
         ).gino.first()
         user = await User.query.where(User.id == job_details.user_id).gino.first()
         if user:
-            async with SemiphemeralPeonyClient(user) as client:
-                try:
-                    await client.user
-                except Exception as e:
-                    print(
-                        f"user_id={user.id} API creds failed, canceling job and pausing user"
-                    )
-                    await user.update(paused=True).apply()
-                    await job_details.update(
-                        status="canceled", finished_timestamp=datetime.now()
-                    ).apply()
-                    return False
+            client = tweepy_client(user)
+            try:
+                client.get_me()
+            except Exception as e:
+                print(
+                    f"user_id={user.id} API creds failed, canceling job and pausing user"
+                )
+                await user.update(paused=True).apply()
+                await job_details.update(
+                    status="canceled", finished_timestamp=datetime.now()
+                ).apply()
+                return False
 
         return await func(job_details_id, funcs)
 
@@ -96,35 +99,24 @@ def ensure_user_follows_us(func):
             if user.twitter_screen_name == "semiphemeral":
                 return await func(job_details_id, funcs)
 
-            async with SemiphemeralPeonyClient(user) as client:
-                # Is the user following us?
-                try:
-                    friendship = await client.api.friendships.show.get(
-                        source_screen_name=user.twitter_screen_name,
-                        target_screen_name="semiphemeral",
+            # Try following
+            client = tweepy_client(user)
+            try:
+                client.follow_user(
+                    target_user_id=1209344563589992448  # @semiphemeral twitter ID
+                )
+
+            except tweepy.errors.BadRequest as e:
+                if "You cannot follow an account that is blocking you" in e.args[0]:
+                    # The semiphemeral user has blocked this user, so they're not allowed to use this service
+                    print(
+                        f"user_id={user.id} is blocked, canceling job and updating user"
                     )
-
-                    if friendship["relationship"]["source"]["blocked_by"]:
-                        # The semiphemeral user has blocked this user, so they're not allowed
-                        # to use this service
-                        print(
-                            f"user_id={user.id} is blocked, canceling job and updating user"
-                        )
-                        await job_details.update(
-                            status="canceled", finished_timestamp=datetime.now()
-                        ).apply()
-                        await user.update(paused=True, blocked=True).apply()
-                        return False
-
-                    elif not friendship["relationship"]["source"]["following"]:
-                        # Make follow request
-                        print(f"user_id={user.id} not following, making follow request")
-                        await client.api.friendships.create.post(
-                            screen_name="semiphemeral",
-                        )
-
-                except Exception as e:
-                    await log(job_details, f"Exception in ensure_user_follows_us: {e}")
+                    await job_details.update(
+                        status="canceled", finished_timestamp=datetime.now()
+                    ).apply()
+                    await user.update(paused=True, blocked=True).apply()
+                    return False
 
         return await func(job_details_id, funcs)
 

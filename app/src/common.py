@@ -1,12 +1,9 @@
 import os
-import asyncio
 import requests
-import json
-import math
-import aiohttp
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
-import peony
+import tweepy
+
 from peony import PeonyClient
 from peony.oauth_dance import get_oauth_token, get_access_token
 
@@ -49,6 +46,43 @@ async def peony_oauth_step3(
         oauth_verifier,
     )
     return token
+
+
+def tweepy_client(user, dms=False):
+    if dms:
+        consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
+        consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
+        access_token = user.twitter_dms_access_token
+        access_token_secret = user.twitter_dms_access_token_secret
+    else:
+        consumer_key = os.environ.get("TWITTER_CONSUMER_TOKEN")
+        consumer_secret = os.environ.get("TWITTER_CONSUMER_KEY")
+        access_token = user.twitter_access_token
+        access_token_secret = user.twitter_access_token_secret
+
+    return tweepy.Client(
+        consumer_key=consumer_key,
+        consumer_secret=consumer_secret,
+        access_token=access_token,
+        access_token_secret=access_token_secret,
+        return_type=dict,
+        wait_on_rate_limit=True,
+    )
+
+
+def tweepy_semiphemeral_client():
+    consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
+    consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
+    access_token = os.environ.get("TWITTER_DM_ACCESS_TOKEN")
+    access_token_secret = os.environ.get("TWITTER_DM_ACCESS_KEY")
+    return tweepy.Client(
+        consumer_key=consumer_key,
+        consumer_secret=consumer_secret,
+        access_token=access_token,
+        access_token_secret=access_token_secret,
+        return_type=dict,
+        wait_on_rate_limit=True,
+    )
 
 
 class SemiphemeralPeonyClient:
