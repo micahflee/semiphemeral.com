@@ -128,7 +128,7 @@ function scheduledTimestampInThePast() {
         <template v-else-if="job.status == 'active'">
             <p class="status">Active</p>
             <p class="progress">
-                Started downloading on
+                Started
                 <em>{{ humanReadableTimestamp(job.started_timestamp) }}</em>
                 <br />{{ formatProgress() }}
             </p>
