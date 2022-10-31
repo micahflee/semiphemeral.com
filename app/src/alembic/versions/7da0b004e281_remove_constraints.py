@@ -17,18 +17,20 @@ depends_on = None
 
 
 def upgrade():
-    op.drop_constraint("jobs_users_fk", "users", type_="foreignkey")
-    op.drop_constraint("nags_users_fk", "users", type_="foreignkey")
-    op.drop_constraint("threads_users_fk", "users", type_="foreignkey")
-    op.drop_constraint("tips_users_fk", "users", type_="foreignkey")
-    op.drop_constraint("tweets_users_fk", "users", type_="foreignkey")
-    op.drop_constraint("tweets_threads_fk", "threads", type_="foreignkey")
+    pass
+    # op.drop_constraint("jobs_users_fk", "users", type_="foreignkey")
+    # op.drop_constraint("nags_users_fk", "users", type_="foreignkey")
+    # op.drop_constraint("threads_users_fk", "users", type_="foreignkey")
+    # op.drop_constraint("tips_users_fk", "users", type_="foreignkey")
+    # op.drop_constraint("tweets_users_fk", "users", type_="foreignkey")
+    # op.drop_constraint("tweets_threads_fk", "threads", type_="foreignkey")
 
 
 def downgrade():
-    op.create_foreign_key("jobs_users_fk", "users", "jobs", ["id"], ["user_id"])
-    op.create_foreign_key("nags_users_fk", "users", "nags", ["id"], ["user_id"])
-    op.create_foreign_key("threads_users_fk", "users", "threads", ["id"], ["user_id"])
-    op.create_foreign_key("tips_users_fk", "users", "tips", ["id"], ["user_id"])
-    op.create_foreign_key("tweets_users_fk", "users", "tweets", ["id"], ["user_id"])
-    op.create_foreign_key("tweets_threads_fk", "threads", "tweets", ["id"], ["user_id"])
+    pass
+    # op.create_foreign_key("jobs_users_fk", "users", "jobs", ["id"], ["user_id"])
+    # op.create_foreign_key("nags_users_fk", "users", "nags", ["id"], ["user_id"])
+    # op.create_foreign_key("threads_users_fk", "users", "threads", ["id"], ["user_id"])
+    # op.create_foreign_key("tips_users_fk", "users", "tips", ["id"], ["user_id"])
+    # op.create_foreign_key("tweets_users_fk", "users", "tweets", ["id"], ["user_id"])
+    # op.create_foreign_key("tweets_threads_fk", "threads", "tweets", ["id"], ["user_id"])
