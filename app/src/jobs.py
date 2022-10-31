@@ -23,6 +23,7 @@ from db import (
     Tweet,
     Thread,
     Fascist,
+    Like,
 )
 from sqlalchemy.sql import text
 from asyncpg.exceptions import ForeignKeyViolationError
@@ -126,89 +127,6 @@ def ensure_user_follows_us(func):
 # Helper functions
 
 
-async def save_tweet(user, status):
-    # Mark any new fascist tweets as fascist
-    fascist = await Fascist.query.where(
-        Fascist.username == status.user.screen_name
-    ).gino.first()
-    if fascist:
-        is_fascist = True
-    else:
-        is_fascist = False
-
-    try:
-        return await Tweet.create(
-            user_id=user.id,
-            created_at=datetime.strptime(
-                status.created_at, "%a %b %d %H:%M:%S %z %Y"
-            ).replace(tzinfo=None),
-            twitter_user_id=status.user.id_str,
-            twitter_user_screen_name=status.user.screen_name,
-            status_id=status.id_str,
-            text=status.full_text.replace(
-                "\x00", ""
-            ),  # For some reason this tweet has null bytes https://twitter.com/mehdirhasan/status/65015127132471296
-            in_reply_to_screen_name=status.in_reply_to_screen_name,
-            in_reply_to_status_id=status.in_reply_to_status_id_str,
-            in_reply_to_user_id=status.in_reply_to_user_id_str,
-            retweet_count=status.retweet_count,
-            favorite_count=status.favorite_count,
-            retweeted=status.retweeted,
-            favorited=status.favorited,
-            is_retweet="retweeted_status" in status,
-            is_deleted=False,
-            is_unliked=False,
-            exclude_from_delete=False,
-            is_fascist=is_fascist,
-        )
-    except ForeignKeyViolationError:
-        # If the user isn't in the database (maybe the user deleted their account, but a
-        # job is still running?) just ignore
-        pass
-
-
-async def import_tweet_and_thread(user, client, status):
-    """
-    This imports a tweet, and recursively imports all tweets that it's in reply to,
-    and returns the number of tweets fetched
-    """
-    # Is the tweet already saved?
-    tweet = await (
-        Tweet.query.where(Tweet.user_id == user.id)
-        .where(Tweet.status_id == status.id_str)
-        .gino.first()
-    )
-    if not tweet:
-        # Save the tweet
-        tweet = await save_tweet(user, status)
-        if not tweet:
-            return
-
-    # Is this tweet a reply?
-    if tweet.in_reply_to_status_id:
-        # Do we already have the parent tweet?
-        parent_tweet = await (
-            Tweet.query.where(Tweet.user_id == user.id)
-            .where(Tweet.status_id == tweet.in_reply_to_status_id)
-            .gino.first()
-        )
-        if not parent_tweet:
-            # If we don't have the parent tweet, try importing it
-            try:
-                parent_statuses = await client.api.statuses.lookup.get(
-                    id=tweet["in_reply_to_status_id_str"],
-                    tweet_mode="extended",
-                )
-                if len(parent_statuses) > 0:
-                    await import_tweet_and_thread(
-                        user,
-                        client,
-                        parent_statuses[0],
-                    )
-            except:
-                pass
-
-
 async def calculate_thread(user, status_id):
     """
     Given a tweet, recursively add its parents to a thread. In this end, the first
@@ -246,7 +164,7 @@ async def calculate_excluded_threads(user):
             .where(Tweet.is_deleted == False)
             .where(Tweet.is_retweet == False)
             .where(Tweet.retweet_count >= user.tweets_retweet_threshold)
-            .where(Tweet.favorite_count >= user.tweets_like_threshold)
+            .where(Tweet.like_count >= user.tweets_like_threshold)
             .gino.all()
         )
         for thread in threads:
@@ -285,152 +203,158 @@ async def fetch(job_details_id, funcs):
         ).apply()
         return
 
-    async with SemiphemeralPeonyClient(user) as client:
-        since_id = user.since_id
+    client = tweepy_client(user)
+    since_id = user.since_id
 
-        await log(job_details, f"Fetch started")
+    await log(job_details, f"Fetch started")
 
-        # Start the data
-        data = {"progress": {"tweets_fetched": 0, "likes_fetched": 0}}
-        if since_id:
-            data["progress"]["status"] = "Downloading all recent tweets"
-        else:
-            data["progress"][
-                "status"
-            ] = "Downloading all tweets, this first run may take a long time"
+    # Start the data
+    data = {"progress": {"tweets_fetched": 0, "likes_fetched": 0}}
+    if since_id:
+        data["progress"]["status"] = "Downloading all recent tweets"
+    else:
+        data["progress"][
+            "status"
+        ] = "Downloading all tweets, this first run may take a long time"
 
-        await job_details.update(data=json.dumps(data)).apply()
+    await job_details.update(data=json.dumps(data)).apply()
 
-        # Fetch tweets
-        params = {
-            "screen_name": user.twitter_screen_name,
-            "tweet_mode": "extended",
-            "count": 200,
-        }
-        if since_id:
-            params["since_id"] = since_id
+    # Fetch tweets
+    pagination_token = None
+    while True:
+        response = client.get_users_tweets(
+            id=user.twitter_id,
+            max_results=100,
+            since_id=since_id,
+            tweet_fields=[
+                "author_id",
+                "conversation_id",
+                "created_at",
+                "public_metrics",
+                "referenced_tweets",
+            ],
+            pagination_token=pagination_token,
+            user_auth=True,
+        )
 
-        # Fetch 200 at a time until we run out
-        while True:
-            try:
-                statuses = await client.api.statuses.user_timeline.get(**params)
-            except (
-                peony.exceptions.DoesNotExist,
-                peony.exceptions.HTTPUnauthorized,
-                peony.exceptions.InvalidOrExpiredToken,
-                peony.exceptions.AccountLocked,
-            ):
-                await broken_and_cancel(user, job_details)
-                return
+        await log(job_details, f"Importing {len(response['data'])} tweets")
 
-            if len(statuses) == 0:
-                break
-            await log(job_details, f"Importing {len(statuses)} tweets")
-
-            # Next loop, set max_id to one less than the oldest status batch
-            params["max_id"] = statuses[-1].id - 1
-
-            # Import these tweets
-            for status in statuses:
-                await import_tweet_and_thread(user, client, status)
-                data["progress"]["tweets_fetched"] += 1
-
-            await job_details.update(data=json.dumps(data)).apply()
-
-            # Hunt for threads. This is a dict that maps the root status_id to a list
-            # of status_ids in the thread
-            threads = {}
-            for status in statuses:
-                if status.in_reply_to_status_id:
-                    status_ids = await calculate_thread(user, status.id_str)
-                    if len(status_ids) > 0:
-                        root_status_id = status_ids[0]
-                        if root_status_id in threads:
-                            for status_id in status_ids:
-                                if status_id not in threads[root_status_id]:
-                                    threads[root_status_id].append(status_id)
-                        else:
-                            threads[root_status_id] = status_ids
-
-            # For each thread, does this thread already exist, or do we create a new one?
-            for root_status_id in threads:
-                status_ids = threads[root_status_id]
-                thread = (
-                    await Thread.query.where(Thread.user_id == user.id)
-                    .where(Thread.root_status_id == root_status_id)
+        # Import these tweets
+        for api_tweet in response["data"]:
+            # Is the tweet already saved?
+            tweet = await (
+                Tweet.query.where(Tweet.user_id == user.id)
+                .where(Tweet.twitter_id == api_tweet["id"])
+                .gino.first()
+            )
+            if not tweet:
+                # Make sure we have a thread for this tweet
+                thread = await (
+                    Thread.query.where(Thread.user_id == user.id)
+                    .where(Thread.conversation_id == api_tweet["conversation_id"])
                     .gino.first()
                 )
                 if not thread:
                     thread = await Thread.create(
                         user_id=user.id,
-                        root_status_id=root_status_id,
+                        conversation_id=api_tweet["conversation_id"],
                         should_exclude=False,
                     )
 
-                # Add all of the thread's tweets to the thread
-                for status_id in status_ids:
-                    tweet = (
-                        await Tweet.query.where(Tweet.user_id == user.id)
-                        .where(Tweet.status_id == status_id)
-                        .gino.first()
-                    )
-                    if tweet:
-                        await tweet.update(thread_id=thread.id).apply()
+                # Save the tweet
+                is_retweet = False
+                retweet_id = None
+                for referenced_tweet in api_tweet["referenced_tweets"]:
+                    if referenced_tweet["type"] == "retweet":
+                        is_retweet = True
+                        retweet_id = referenced_tweet["id"]
+                        break
 
-        # Update progress
-        data["progress"]["status"] = "Downloading tweets that you liked"
+                await Tweet.create(
+                    user_id=user.id,
+                    twitter_id=api_tweet["id"],
+                    created_at=datetime.fromisoformat(api_tweet["created_at"][0:19]),
+                    text=api_tweet["text"],
+                    conversation_id=api_tweet["conversation_id"],
+                    is_retweet=is_retweet,
+                    retweet_id=retweet_id,
+                    retweet_count=api_tweet["public_metrics"]["retweet_count"],
+                    like_count=api_tweet["public_metrics"]["like_count"],
+                    exclude_from_delete=False,
+                    is_deleted=False,
+                    thread_id=thread.id,
+                )
+
+            data["progress"]["tweets_fetched"] += 1
+
         await job_details.update(data=json.dumps(data)).apply()
 
-        # Fetch likes
-        params = {
-            "screen_name": user.twitter_screen_name,
-            "tweet_mode": "extended",
-            "count": 200,
-        }
-        if since_id:
-            params["since_id"] = since_id
+        if "next_token" in response["meta"]:
+            pagination_token = response["meta"]["next_token"]
+        else:
+            # all done
+            break
 
-        # Fetch 200 at a time until we run out
-        while True:
-            try:
-                statuses = await client.api.favorites.list.get(**params)
-            except (
-                peony.exceptions.DoesNotExist,
-                peony.exceptions.HTTPUnauthorized,
-                peony.exceptions.InvalidOrExpiredToken,
-                peony.exceptions.AccountLocked,
-            ):
-                await broken_and_cancel(user, job_details)
-                return
+    # Update progress
+    data["progress"]["status"] = "Downloading tweets that you liked"
+    await job_details.update(data=json.dumps(data)).apply()
 
-            if len(statuses) == 0:
-                break
-            await log(job_details, f"Importing {len(statuses)} likes")
+    # Fetch likes
+    pagination_token = None
+    while True:
+        response = client.get_liked_tweets(
+            id=user.twitter_id,
+            max_results=100,
+            pagination_token=pagination_token,
+            tweet_fields=[
+                "author_id",
+                "created_at",
+            ],
+            user_auth=True,
+        )
 
-            # Next loop, set max_id to one less than the oldest status batch
-            params["max_id"] = statuses[-1].id - 1
+        await log(job_details, f"Importing {len(response['data'])} likes")
 
-            # Import these likes
-            for status in statuses:
-                # Is the tweet already saved?
-                tweet = await (
-                    Tweet.query.where(Tweet.user_id == user.id)
-                    .where(Tweet.status_id == status.id_str)
-                    .gino.first()
+        # Import these likes
+        for api_like in response["data"]:
+            # Is the like already saved?
+            like = await (
+                Like.query.where(Like.user_id == user.id)
+                .where(Like.twitter_id == api_like["id"])
+                .gino.first()
+            )
+            if not like:
+                fascist = await Fascist.query.where(
+                    Fascist.twitter_id == api_like["author_id"]
+                ).gino.first()
+                is_fascist = fascist is not None
+
+                # Save the like
+                await Like.create(
+                    user_id=user.id,
+                    twitter_id=api_like["id"],
+                    created_at=datetime.fromisoformat(api_tweet["created_at"][0:19]),
+                    author_id=api_like["author_id"],
+                    is_deleted=False,
+                    is_fascist=is_fascist,
                 )
-                if not tweet:
-                    # Save the tweet
-                    await save_tweet(user, status)
-                    data["progress"]["likes_fetched"] += 1
 
-            await job_details.update(data=json.dumps(data)).apply()
+            data["progress"]["likes_fetched"] += 1
+
+        await job_details.update(data=json.dumps(data)).apply()
+
+        if "next_token" in response["meta"]:
+            pagination_token = response["meta"]["next_token"]
+        else:
+            # all done
+            break
 
     # All done, update the since_id
     async with gino_db.acquire() as conn:
         await conn.all("BEGIN")
         r = await conn.all(
             text(
-                "SELECT status_id FROM tweets WHERE user_id=:user_id AND twitter_user_id=:twitter_user_id ORDER BY CAST(status_id AS bigint) DESC LIMIT 1"
+                "SELECT status_id FROM tweets WHERE user_id=:user_id AND twitter_user_id=:twitter_user_id ORDER BY CAST(twitter_id AS bigint) DESC LIMIT 1"
             ),
             user_id=user.id,
             twitter_user_id=user.twitter_id,
@@ -452,14 +376,13 @@ async def fetch(job_details_id, funcs):
 
     # Has this user liked any fascist tweets?
     six_months_ago = datetime.now() - timedelta(days=180)
-    fascist_tweets = (
-        await Tweet.query.where(Tweet.user_id == user.id)
-        .where(Tweet.favorited == True)
-        .where(Tweet.is_fascist == True)
-        .where(Tweet.created_at > six_months_ago)
+    fascist_likes = (
+        await Like.query.where(Like.user_id == user.id)
+        .where(Like.is_fascist == True)
+        .where(Like.created_at > six_months_ago)
         .gino.all()
     )
-    if len(fascist_tweets) > 4:
+    if len(fascist_likes) > 4:
         # Create a block job
         new_job_details = await JobDetails.create(
             job_type="block",

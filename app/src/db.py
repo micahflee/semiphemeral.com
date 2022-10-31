@@ -167,7 +167,7 @@ class Thread(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    root_status_id = db.Column(db.String)
+    conversation_id = db.Column(db.String)
     should_exclude = db.Column(db.Boolean)
 
 
@@ -176,30 +176,35 @@ class Tweet(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    twitter_id = db.Column(db.String)
     created_at = db.Column(db.DateTime)
-    twitter_user_id = db.Column(db.String)
-    twitter_user_screen_name = db.Column(db.String)
-    status_id = db.Column(db.String)
     text = db.Column(db.String)
-    in_reply_to_screen_name = db.Column(db.String)
-    in_reply_to_status_id = db.Column(db.String)
-    in_reply_to_user_id = db.Column(db.String)
-    retweet_count = db.Column(db.Integer)
-    favorite_count = db.Column(db.Integer)
-    retweeted = db.Column(db.Boolean)
-    favorited = db.Column(db.Boolean)
     is_retweet = db.Column(db.Boolean)
-    is_deleted = db.Column(db.Boolean)
-    is_unliked = db.Column(db.Boolean)
+    retweet_id = db.Column(db.String)
+    retweet_count = db.Column(db.Integer)
+    like_count = db.Column(db.Integer)
     exclude_from_delete = db.Column(db.Boolean)
-    is_fascist = db.Column(db.Boolean, default=False)
+    is_deleted = db.Column(db.Boolean)
     thread_id = db.Column(db.Integer, db.ForeignKey("threads.id"))
+
+
+class Like(db.Model):
+    __tablename__ = "likes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    twitter_id = db.Column(db.String)
+    created_at = db.Column(db.DateTime)
+    author_id = db.Column(db.String)
+    is_deleted = db.Column(db.Boolean)
+    is_fascist = db.Column(db.Boolean)
 
 
 class Fascist(db.Model):
     __tablename__ = "fascists"
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String)
+    twitter_id = db.Column(db.String)
     comment = db.Column(db.String)
 
 
@@ -216,7 +221,9 @@ async def connect_db():
         except TooManyConnectionsError:
             tries += 1
             wait_min += 1
-            print(f"Try {tries}: Failed connecting to db, TooManyConnectionsError, waiting {wait_min} min")
+            print(
+                f"Try {tries}: Failed connecting to db, TooManyConnectionsError, waiting {wait_min} min"
+            )
             await asyncio.sleep(60 * wait_min)
 
     return gino_db
