@@ -9,8 +9,6 @@ import peony
 from common import (
     log,
     tweets_to_delete,
-    SemiphemeralPeonyClient,
-    SemiphemeralAppPeonyClient,
     tweepy_client,
     tweepy_semiphemeral_client,
 )
