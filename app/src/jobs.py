@@ -4,13 +4,13 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import tweepy
-import peony
 
 from common import (
     log,
     tweets_to_delete,
     tweepy_client,
     tweepy_semiphemeral_client,
+    tweepy_api_v1_1,
     tweepy_dms_api_v1_1,
     tweepy_semiphemeral_api,
 )
