@@ -266,7 +266,7 @@ async def fetch(job_details_id, funcs):
                     )
 
                 # Save the tweet
-                is_retweet = api_tweet["text"].startswith("RT @")
+                is_retweet = False
                 retweet_id = None
                 if "referenced_tweets" in api_tweet:
                     for referenced_tweet in api_tweet["referenced_tweets"]:
