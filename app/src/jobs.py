@@ -341,7 +341,7 @@ async def fetch(job_details_id, funcs):
                 await Like.create(
                     user_id=user.id,
                     twitter_id=api_like["id"],
-                    created_at=datetime.fromisoformat(api_tweet["created_at"][0:19]),
+                    created_at=datetime.fromisoformat(api_like["created_at"][0:19]),
                     author_id=api_like["author_id"],
                     is_deleted=False,
                     is_fascist=is_fascist,
@@ -836,92 +836,94 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
         ).apply()
         return
 
-    async with SemiphemeralPeonyClient(user, dms=True) as dms_client:
-        try:
-            twitter_user = await dms_client.user
-        except Exception as e:
-            await log(job_details, f"DMs Twitter API creds don't work, canceling job")
-            await job_details.update(
-                status="canceled", started_timestamp=datetime.now()
-            ).apply()
-            return
+    dm_client = tweepy_client(user, dms=True)
+    dm_api = tweepy_dms_api_v1_1(user)
 
-        if dm_type == "dms":
-            await log(job_details, f"Delete DMs started")
-        elif dm_type == "groups":
-            await log(job_details, f"Delete group DMs started")
+    # Make sure the DMs API authenticates successfully
+    try:
+        dm_client.get_me()
+    except Exception as e:
+        # It doesn't, so disable deleting direct messages
+        await log(job_details, f"DMs Twitter API creds don't work, canceling job")
+        await job_details.update(
+            status="canceled", started_timestamp=datetime.now()
+        ).apply()
+        return
 
-        # Start the progress
-        data = {
-            "progress": {
-                "dms_deleted": 0,
-                "dms_skipped": 0,
-                "status": "Verifying permissions",
-            }
+    if dm_type == "dms":
+        await log(job_details, f"Delete DMs started")
+    elif dm_type == "groups":
+        await log(job_details, f"Delete group DMs started")
+
+    # Start the progress
+    data = {
+        "progress": {
+            "dms_deleted": 0,
+            "dms_skipped": 0,
+            "status": "Verifying permissions",
         }
-        await job_details.update(data=json.dumps(data)).apply()
+    }
+    await job_details.update(data=json.dumps(data)).apply()
 
-        # Make sure deleting DMs is enabled
-        if not user.direct_messages:
-            await log(job_details, f"Deleting DMs is not enabled, canceling job")
-            await job_details.update(
-                status="canceled", started_timestamp=datetime.now()
-            ).apply()
-            return
+    # Make sure deleting DMs is enabled
+    if not user.direct_messages:
+        await log(job_details, f"Deleting DMs is not enabled, canceling job")
+        await job_details.update(
+            status="canceled", started_timestamp=datetime.now()
+        ).apply()
+        return
 
-        # Load the DM metadata
-        if dm_type == "dms":
-            filename = os.path.join("/var/bulk_dms", f"dms-{user.id}.json")
-        elif dm_type == "groups":
-            filename = os.path.join("/var/bulk_dms", f"groups-{user.id}.json")
-        if not os.path.exists(filename):
-            await log(
-                job_details,
-                f"Filename {filename} does not exist, canceling job",
-            )
-            await job_details.update(
-                status="canceled", started_timestamp=datetime.now()
-            ).apply()
-            return
-        with open(filename) as f:
-            try:
-                conversations = json.loads(f.read())
-            except:
-                await job_details(job_details, f"Cannot decode JSON, canceling job")
-                await job_details.update(
-                    status="canceled", started_timestamp=datetime.now()
-                ).apply()
-                return
-
-        # Delete DMs
-        data["progress"]["status"] = "Deleting old direct messages"
-        await job_details.update(data=json.dumps(data)).apply()
-
-        datetime_threshold = datetime.utcnow() - timedelta(
-            days=user.direct_messages_threshold
+    # Load the DM metadata
+    if dm_type == "dms":
+        filename = os.path.join("/var/bulk_dms", f"dms-{user.id}.json")
+    elif dm_type == "groups":
+        filename = os.path.join("/var/bulk_dms", f"groups-{user.id}.json")
+    if not os.path.exists(filename):
+        await log(
+            job_details,
+            f"Filename {filename} does not exist, canceling job",
         )
-        for obj in conversations:
-            conversation = obj["dmConversation"]
-            for message in conversation["messages"]:
-                if "messageCreate" in message:
-                    created_str = message["messageCreate"]["createdAt"]
-                    created_timestamp = datetime.strptime(
-                        created_str, "%Y-%m-%dT%H:%M:%S.%fZ"
-                    )
-                    if created_timestamp <= datetime_threshold:
-                        dm_id = message["messageCreate"]["id"]
+        await job_details.update(
+            status="canceled", started_timestamp=datetime.now()
+        ).apply()
+        return
+    with open(filename) as f:
+        try:
+            conversations = json.loads(f.read())
+        except:
+            await job_details(job_details, f"Cannot decode JSON, canceling job")
+            await job_details.update(
+                status="canceled", started_timestamp=datetime.now()
+            ).apply()
+            return
 
-                        # Delete the DM
-                        try:
-                            await dms_client.api.direct_messages.events.destroy.delete(
-                                id=dm_id
-                            )
-                            data["progress"]["dms_deleted"] += 1
-                            await job_details.update(data=json.dumps(data)).apply()
-                        except peony.exceptions.DoesNotExist as e:
-                            await log(job_details, f"Error deleting DM {dm_id}, {e}")
-                            data["progress"]["dms_skipped"] += 1
-                            await job_details.update(data=json.dumps(data)).apply()
+    # Delete DMs
+    data["progress"]["status"] = "Deleting old direct messages"
+    await job_details.update(data=json.dumps(data)).apply()
+
+    datetime_threshold = datetime.utcnow() - timedelta(
+        days=user.direct_messages_threshold
+    )
+    for obj in conversations:
+        conversation = obj["dmConversation"]
+        for message in conversation["messages"]:
+            if "messageCreate" in message:
+                created_str = message["messageCreate"]["createdAt"]
+                created_timestamp = datetime.strptime(
+                    created_str, "%Y-%m-%dT%H:%M:%S.%fZ"
+                )
+                if created_timestamp <= datetime_threshold:
+                    dm_id = message["messageCreate"]["id"]
+
+                    # Delete the DM
+                    try:
+                        dm_api.delete_direct_message(dm_id)
+                        data["progress"]["dms_deleted"] += 1
+                        await job_details.update(data=json.dumps(data)).apply()
+                    except Exception as e:
+                        await log(job_details, f"Error deleting DM {dm_id}, {e}")
+                        data["progress"]["dms_skipped"] += 1
+                        await job_details.update(data=json.dumps(data)).apply()
 
     # Delete the DM metadata file
     try:
@@ -939,9 +941,9 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
 
     # Send a DM to the user
     if dm_type == "dms":
-        message = f"Congratulations, Semiphemeral just finished deleting {data['progress']['dms_deleted']} of your old direct messages."
+        message = f"Congratulations, Semiphemeral just finished deleting {data['progress']['dms_deleted']:,} of your old direct messages."
     elif dm_type == "groups":
-        message = f"Congratulations, Semiphemeral just finished deleting {data['progress']['dms_deleted']} of your old group direct messages."
+        message = f"Congratulations, Semiphemeral just finished deleting {data['progress']['dms_deleted']:,} of your old group direct messages."
 
     new_job_details = await JobDetails.create(
         job_type="dm",
