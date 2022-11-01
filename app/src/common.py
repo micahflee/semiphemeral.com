@@ -54,7 +54,21 @@ def tweepy_semiphemeral_client():
     )
 
 
-# Twitter API v2 doesn't support deleting DMs, so we have to use v1.1 for that
+# Twitter API v2 doesn't support getting likes with a since_id, so we have to use v1.1
+def tweepy_api_v1_1(user):
+    consumer_key = os.environ.get("TWITTER_CONSUMER_TOKEN")
+    consumer_secret = os.environ.get("TWITTER_CONSUMER_KEY")
+    access_token = user.twitter_access_token
+    access_token_secret = user.twitter_access_token_secret
+
+    auth = tweepy.OAuth1UserHandler(
+        consumer_key, consumer_secret, access_token, access_token_secret
+    )
+    api = tweepy.API(auth)
+    return api
+
+
+# Twitter API v2 doesn't support deleting DMs, so we have to use v1.1
 def tweepy_dms_api_v1_1(user):
     consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
     consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")

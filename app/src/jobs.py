@@ -4,13 +4,13 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import tweepy
-import peony
 
 from common import (
     log,
     tweets_to_delete,
     tweepy_client,
     tweepy_semiphemeral_client,
+    tweepy_api_v1_1,
     tweepy_dms_api_v1_1,
 )
 from db import (
@@ -202,6 +202,8 @@ async def fetch(job_details_id, funcs):
         return
 
     client = tweepy_client(user)
+    api = tweepy_api_v1_1(user)
+
     since_id = user.since_id
 
     await log(job_details, f"Fetch started")
@@ -305,44 +307,30 @@ async def fetch(job_details_id, funcs):
     await job_details.update(data=json.dumps(data)).apply()
 
     # Fetch likes
-    pagination_token = None
-    while True:
-        response = client.get_liked_tweets(
-            id=user.twitter_id,
-            max_results=100,
-            pagination_token=pagination_token,
-            tweet_fields=[
-                "author_id",
-                "created_at",
-            ],
-            user_auth=True,
-        )
-        if response["meta"]["result_count"] == 0:
-            await log(job_details, f"No new likes")
-            break
+    for page in tweepy.Cursor(
+        api.get_favorites, user_id=user.twitter_id, count=100, since_id=since_id
+    ).pages():
+        await log(job_details, f"Importing {len(page)} likes")
 
-        await log(job_details, f"Importing {len(response['data'])} likes")
-
-        # Import these likes
-        for api_like in response["data"]:
+        for status in page:
             # Is the like already saved?
             like = await (
                 Like.query.where(Like.user_id == user.id)
-                .where(Like.twitter_id == api_like["id"])
+                .where(Like.twitter_id == status.id_str)
                 .gino.first()
             )
             if not like:
                 fascist = await Fascist.query.where(
-                    Fascist.twitter_id == api_like["author_id"]
+                    Fascist.twitter_id == status.user.id_str
                 ).gino.first()
                 is_fascist = fascist is not None
 
                 # Save the like
                 await Like.create(
                     user_id=user.id,
-                    twitter_id=api_like["id"],
-                    created_at=datetime.fromisoformat(api_like["created_at"][0:19]),
-                    author_id=api_like["author_id"],
+                    twitter_id=status.id_str,
+                    created_at=status.created_at,
+                    author_id=status.user.id_str,
                     is_deleted=False,
                     is_fascist=is_fascist,
                 )
