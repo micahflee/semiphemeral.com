@@ -1141,29 +1141,20 @@ async def dm(job_details_id, funcs):
 
     data = json.loads(job_details.data)
 
-    async with SemiphemeralAppPeonyClient() as client:
-        message = {
-            "event": {
-                "type": "message_create",
-                "message_create": {
-                    "target": {"recipient_id": int(data["dest_twitter_id"])},
-                    "message_data": {"text": data["message"]},
-                },
-            }
-        }
-
-        try:
-            await client.api.direct_messages.events.new.post(_json=message)
-
-            await job_details.update(
-                status="finished", finished_timestamp=datetime.now()
-            ).apply()
-            await log(job_details, f"DM sent")
-        except Exception as e:
-            await job_details.update(
-                status="canceled", finished_timestamp=datetime.now()
-            ).apply()
-            await log(job_details, f"Failed to send DM")
+    semiphemeral_client = tweepy_semiphemeral_client()
+    try:
+        semiphemeral_client.create_direct_message(
+            participant_id=data["dest_twitter_id"], text=data["message"], user_auth=True
+        )
+        await job_details.update(
+            status="finished", finished_timestamp=datetime.now()
+        ).apply()
+        await log(job_details, f"DM sent")
+    except Exception as e:
+        await job_details.update(
+            status="canceled", finished_timestamp=datetime.now()
+        ).apply()
+        await log(job_details, f"Failed to send DM")
 
     # Sleep a minute between sending each DM
     await log(job_details, f"Sleeping 60s")
