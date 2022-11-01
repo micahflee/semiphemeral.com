@@ -251,32 +251,33 @@ async def fetch(job_details_id, funcs):
                 .where(Tweet.twitter_id == api_tweet["id"])
                 .gino.first()
             )
-            if not tweet:
-                # Make sure we have a thread for this tweet
-                thread = await (
-                    Thread.query.where(Thread.user_id == user.id)
-                    .where(Thread.conversation_id == api_tweet["conversation_id"])
-                    .gino.first()
+
+            # Make sure we have a thread for this tweet
+            thread = await (
+                Thread.query.where(Thread.user_id == user.id)
+                .where(Thread.conversation_id == api_tweet["conversation_id"])
+                .gino.first()
+            )
+            if not thread:
+                thread = await Thread.create(
+                    user_id=user.id,
+                    conversation_id=api_tweet["conversation_id"],
+                    should_exclude=False,
                 )
-                if not thread:
-                    thread = await Thread.create(
-                        user_id=user.id,
-                        conversation_id=api_tweet["conversation_id"],
-                        should_exclude=False,
-                    )
 
-                # Save the tweet
-                is_retweet = False
-                retweet_id = None
-                if "referenced_tweets" in api_tweet:
-                    for referenced_tweet in api_tweet["referenced_tweets"]:
-                        if referenced_tweet["type"] == "retweeted":
-                            is_retweet = True
-                            retweet_id = referenced_tweet["id"]
-                            break
+            # Save or update the tweet
+            is_retweet = False
+            retweet_id = None
+            if "referenced_tweets" in api_tweet:
+                for referenced_tweet in api_tweet["referenced_tweets"]:
+                    if referenced_tweet["type"] == "retweeted":
+                        is_retweet = True
+                        retweet_id = referenced_tweet["id"]
+                        break
 
-                is_reply = "in_reply_to_user_id" in api_tweet
+            is_reply = "in_reply_to_user_id" in api_tweet
 
+            if not tweet:
                 await Tweet.create(
                     user_id=user.id,
                     twitter_id=api_tweet["id"],
@@ -291,6 +292,16 @@ async def fetch(job_details_id, funcs):
                     is_deleted=False,
                     thread_id=thread.id,
                 )
+            else:
+                await tweet.update(
+                    text=api_tweet["text"],
+                    is_retweet=is_retweet,
+                    retweet_id=retweet_id,
+                    is_reply=is_reply,
+                    retweet_count=api_tweet["public_metrics"]["retweet_count"],
+                    like_count=api_tweet["public_metrics"]["like_count"],
+                    thread_id=thread.id,
+                ).apply()
 
             data["progress"]["tweets_fetched"] += 1
 
