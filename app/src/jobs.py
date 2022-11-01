@@ -341,7 +341,7 @@ async def fetch(job_details_id, funcs):
                 await Like.create(
                     user_id=user.id,
                     twitter_id=status.id_str,
-                    created_at=status.created_at,
+                    created_at=status.created_at.replace(tzinfo=None),
                     author_id=status.user.id_str,
                     is_deleted=False,
                     is_fascist=is_fascist,
