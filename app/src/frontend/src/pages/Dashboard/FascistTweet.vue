@@ -2,11 +2,11 @@
 import { nextTick } from 'vue'
 
 const props = defineProps({
-  tweet: Object
+  like: Object
 })
 
 function formatDate() {
-  var date = new Date(props.tweet.created_at * 1000)
+  var date = new Date(props.like.created_at * 1000)
   return "" + date.getFullYear() +
     "/" + (date.getMonth() + 1) +
     "/" + date.getDate()
@@ -15,16 +15,13 @@ function formatDate() {
 
 <template>
   <div class="tweet-wrapper">
-    <div class="info">
-      <div class="stats">
-        {{ tweet.retweet_count }} retweets,
-        {{ tweet.like_count }} likes,
-        <a target="_blank" :href="tweet.permalink">see on
-          Twitter</a>
-      </div>
-    </div>
-    <div class="tweet-text">{{ tweet.text }}</div>
+    <div class="author">{{ like.name }} (@{{ like.username }})</div>
+    <div class="tweet-text">{{ like.text }}</div>
     <div class="created-at">{{ formatDate() }}</div>
+    <div class="stats">
+      <a target="_blank" :href="like.permalink">see on
+        Twitter</a>
+    </div>
   </div>
 </template>
 
@@ -38,6 +35,10 @@ function formatDate() {
   padding: 5px 5px 0 5px;
   margin: 0 10px 10px 0;
   overflow: hidden;
+}
+
+.author {
+  font-weight: bold;
 }
 
 .stats {

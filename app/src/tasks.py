@@ -6,8 +6,12 @@ import click
 from datetime import datetime, timedelta
 
 import db
-from db import connect_db, User, JobDetails
-from common import send_admin_notification, tweepy_client, delete_user
+from db import connect_db, User, JobDetails, Like
+from common import (
+    send_admin_notification,
+    tweepy_client,
+    delete_user,
+)
 import worker_jobs
 
 import redis
@@ -185,6 +189,41 @@ async def _cleanup_dm_jobs():
 #         i += 1
 
 #     print("")
+
+
+async def _update_fascists():
+    await connect_db()
+
+    user = await User.query.where(User.id == 1).gino.first()
+    client = tweepy_client(user)
+
+    # Mark all the likes as is_fascist=False
+    print("Marking all likes as not fascist")
+    await Like.update.values(is_fascist=False).gino.status()
+
+    fascists = await db.Fascist.query.gino.all()
+    print(f"Found {len(fascists)} Fascists")
+    for fascist in fascists:
+        # Get the twitter ID
+        response = client.get_user(username=fascist.username, user_auth=True)
+        try:
+            await fascist.update(twitter_id=response["data"]["id"]).apply()
+        except Exception as e:
+            print(f"Error: {e}")
+            print(json.dumps(response, indent=2))
+
+        # Mark all the tweets from this user as is_fascist=True
+        print(f"Marking tweets from @{fascist.username} as fascist")
+        await Like.update.values(is_fascist=True).where(
+            Like.author_id == fascist.twitter_id
+        ).gino.status()
+
+
+async def _reset_since_id():
+    await connect_db()
+    print("Setting since_id=None for all users")
+    await User.update.values(since_id=None).gino.status()
+    print("Done")
 
 
 async def _onetime_2022_05_add_redis_jobs():
@@ -521,6 +560,22 @@ def failed_jobs_registry():
     for job_id in registry.get_job_ids():
         job = RQJob.fetch(job_id, connection=conn)
         print(job_id, job.exc_info)
+
+
+@main.command(
+    "update-fascists",
+    short_help="Set is_fascist=True for all likes from fascists",
+)
+def unblock_users():
+    asyncio.run(_update_fascists())
+
+
+@main.command(
+    "reset-since-id",
+    short_help="Set since_id=None for all users, forcing them to redownload all tweets",
+)
+def reset_since_id():
+    asyncio.run(_reset_since_id())
 
 
 @main.command(
