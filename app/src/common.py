@@ -54,6 +54,19 @@ def tweepy_semiphemeral_client():
     )
 
 
+def tweepy_semiphemeral_api():
+    consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
+    consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
+    access_token = os.environ.get("TWITTER_DM_ACCESS_TOKEN")
+    access_token_secret = os.environ.get("TWITTER_DM_ACCESS_KEY")
+
+    auth = tweepy.OAuth1UserHandler(
+        consumer_key, consumer_secret, access_token, access_token_secret
+    )
+    api = tweepy.API(auth)
+    return api
+
+
 # Twitter API v2 doesn't support getting likes with a since_id, so we have to use v1.1
 def tweepy_api_v1_1(user):
     consumer_key = os.environ.get("TWITTER_CONSUMER_TOKEN")
@@ -95,11 +108,9 @@ async def tweets_to_delete(user, include_manually_excluded=False):
         # shortly before Twitter was launched
         datetime_threshold = datetime(2006, 7, 1)
 
-    # Get all the tweets to delete that have threads
     query = (
         Tweet.query.select_from(Tweet.join(Thread))
         .where(Tweet.user_id == user.id)
-        .where(Tweet.twitter_user_id == user.twitter_id)
         .where(Tweet.is_deleted == False)
         .where(Tweet.is_retweet == False)
         .where(Tweet.created_at < datetime_threshold)
@@ -108,33 +119,10 @@ async def tweets_to_delete(user, include_manually_excluded=False):
     if user.tweets_enable_retweet_threshold:
         query = query.where(Tweet.retweet_count < user.tweets_retweet_threshold)
     if user.tweets_enable_like_threshold:
-        query = query.where(Tweet.favorite_count < user.tweets_like_threshold)
+        query = query.where(Tweet.like_count < user.tweets_like_threshold)
     if not include_manually_excluded:
         query = query.where(Tweet.exclude_from_delete == False)
-    tweets_to_delete_with_threads = await query.gino.all()
-
-    # Get all the tweets to delete that don't have threads
-    query = (
-        Tweet.query.where(Tweet.thread_id == None)
-        .where(Tweet.user_id == user.id)
-        .where(Tweet.twitter_user_id == user.twitter_id)
-        .where(Tweet.is_deleted == False)
-        .where(Tweet.is_retweet == False)
-        .where(Tweet.created_at < datetime_threshold)
-    )
-    if user.tweets_enable_retweet_threshold:
-        query = query.where(Tweet.retweet_count < user.tweets_retweet_threshold)
-    if user.tweets_enable_like_threshold:
-        query = query.where(Tweet.favorite_count < user.tweets_like_threshold)
-    if not include_manually_excluded:
-        query = query.where(Tweet.exclude_from_delete == False)
-    tweets_to_delete_without_threads = await query.gino.all()
-
-    # Merge them
-    tweets_to_delete = sorted(
-        tweets_to_delete_with_threads + tweets_to_delete_without_threads,
-        key=lambda tweet: tweet.created_at,
-    )
+    tweets_to_delete = await query.gino.all()
 
     return tweets_to_delete
 
