@@ -266,11 +266,11 @@ async def fetch(job_details_id, funcs):
                     )
 
                 # Save the tweet
-                is_retweet = False
+                is_retweet = api_tweet["text"].startswith("RT @")
                 retweet_id = None
                 if "referenced_tweets" in api_tweet:
                     for referenced_tweet in api_tweet["referenced_tweets"]:
-                        if referenced_tweet["type"] == "retweet":
+                        if referenced_tweet["type"] == "retweeted":
                             is_retweet = True
                             retweet_id = referenced_tweet["id"]
                             break
@@ -307,6 +307,7 @@ async def fetch(job_details_id, funcs):
     await job_details.update(data=json.dumps(data)).apply()
 
     # Fetch likes
+    # Using Twitter API v1.1, so we can use since_id
     for page in tweepy.Cursor(
         api.get_favorites, user_id=user.twitter_id, count=100, since_id=since_id
     ).pages():
