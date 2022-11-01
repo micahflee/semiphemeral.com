@@ -478,6 +478,7 @@ async def delete(job_details_id, funcs):
         ).apply()
         return
 
+    api = tweepy_api_v1_1(user)
     client = tweepy_client(user)
     await log(job_details, "Delete started")
 
@@ -514,7 +515,8 @@ async def delete(job_details_id, funcs):
             for tweet in tweets:
                 # Delete retweet
                 try:
-                    client.delete_tweet(tweet.twitter_id, user_auth=True)
+                    api.destroy_status(tweet.twitter_id)
+                    # client.delete_tweet(tweet.twitter_id, user_auth=True)
                 except Exception as e:
                     await log(
                         job_details, f"Error deleting retweet {tweet.twitter_id}: {e}"
@@ -548,7 +550,8 @@ async def delete(job_details_id, funcs):
                 # Delete like
 
                 try:
-                    client.unlike(like.twitter_id, user_auth=True)
+                    api.destroy_favorite(tweet.twitter_id)
+                    # client.unlike(like.twitter_id, user_auth=True)
                 except Exception as e:
                     await log(
                         job_details, f"Error deleting like {like.twitter_id}: {e}"
@@ -571,7 +574,8 @@ async def delete(job_details_id, funcs):
         for tweet in tweets:
             # Delete tweet
             try:
-                client.delete_tweet(tweet.twitter_id, user_auth=True)
+                api.destroy_status(tweet.twitter_id)
+                # client.delete_tweet(tweet.twitter_id, user_auth=True)
             except Exception as e:
                 await log(job_details, f"Error deleting tweet {tweet.twitter_id}: {e}")
 
