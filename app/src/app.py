@@ -1015,6 +1015,7 @@ async def api_get_dashboard(request):
         return jobs_json
 
     fascist_likes = []
+    fascist_likes_to_client = []
     if user.blocked:
         # Get fascist tweets that this user has liked
         six_months_ago = datetime.now() - timedelta(days=180)
@@ -1029,7 +1030,6 @@ async def api_get_dashboard(request):
         client = tweepy_client(user)
         api = tweepy_api_v1_1(user)
 
-        fascist_likes_to_client = []
         for like in fascist_likes:
             response = client.get_tweet(
                 like.twitter_id,
@@ -1129,7 +1129,7 @@ async def api_post_dashboard(request):
             raise web.HTTPBadRequest(text="Can only 'unblock' if the user is blocked")
 
         # Unblock the user
-        semiphemeral_client = tweepy_semiphemeral_client(user)
+        semiphemeral_client = tweepy_semiphemeral_client()
         try:
             semiphemeral_client.unblock(target_user_id=user.twitter_id)
         except Exception as e:

@@ -320,7 +320,7 @@ async def fetch(job_details_id, funcs):
     # Fetch likes
     # Using Twitter API v1.1, so we can use since_id
     for page in tweepy.Cursor(
-        api.get_favorites, user_id=user.twitter_id, count=100, since_id=since_id
+        api.get_favorites, user_id=user.twitter_id, count=200, since_id=since_id
     ).pages():
         await log(job_details, f"Importing {len(page)} likes")
 
