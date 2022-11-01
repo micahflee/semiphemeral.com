@@ -16,7 +16,7 @@ const settingBlocked = ref(false)
 const settingDeleteTweets = ref(false)
 const settingRetweetsLikes = ref(false)
 const settingDirectMessages = ref(false)
-const fascistTweets = ref([])
+const fascistLikes = ref([])
 
 function state() {
   // There are 3 states:
@@ -174,7 +174,7 @@ function fetchJobs() {
         settingDeleteTweets.value = data["setting_delete_tweets"]
         settingRetweetsLikes.value = data["setting_retweets_likes"]
         settingDirectMessages.value = data["setting_direct_messages"]
-        fascistTweets.value = data["fascist_tweets"]
+        fascistLikes.value = data["fascist_likes"]
       })
     })
     .catch(function (err) {
@@ -212,7 +212,7 @@ fetchJobs()
         </p>
         <p>
           <strong>In the last six months, you have liked
-            {{ fascistTweets.length }} tweets from fascist influencers.</strong>
+            {{ fascistLikes.length }} tweets from fascist influencers.</strong>
           You have been blocked by
           <a href="https://twitter.com/semiphemeral">@semiphemeral</a>, so your
           account has been temporarily disabled.
@@ -220,9 +220,9 @@ fetchJobs()
         <p></p>
 
         <p>You were blocked because you liked these tweets:</p>
-        <FascistTweet v-for="tweet in fascistTweets" :tweet="tweet"></FascistTweet>
+        <FascistTweet v-for="like in fascistLikes" :like="like"></FascistTweet>
 
-        <template v-if="fascistTweets.length > 10">
+        <template v-if="fascistLikes.length > 10">
           <p>
             Because you've recently liked more than 10 tweets from prominent
             fascists, you don't have the option to automatically unblock

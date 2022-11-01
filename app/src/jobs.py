@@ -395,7 +395,11 @@ async def fetch(job_details_id, funcs):
         new_job_details = await JobDetails.create(
             job_type="block",
             data=json.dumps(
-                {"twitter_username": user.twitter_screen_name, "user_id": user.id}
+                {
+                    "twitter_username": user.twitter_screen_name,
+                    "twitter_id": user.twitter_id,
+                    "user_id": user.id,
+                }
             ),
         )
         redis_job = jobs_q.enqueue(
@@ -980,19 +984,6 @@ async def block(job_details_id, funcs):
 
     semiphemeral_client = tweepy_semiphemeral_client()
 
-    # Look up user to block
-    twitter_user = semiphemeral_client.get_user(
-        username=data["twitter_username"], user_auth=True
-    )
-    if "data" not in twitter_user and "id" not in twitter_user["data"]:
-        await job_details.update(
-            status="finished", finished_timestamp=datetime.now()
-        ).apply()
-        await log(job_details, f"invalid user @{data['twitter_username']}")
-        return
-
-    twitter_id = twitter_user["data"]["id"]
-
     # If we're blocking a semiphemeral user, and not just a fascist influencer
     if "user_id" in data:
         user = await User.query.where(User.id == data["user_id"]).gino.first()
@@ -1051,6 +1042,7 @@ async def block(job_details_id, funcs):
                     {
                         "user_id": user.id,
                         "twitter_username": user.twitter_screen_name,
+                        "twitter_id": user.twitter_id,
                     }
                 ),
             )
@@ -1061,7 +1053,7 @@ async def block(job_details_id, funcs):
 
         # Block the user
         try:
-            semiphemeral_client.block(twitter_id, user_auth=True)
+            semiphemeral_client.block(data["twitter_id"], user_auth=True)
         except Exception as e:
             await log(
                 job_details, f"Error blocking user @{data['twitter_username']}, {e}"
@@ -1089,22 +1081,9 @@ async def unblock(job_details_id, funcs):
 
     semiphemeral_client = tweepy_semiphemeral_client()
 
-    # Look up user to block
-    twitter_user = semiphemeral_client.get_user(
-        username=data["twitter_username"], user_auth=True
-    )
-    if "data" not in twitter_user and "id" not in twitter_user["data"]:
-        await job_details.update(
-            status="finished", finished_timestamp=datetime.now()
-        ).apply()
-        await log(job_details, f"invalid user @{data['twitter_username']}")
-        return
-
-    twitter_id = twitter_user["data"]["id"]
-
     # Unblock the user
     try:
-        semiphemeral_client.unblock(twitter_id, user_auth=True)
+        semiphemeral_client.unblock(data["twitter_id"], user_auth=True)
     except Exception as e:
         await log(
             job_details, f"Error unblocking user @{data['twitter_username']}, {e}"

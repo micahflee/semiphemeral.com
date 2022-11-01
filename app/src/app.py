@@ -24,6 +24,7 @@ from common import (
     create_tweepy_client,
     tweepy_client,
     tweepy_semiphemeral_client,
+    tweepy_api_v1_1,
 )
 from db import (
     db,
@@ -1024,15 +1025,51 @@ async def api_get_dashboard(request):
             .order_by(Like.created_at.desc())
             .gino.all()
         )
-        fascist_likes = [
-            {
-                "twitter_id": like.twitter_id,
-                "author_id": like.author_id,
-                "permalink": f"https://twitter.com/semiphemeral/status/{like.twitter_id}",
-                "created_at": like.created_at.timestamp(),
-            }
-            for like in fascist_likes
-        ]
+
+        client = tweepy_client(user)
+        api = tweepy_api_v1_1(user)
+
+        fascist_likes_to_client = []
+        for like in fascist_likes:
+            response = client.get_tweet(
+                like.twitter_id,
+                tweet_fields=["author_id", "created_at"],
+                user_auth=True,
+            )
+            try:
+                text = response["data"]["text"]
+            except:
+                print(e)
+                text = ""
+            try:
+                created_at = datetime.fromisoformat(
+                    response["data"]["created_at"][0:19]
+                ).timestamp()
+            except:
+                created_at = 0
+            try:
+                author_id = response["data"]["author_id"]
+                response = api.get_user(user_id=author_id)
+                name = response.name
+                username = response.screen_name
+            except:
+                name = ""
+                username = ""
+
+            if username != "":
+                permalink = f"https://twitter.com/{username}/status/{like.twitter_id}"
+            else:
+                permalink = f"https://twitter.com/semiphemeral/status/{like.twitter_id}"
+            fascist_likes_to_client.append(
+                {
+                    "twitter_id": like.twitter_id,
+                    "name": name,
+                    "username": username,
+                    "text": text,
+                    "created_at": created_at,
+                    "permalink": permalink,
+                }
+            )
 
     return web.json_response(
         {
@@ -1044,7 +1081,7 @@ async def api_get_dashboard(request):
             "setting_delete_tweets": user.delete_tweets,
             "setting_retweets_likes": user.retweets_likes,
             "setting_direct_messages": user.direct_messages,
-            "fascist_likes": fascist_likes,
+            "fascist_likes": fascist_likes_to_client,
         }
     )
 
