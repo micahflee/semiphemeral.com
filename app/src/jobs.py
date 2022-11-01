@@ -12,6 +12,7 @@ from common import (
     tweepy_semiphemeral_client,
     tweepy_api_v1_1,
     tweepy_dms_api_v1_1,
+    tweepy_semiphemeral_api,
 )
 from db import (
     connect_db,
@@ -216,6 +217,7 @@ async def fetch(job_details_id, funcs):
         data["progress"][
             "status"
         ] = "Downloading all tweets, this first run may take a long time"
+        await log(job_details, "since_id is None, so downloading everything")
 
     await job_details.update(data=json.dumps(data)).apply()
 
@@ -245,13 +247,6 @@ async def fetch(job_details_id, funcs):
 
         # Import these tweets
         for api_tweet in response["data"]:
-            # Is the tweet already saved?
-            tweet = await (
-                Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.twitter_id == api_tweet["id"])
-                .gino.first()
-            )
-
             # Make sure we have a thread for this tweet
             thread = await (
                 Thread.query.where(Thread.user_id == user.id)
@@ -266,6 +261,12 @@ async def fetch(job_details_id, funcs):
                 )
 
             # Save or update the tweet
+            tweet = await (
+                Tweet.query.where(Tweet.user_id == user.id)
+                .where(Tweet.twitter_id == api_tweet["id"])
+                .gino.first()
+            )
+
             is_retweet = False
             retweet_id = None
             if "referenced_tweets" in api_tweet:
@@ -314,7 +315,12 @@ async def fetch(job_details_id, funcs):
             break
 
     # Update progress
-    data["progress"]["status"] = "Downloading tweets that you liked"
+    if since_id:
+        data["progress"]["status"] = "Downloading all recent likes"
+    else:
+        data["progress"][
+            "status"
+        ] = "Downloading all likes, this first run may take a long time"
     await job_details.update(data=json.dumps(data)).apply()
 
     # Fetch likes
@@ -510,7 +516,9 @@ async def delete(job_details_id, funcs):
                 try:
                     client.delete_tweet(tweet.twitter_id, user_auth=True)
                 except Exception as e:
-                    await log(job_details, f"Error deleting retweet: {e}")
+                    await log(
+                        job_details, f"Error deleting retweet {tweet.twitter_id}: {e}"
+                    )
 
                 await tweet.update(is_deleted=True).apply()
 
@@ -542,7 +550,9 @@ async def delete(job_details_id, funcs):
                 try:
                     client.unlike(like.twitter_id, user_auth=True)
                 except Exception as e:
-                    await log(job_details, f"Error deleting like: {e}")
+                    await log(
+                        job_details, f"Error deleting like {like.twitter_id}: {e}"
+                    )
 
                 await like.update(is_deleted=True).apply()
 
@@ -563,7 +573,7 @@ async def delete(job_details_id, funcs):
             try:
                 client.delete_tweet(tweet.twitter_id, user_auth=True)
             except Exception as e:
-                await log(job_details, f"Error deleting retweet: {e}")
+                await log(job_details, f"Error deleting tweet {tweet.twitter_id}: {e}")
 
             await tweet.update(is_deleted=True).apply()
 
@@ -1120,10 +1130,10 @@ async def dm(job_details_id, funcs):
 
     data = json.loads(job_details.data)
 
-    semiphemeral_client = tweepy_semiphemeral_client()
+    semiphemeral_api = tweepy_semiphemeral_api()
     try:
-        semiphemeral_client.create_direct_message(
-            participant_id=data["dest_twitter_id"], text=data["message"], user_auth=True
+        semiphemeral_api.send_direct_message(
+            recipient_id=data["dest_twitter_id"], text=data["message"]
         )
         await job_details.update(
             status="finished", finished_timestamp=datetime.now()
@@ -1133,7 +1143,7 @@ async def dm(job_details_id, funcs):
         await job_details.update(
             status="canceled", finished_timestamp=datetime.now()
         ).apply()
-        await log(job_details, f"Failed to send DM")
+        await log(job_details, f"Failed to send DM: {e}")
 
     # Sleep a minute between sending each DM
     await log(job_details, f"Sleeping 60s")

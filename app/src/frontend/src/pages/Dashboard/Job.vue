@@ -1,5 +1,7 @@
 <script setup>
-const props = defineProps(['job'])
+const props = defineProps({
+    job: Object
+})
 
 function humanReadableTimestamp(timestamp) {
     if (timestamp == null) {
@@ -7,6 +9,22 @@ function humanReadableTimestamp(timestamp) {
     }
     var date = new Date(timestamp * 1000)
     return date.toLocaleDateString() + " at " + date.toLocaleTimeString()
+}
+
+function progressStatus() {
+    try {
+        var p = JSON.parse(props.job.data)
+        if (Object.hasOwn(p, "progress")) {
+            if (Object.hasOwn(p['progress'], "status")) {
+                return p['progress']['status']
+            } else {
+                return "Active"
+            }
+        }
+    } catch (error) {
+        console.log("JSON decoding error:", error, props.job.data)
+        return ""
+    }
 }
 
 function formatProgress() {
@@ -126,7 +144,7 @@ function scheduledTimestampInThePast() {
         </template>
 
         <template v-else-if="job.status == 'active'">
-            <p class="status">Active</p>
+            <p class="status">{{ progressStatus() }}</p>
             <p class="progress">
                 Started
                 <em>{{ humanReadableTimestamp(job.started_timestamp) }}</em>

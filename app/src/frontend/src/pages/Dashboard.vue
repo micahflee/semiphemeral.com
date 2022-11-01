@@ -334,19 +334,19 @@ fetchJobs()
           Current status
         </h2>
         <ul v-if="activeJobs.length > 0" class="jobs">
-          <li v-for="(job, index) in activeJobs" :key="index">
+          <li v-for="job in activeJobs">
             <Job :job="job"></Job>
           </li>
         </ul>
         <ul v-if="pendingJobs.length > 0" class="jobs">
-          <li v-for="(job, index) in pendingJobs" :key="index">
+          <li v-for="job in pendingJobs">
             <Job :job="job"></Job>
           </li>
         </ul>
 
         <h2 v-if="finishedJobs.length > 0">Log</h2>
         <ul v-if="finishedJobs.length > 0" class="jobs">
-          <li v-for="(job, index) in finishedJobs" :key="index">
+          <li v-for="job in finishedJobs">
             <Job :job="job"></Job>
           </li>
         </ul>
