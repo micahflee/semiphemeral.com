@@ -1726,14 +1726,15 @@ async def admin_api_post_fascists(request):
     user = await User.query.where(User.twitter_id == session["twitter_id"]).gino.first()
 
     client = tweepy_client(user)
-    response = client.get_user(username=data["username"], user_auth=True)
-    if "errors" in response:
-        return web.json_response(False)
-
-    fascist_twitter_user_id = response["data"]["id"]
 
     if data["action"] == "create":
         await _api_validate({"action": str, "username": str, "comment": str}, data)
+
+        response = client.get_user(username=data["username"], user_auth=True)
+        if "errors" in response:
+            return web.json_response(False)
+
+        fascist_twitter_user_id = response["data"]["id"]
 
         # If a fascist with this username already exists, just update the comment
         fascist = await Fascist.query.where(
@@ -1780,10 +1781,14 @@ async def admin_api_post_fascists(request):
         if fascist:
             await fascist.delete()
 
-        # Mark all the tweets from this user as is_fascist=False
-        await Like.update.values(is_fascist=False).where(
-            Like.author_id == fascist_twitter_user_id
-        ).gino.status()
+        response = client.get_user(username=data["username"], user_auth=True)
+        if "errors" not in response:
+            fascist_twitter_user_id = response["data"]["id"]
+
+            # Mark all the tweets from this user as is_fascist=False
+            await Like.update.values(is_fascist=False).where(
+                Like.author_id == fascist_twitter_user_id
+            ).gino.status()
 
         return web.json_response(True)
 
