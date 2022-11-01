@@ -6,7 +6,7 @@ import click
 from datetime import datetime, timedelta
 
 import db
-from db import connect_db, User, JobDetails, Like
+from db import connect_db, User, JobDetails, Like, Tweet
 from common import (
     send_admin_notification,
     tweepy_client,
@@ -223,6 +223,13 @@ async def _reset_since_id():
     await connect_db()
     print("Setting since_id=None for all users")
     await User.update.values(since_id=None).gino.status()
+    print("Done")
+
+
+async def _delete_nonexcluded_tweets():
+    await connect_db()
+    print("Deleting tweets that aren't excluded from deletion")
+    await Tweet.delete.where(Tweet.exclude_from_delete == False).gino.status()
     print("Done")
 
 
@@ -576,6 +583,14 @@ def unblock_users():
 )
 def reset_since_id():
     asyncio.run(_reset_since_id())
+
+
+@main.command(
+    "delete-nonexcluded-tweets",
+    short_help="Delete tweets that aren't excluded from deletion",
+)
+def delete_nonexcluded_tweets():
+    asyncio.run(_delete_nonexcluded_tweets())
 
 
 @main.command(
