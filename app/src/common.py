@@ -54,6 +54,20 @@ def tweepy_semiphemeral_client():
     )
 
 
+# Twitter API v2 doesn't support deleting DMs, so we have to use v1.1 for that
+def tweepy_dms_api_v1_1(user):
+    consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
+    consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
+    access_token = user.twitter_dms_access_token
+    access_token_secret = user.twitter_dms_access_token_secret
+
+    auth = tweepy.OAuth1UserHandler(
+        consumer_key, consumer_secret, access_token, access_token_secret
+    )
+    api = tweepy.API(auth)
+    return api
+
+
 async def tweets_to_delete(user, include_manually_excluded=False):
     """
     Return the tweets that are staged for deletion for this user

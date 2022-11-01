@@ -11,6 +11,7 @@ from common import (
     tweets_to_delete,
     tweepy_client,
     tweepy_semiphemeral_client,
+    tweepy_dms_api_v1_1,
 )
 from db import (
     connect_db,
@@ -24,7 +25,6 @@ from db import (
     Like,
 )
 from sqlalchemy.sql import text
-from asyncpg.exceptions import ForeignKeyViolationError
 
 import redis
 from rq import Queue, Retry
@@ -568,59 +568,65 @@ async def delete(job_details_id, funcs):
 
     # Deleting direct messages
     if user.direct_messages:
+        dm_client = tweepy_client(user, dms=True)
+        dm_api = tweepy_dms_api_v1_1(user)
+
         # Make sure the DMs API authenticates successfully
         proceed = False
-        async with SemiphemeralPeonyClient(user, dms=True) as dms_client:
-            try:
-                await dms_client.user
-                proceed = True
-            except Exception as e:
-                # It doesn't, so disable deleting direct messages
-                await user.update(
-                    direct_messages=False,
-                    twitter_dms_access_token="",
-                    twitter_dms_access_token_secret="",
-                ).apply()
+        try:
+            dm_client.get_me()
+            proceed = True
+        except Exception as e:
+            # It doesn't, so disable deleting direct messages
+            await user.update(
+                direct_messages=False,
+                twitter_dms_access_token="",
+                twitter_dms_access_token_secret="",
+            ).apply()
 
-            if proceed:
-                data["progress"]["status"] = f"Deleting direct messages"
-                await job_details.update(data=json.dumps(data)).apply()
+        if proceed:
+            data["progress"]["status"] = f"Deleting direct messages"
+            await job_details.update(data=json.dumps(data)).apply()
 
-                # Delete DMs
-                datetime_threshold = datetime.utcnow() - timedelta(
-                    days=user.direct_messages_threshold
+            datetime_threshold = datetime.utcnow() - timedelta(
+                days=user.direct_messages_threshold
+            )
+
+            # Fetch DMs
+            dms = []
+            pagination_token = None
+            while True:
+                response = client.get_direct_message_events(
+                    dm_event_fields=["created_at"],
+                    event_types="MessageCreate",
+                    max_results=100,
+                    pagination_token=pagination_token,
+                    user_auth=True,
                 )
+                if response["meta"]["result_count"] == 0:
+                    await log(job_details, f"No new DMs")
+                    break
 
-                # Fetch DMs
-                dms = []
-                cursor = None
-                while True:
-                    dms_request = await dms_client.api.direct_messages.events.list.get(
-                        count=50, cursor=cursor
-                    )
-                    dms.extend(dms_request["events"])
-                    if "next_cursor" in dms_request:
-                        cursor = dms_request["next_cursor"]
-                    else:
-                        break
+                dms.extend(response["data"])
 
-                for dm in dms:
-                    created_timestamp = datetime.fromtimestamp(
-                        int(dm.created_timestamp) / 1000
-                    )
-                    if created_timestamp <= datetime_threshold:
-                        # Delete the DM
-                        # await log(job_details, f"Deleted DM {dm.id}")
-                        try:
-                            await dms_client.api.direct_messages.events.destroy.delete(
-                                id=dm.id
-                            )
-                        except Exception as e:
-                            # await log(job_details, f"Skipping DM {dm.id}, {e}")
-                            pass
+                if "next_token" in response["meta"]:
+                    pagination_token = response["meta"]["next_token"]
+                else:
+                    # all done
+                    break
 
-                        data["progress"]["dms_deleted"] += 1
-                        await job_details.update(data=json.dumps(data)).apply()
+            for dm in dms:
+                created_timestamp = datetime.fromisoformat(dm["created_at"][0:19])
+                if created_timestamp <= datetime_threshold:
+                    # Delete the DM
+                    try:
+                        dm_api.delete_direct_message(dm["id"])
+                    except Exception as e:
+                        await log(job_details, f"Skipping DM {dm.id}, {e}")
+                        pass
+
+                    data["progress"]["dms_deleted"] += 1
+                    await job_details.update(data=json.dumps(data)).apply()
 
     data["progress"]["status"] = "Finished"
     await job_details.update(data=json.dumps(data)).apply()
