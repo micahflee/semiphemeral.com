@@ -556,8 +556,8 @@ async def delete(job_details_id, funcs):
                 # Delete like
 
                 try:
-                    api.destroy_favorite(like.twitter_id)
-                    # client.unlike(like.twitter_id, user_auth=True)
+                    # api.destroy_favorite(like.twitter_id)
+                    client.unlike(like.twitter_id, user_auth=True)
                 except Exception as e:
                     await log(
                         job_details, f"Error deleting like {like.twitter_id}: {e}"

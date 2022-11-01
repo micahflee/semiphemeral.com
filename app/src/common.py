@@ -47,8 +47,8 @@ def tweepy_client(user, dms=False):
 def tweepy_semiphemeral_client():
     consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
     consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
-    access_token = os.environ.get("TWITTER_DM_ACCESS_TOKEN")
-    access_token_secret = os.environ.get("TWITTER_DM_ACCESS_KEY")
+    access_token = os.environ.get("TWITTER_SEMIPHEMERAL_ACCESS_TOKEN")
+    access_token_secret = os.environ.get("TWITTER_SEMIPHEMERAL_ACCESS_KEY_KEY")
     return create_tweepy_client(
         consumer_key, consumer_secret, access_token, access_token_secret
     )
@@ -57,8 +57,8 @@ def tweepy_semiphemeral_client():
 def tweepy_semiphemeral_api():
     consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
     consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
-    access_token = os.environ.get("TWITTER_DM_ACCESS_TOKEN")
-    access_token_secret = os.environ.get("TWITTER_DM_ACCESS_KEY")
+    access_token = os.environ.get("TWITTER_SEMIPHEMERAL_ACCESS_TOKEN")
+    access_token_secret = os.environ.get("TWITTER_SEMIPHEMERAL_ACCESS_KEY_KEY")
 
     auth = tweepy.OAuth1UserHandler(
         consumer_key, consumer_secret, access_token, access_token_secret
