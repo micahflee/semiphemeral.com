@@ -1,9 +1,5 @@
 import asyncio
-import sys
 import jobs
-
-# Long twitter threads need big recursion limits
-sys.setrecursionlimit(5000)
 
 funcs = None
 
