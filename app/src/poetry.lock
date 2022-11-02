@@ -32,7 +32,7 @@ jinja2 = ">=3.0.0"
 
 [[package]]
 name = "aiohttp-session"
-version = "2.11.0"
+version = "2.12.0"
 description = "sessions for aiohttp.web"
 category = "main"
 optional = false
@@ -43,7 +43,7 @@ aiohttp = ">=3.8"
 
 [package.extras]
 aiomcache = ["aiomcache (>=0.5.2)"]
-aioredis = ["aioredis (>=2.0.0)"]
+aioredis = ["redis (>=4.3.1)"]
 pycrypto = ["cryptography"]
 pynacl = ["pynacl"]
 secure = ["cryptography"]
@@ -628,8 +628,8 @@ aiohttp-jinja2 = [
     {file = "aiohttp_jinja2-1.5-py3-none-any.whl", hash = "sha256:b55c0ed167b0cc4b6d6a50fb2299a44beb5dc4aec9df21305b91a5484694cf74"},
 ]
 aiohttp-session = [
-    {file = "aiohttp-session-2.11.0.tar.gz", hash = "sha256:0fdf39600f6a05c4943ef6c7b099071ca9854413111a26761626244be5015dc4"},
-    {file = "aiohttp_session-2.11.0-py3-none-any.whl", hash = "sha256:d5451b72ba748d72ef01f55c3af45b63be2d40b2bdadf47407007e1270343384"},
+    {file = "aiohttp-session-2.12.0.tar.gz", hash = "sha256:0ccd11a7c77cb9e5a61f4daacdc9170d561112f9cfaf9e9a2d9867c0587d1950"},
+    {file = "aiohttp_session-2.12.0-py3-none-any.whl", hash = "sha256:f0bf0caa2f5b5a56cb50a45f98d61f60d8523322099a2857410530149706f5e5"},
 ]
 aiopg = [
     {file = "aiopg-1.4.0-py3-none-any.whl", hash = "sha256:aea46e8aff30b039cfa818e6db4752c97656e893fc75e5a5dc57355a9e9dedbd"},
