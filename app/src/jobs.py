@@ -1,7 +1,8 @@
 import asyncio
 import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+import time
 
 import tweepy
 
@@ -43,6 +44,30 @@ class JobCanceled(Exception):
 # Global variables
 
 gino_db = None
+
+# Exception helpers
+
+
+async def handle_tweepy_rate_limit(job_details, e, api_endpoint):
+    reset_time = e.response.headers.get("x-rate-limit-reset")
+    if reset_time is None:
+        # wait 1 minute, if for some reason we don't get a x-rate-limit-reset header
+        reset_time = int(time.time()) + 60
+    else:
+        reset_time = int(reset_time)
+    sleep_time = reset_time - int(time.time())
+    if sleep_time > 0:
+        await log(
+            job_details,
+            f"Rate limit on {api_endpoint}, sleeping {sleep_time}s",
+        )
+        await asyncio.sleep(sleep_time + 1)  # sleep for extra sec
+
+
+async def handle_tweepy_exception(job_details, e, api_endpoint):
+    await log(job_details, f"Error on {api_endpoint}, sleeping 30s: {e}")
+    await asyncio.sleep(30)
+
 
 # Decorators
 
@@ -101,22 +126,27 @@ def ensure_user_follows_us(func):
 
             # Try following
             client = tweepy_client(user)
-            try:
-                client.follow_user(
-                    target_user_id=1209344563589992448  # @semiphemeral twitter ID
-                )
-
-            except tweepy.errors.BadRequest as e:
-                if "You cannot follow an account that is blocking you" in e.args[0]:
-                    # The semiphemeral user has blocked this user, so they're not allowed to use this service
-                    print(
-                        f"user_id={user.id} is blocked, canceling job and updating user"
+            while True:
+                try:
+                    client.follow_user(
+                        target_user_id=1209344563589992448  # @semiphemeral twitter ID
                     )
-                    await job_details.update(
-                        status="canceled", finished_timestamp=datetime.now()
-                    ).apply()
-                    await user.update(paused=True, blocked=True).apply()
-                    return False
+                    break
+                except tweepy.errors.TooManyRequests as e:
+                    await handle_tweepy_rate_limit(job_details, e, "client.follow_user")
+                except tweepy.errors.BadRequest as e:
+                    if "You cannot follow an account that is blocking you" in e.args[0]:
+                        # The semiphemeral user has blocked this user, so they're not allowed to use this service
+                        print(
+                            f"user_id={user.id} is blocked, canceling job and updating user"
+                        )
+                        await job_details.update(
+                            status="canceled", finished_timestamp=datetime.now()
+                        ).apply()
+                        await user.update(paused=True, blocked=True).apply()
+                        return False
+                except Exception as e:
+                    await handle_tweepy_exception(job_details, e, "client.follow_user")
 
         return await func(job_details_id, funcs)
 
@@ -223,21 +253,29 @@ async def fetch(job_details_id, funcs):
     # Fetch tweets
     pagination_token = None
     while True:
-        response = client.get_users_tweets(
-            id=user.twitter_id,
-            max_results=100,
-            since_id=since_id,
-            tweet_fields=[
-                "author_id",
-                "conversation_id",
-                "created_at",
-                "in_reply_to_user_id",
-                "public_metrics",
-                "referenced_tweets",
-            ],
-            pagination_token=pagination_token,
-            user_auth=True,
-        )
+        while True:
+            try:
+                response = client.get_users_tweets(
+                    id=user.twitter_id,
+                    max_results=100,
+                    since_id=since_id,
+                    tweet_fields=[
+                        "author_id",
+                        "conversation_id",
+                        "created_at",
+                        "in_reply_to_user_id",
+                        "public_metrics",
+                        "referenced_tweets",
+                    ],
+                    pagination_token=pagination_token,
+                    user_auth=True,
+                )
+                break
+            except tweepy.errors.TooManyRequests as e:
+                await handle_tweepy_rate_limit(job_details, e, "client.get_user_tweets")
+            except Exception as e:
+                await handle_tweepy_exception(job_details, e, "client.get_user_tweets")
+
         if response["meta"]["result_count"] == 0:
             await log(job_details, f"No new tweets")
             break
@@ -354,12 +392,6 @@ async def fetch(job_details_id, funcs):
             data["progress"]["likes_fetched"] += 1
 
         await job_details.update(data=json.dumps(data)).apply()
-
-        if "next_token" in response["meta"]:
-            pagination_token = response["meta"]["next_token"]
-        else:
-            # all done
-            break
 
     # All done, update the since_id
     async with gino_db.acquire() as conn:
@@ -512,13 +544,20 @@ async def delete(job_details_id, funcs):
 
             for tweet in tweets:
                 # Delete retweet
-                try:
-                    api.destroy_status(tweet.twitter_id)
-                    # client.delete_tweet(tweet.twitter_id, user_auth=True)
-                except Exception as e:
-                    await log(
-                        job_details, f"Error deleting retweet {tweet.twitter_id}: {e}"
-                    )
+                while True:
+                    try:
+                        api.destroy_status(tweet.twitter_id)
+                        break
+                    except tweepy.errors.TooManyRequests as e:
+                        await handle_tweepy_rate_limit(
+                            job_details, e, "api.destroy_status"
+                        )
+                    except Exception as e:
+                        await log(
+                            job_details,
+                            f"Error deleting retweet {tweet.twitter_id}: {e}",
+                        )
+                        break
 
                 await tweet.update(is_deleted=True).apply()
 
@@ -547,13 +586,17 @@ async def delete(job_details_id, funcs):
             for like in likes:
                 # Delete like
 
-                try:
-                    # api.destroy_favorite(like.twitter_id)
-                    client.unlike(like.twitter_id, user_auth=True)
-                except Exception as e:
-                    await log(
-                        job_details, f"Error deleting like {like.twitter_id}: {e}"
-                    )
+                while True:
+                    try:
+                        client.unlike(like.twitter_id, user_auth=True)
+                        break
+                    except tweepy.errors.TooManyRequests as e:
+                        await handle_tweepy_rate_limit(job_details, e, "client.unlike")
+                    except Exception as e:
+                        await log(
+                            job_details, f"Error deleting like {like.twitter_id}: {e}"
+                        )
+                        break
 
                 await like.update(is_deleted=True).apply()
 
@@ -571,11 +614,17 @@ async def delete(job_details_id, funcs):
 
         for tweet in tweets:
             # Delete tweet
-            try:
-                api.destroy_status(tweet.twitter_id)
-                # client.delete_tweet(tweet.twitter_id, user_auth=True)
-            except Exception as e:
-                await log(job_details, f"Error deleting tweet {tweet.twitter_id}: {e}")
+            while True:
+                try:
+                    api.destroy_status(tweet.twitter_id)
+                    break
+                except tweepy.errors.TooManyRequests as e:
+                    await handle_tweepy_rate_limit(job_details, e, "api.destroy_status")
+                except Exception as e:
+                    await log(
+                        job_details, f"Error deleting tweet {tweet.twitter_id}: {e}"
+                    )
+                    break
 
             await tweet.update(is_deleted=True).apply()
 
@@ -612,13 +661,25 @@ async def delete(job_details_id, funcs):
             dms = []
             pagination_token = None
             while True:
-                response = client.get_direct_message_events(
-                    dm_event_fields=["created_at"],
-                    event_types="MessageCreate",
-                    max_results=100,
-                    pagination_token=pagination_token,
-                    user_auth=True,
-                )
+                while True:
+                    try:
+                        response = dm_client.get_direct_message_events(
+                            dm_event_fields=["created_at"],
+                            event_types="MessageCreate",
+                            max_results=100,
+                            pagination_token=pagination_token,
+                            user_auth=True,
+                        )
+                        break
+                    except tweepy.errors.TooManyRequests as e:
+                        await handle_tweepy_rate_limit(
+                            job_details, e, "dm_client.get_direct_message_events"
+                        )
+                    except Exception as e:
+                        await handle_tweepy_exception(
+                            job_details, e, "dm_client.get_direct_message_events"
+                        )
+
                 if response["meta"]["result_count"] == 0:
                     await log(job_details, f"No new DMs")
                     break
@@ -635,11 +696,17 @@ async def delete(job_details_id, funcs):
                 created_timestamp = datetime.fromisoformat(dm["created_at"][0:19])
                 if created_timestamp <= datetime_threshold:
                     # Delete the DM
-                    try:
-                        dm_api.delete_direct_message(dm["id"])
-                    except Exception as e:
-                        await log(job_details, f"Skipping DM {dm.id}, {e}")
-                        pass
+                    while True:
+                        try:
+                            dm_api.delete_direct_message(dm["id"])
+                            break
+                        except tweepy.errors.TooManyRequests as e:
+                            await handle_tweepy_rate_limit(
+                                job_details, e, "dm_api.delete_direct_message"
+                            )
+                        except Exception as e:
+                            await log(job_details, f"Skipping DM {dm.id}, {e}")
+                            break
 
                     data["progress"]["dms_deleted"] += 1
                     await job_details.update(data=json.dumps(data)).apply()
@@ -932,13 +999,20 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
                     dm_id = message["messageCreate"]["id"]
 
                     # Delete the DM
-                    try:
-                        dm_api.delete_direct_message(dm_id)
-                        data["progress"]["dms_deleted"] += 1
-                        await job_details.update(data=json.dumps(data)).apply()
-                    except Exception as e:
-                        await log(job_details, f"Error deleting DM {dm_id}, {e}")
-                        data["progress"]["dms_skipped"] += 1
+                    while True:
+                        try:
+                            dm_api.delete_direct_message(dm_id)
+                            data["progress"]["dms_deleted"] += 1
+                            break
+                        except tweepy.errors.TooManyRequests as e:
+                            await handle_tweepy_rate_limit(
+                                job_details, e, "dm_api.delete_direct_message"
+                            )
+                        except Exception as e:
+                            await log(job_details, f"Error deleting DM {dm_id}, {e}")
+                            data["progress"]["dms_skipped"] += 1
+                            break
+
                         await job_details.update(data=json.dumps(data)).apply()
 
     # Delete the DM metadata file
@@ -1064,12 +1138,19 @@ async def block(job_details_id, funcs):
             await new_job_details.update(redis_id=redis_job.id).apply()
 
         # Block the user
-        try:
-            semiphemeral_client.block(data["twitter_id"], user_auth=True)
-        except Exception as e:
-            await log(
-                job_details, f"Error blocking user @{data['twitter_username']}, {e}"
-            )
+        while True:
+            try:
+                semiphemeral_client.block(data["twitter_id"], user_auth=True)
+                break
+            except tweepy.errors.TooManyRequests as e:
+                await handle_tweepy_rate_limit(
+                    job_details, e, "semiphemeral_client.block"
+                )
+            except Exception as e:
+                await log(
+                    job_details, f"Error blocking user @{data['twitter_username']}, {e}"
+                )
+                break
 
     # Finished
     await job_details.update(
@@ -1094,12 +1175,19 @@ async def unblock(job_details_id, funcs):
     semiphemeral_client = tweepy_semiphemeral_client()
 
     # Unblock the user
-    try:
-        semiphemeral_client.unblock(data["twitter_id"], user_auth=True)
-    except Exception as e:
-        await log(
-            job_details, f"Error unblocking user @{data['twitter_username']}, {e}"
-        )
+    while True:
+        try:
+            semiphemeral_client.unblock(data["twitter_id"], user_auth=True)
+            break
+        except tweepy.errors.TooManyRequests as e:
+            await handle_tweepy_rate_limit(
+                job_details, e, "semiphemeral_client.unblock"
+            )
+        except Exception as e:
+            await log(
+                job_details, f"Error unblocking user @{data['twitter_username']}, {e}"
+            )
+            break
 
     # If we're unblocking a semiphemeral user
     if "user_id" in data:
@@ -1133,19 +1221,26 @@ async def dm(job_details_id, funcs):
     data = json.loads(job_details.data)
 
     semiphemeral_api = tweepy_semiphemeral_api()
-    try:
-        semiphemeral_api.send_direct_message(
-            recipient_id=data["dest_twitter_id"], text=data["message"]
-        )
-        await job_details.update(
-            status="finished", finished_timestamp=datetime.now()
-        ).apply()
-        await log(job_details, f"DM sent")
-    except Exception as e:
-        await job_details.update(
-            status="canceled", finished_timestamp=datetime.now()
-        ).apply()
-        await log(job_details, f"Failed to send DM: {e}")
+    while True:
+        try:
+            semiphemeral_api.send_direct_message(
+                recipient_id=data["dest_twitter_id"], text=data["message"]
+            )
+            await job_details.update(
+                status="finished", finished_timestamp=datetime.now()
+            ).apply()
+            await log(job_details, f"DM sent")
+            break
+        except tweepy.errors.TooManyRequests as e:
+            await handle_tweepy_rate_limit(
+                job_details, e, "semiphemeral_api.send_direct_message"
+            )
+        except Exception as e:
+            await job_details.update(
+                status="canceled", finished_timestamp=datetime.now()
+            ).apply()
+            await log(job_details, f"Failed to send DM: {e}")
+            break
 
     # Sleep a minute between sending each DM
     await log(job_details, f"Sleeping 60s")

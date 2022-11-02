@@ -1,4 +1,5 @@
 import os
+import sys
 import requests
 from datetime import datetime, timedelta
 
@@ -8,10 +9,14 @@ from db import Tweet, Like, Thread, Nag, Job, Tip
 
 
 async def log(job_details, s):
+    # Print to stderr, so we can immediately see output in docker logs
     if job_details:
-        print(f"[{datetime.now().strftime('%c')}] job_details={job_details.id} {s}")
+        print(
+            f"[{datetime.now().strftime('%c')}] job_details={job_details.id} {s}",
+            file=sys.stderr,
+        )
     else:
-        print(f"[{datetime.now().strftime('%c')}] {s}")
+        print(f"[{datetime.now().strftime('%c')}] {s}", file=sys.stderr)
 
 
 def create_tweepy_client(
@@ -23,8 +28,15 @@ def create_tweepy_client(
         access_token=access_token,
         access_token_secret=access_token_secret,
         return_type=dict,
-        wait_on_rate_limit=True,
+        wait_on_rate_limit=False,
     )
+
+
+def create_tweepy_api(consumer_key, consumer_secret, access_token, access_token_secret):
+    auth = tweepy.OAuth1UserHandler(
+        consumer_key, consumer_secret, access_token, access_token_secret
+    )
+    return tweepy.API(auth, wait_on_rate_limit=False)
 
 
 def tweepy_client(user, dms=False):
@@ -59,12 +71,9 @@ def tweepy_semiphemeral_api():
     consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
     access_token = os.environ.get("TWITTER_SEMIPHEMERAL_ACCESS_TOKEN")
     access_token_secret = os.environ.get("TWITTER_SEMIPHEMERAL_ACCESS_KEY_KEY")
-
-    auth = tweepy.OAuth1UserHandler(
+    return create_tweepy_api(
         consumer_key, consumer_secret, access_token, access_token_secret
     )
-    api = tweepy.API(auth)
-    return api
 
 
 # Twitter API v2 doesn't support getting likes with a since_id, so we have to use v1.1
@@ -73,12 +82,9 @@ def tweepy_api_v1_1(user):
     consumer_secret = os.environ.get("TWITTER_CONSUMER_KEY")
     access_token = user.twitter_access_token
     access_token_secret = user.twitter_access_token_secret
-
-    auth = tweepy.OAuth1UserHandler(
+    return create_tweepy_api(
         consumer_key, consumer_secret, access_token, access_token_secret
     )
-    api = tweepy.API(auth)
-    return api
 
 
 # Twitter API v2 doesn't support deleting DMs, so we have to use v1.1
@@ -87,12 +93,9 @@ def tweepy_dms_api_v1_1(user):
     consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
     access_token = user.twitter_dms_access_token
     access_token_secret = user.twitter_dms_access_token_secret
-
-    auth = tweepy.OAuth1UserHandler(
+    return create_tweepy_api(
         consumer_key, consumer_secret, access_token, access_token_secret
     )
-    api = tweepy.API(auth)
-    return api
 
 
 async def tweets_to_delete(user, include_manually_excluded=False):
