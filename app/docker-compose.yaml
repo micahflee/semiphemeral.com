@@ -72,7 +72,7 @@ services:
       - default
       - host_private
     deploy:
-      replicas: 8
+      replicas: 0
     volumes:
       - /opt/semiphemeral/data/bulk_dms:/var/bulk_dms
     depends_on:
