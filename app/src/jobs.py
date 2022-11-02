@@ -437,9 +437,9 @@ async def fetch(job_details_id, funcs):
     # (If it's not paused, then this should actually be a delete job, and delete will run next)
     if user.paused:
         if not since_id:
-            message = f"Good news! Semiphemeral finished downloading a copy of all {data['progress']['tweets_fetched']} of your tweets and all {data['progress']['likes_fetched']} of your likes.\n\n"
+            message = f"Good news! Semiphemeral finished downloading a copy of all {data['progress']['tweets_fetched']:,} of your tweets and all {data['progress']['likes_fetched']:,} of your likes.\n\n"
         else:
-            message = f"Semiphemeral finished downloading {data['progress']['tweets_fetched']} new tweets and {data['progress']['likes_fetched']} new likes.\n\n"
+            message = f"Semiphemeral finished downloading {data['progress']['tweets_fetched']:,} new tweets and {data['progress']['likes_fetched']:,} new likes.\n\n"
 
         message += f"The next step is look through your tweets and manually mark which ones you want to make sure never get deleted. Visit https://{os.environ.get('DOMAIN')}/tweets to finish.\n\nWhen you're done, you can start deleting your tweets from the dashboard."
 
