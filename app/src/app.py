@@ -21,10 +21,10 @@ from common import (
     log,
     send_admin_notification,
     delete_user,
-    create_tweepy_client,
-    tweepy_client,
-    tweepy_semiphemeral_client,
+    create_tweepy_api_1_1,
     tweepy_api_v1_1,
+    tweepy_dms_api_v1_1,
+    tweepy_semiphemeral_api_1_1,
 )
 from db import (
     db,
@@ -110,9 +110,9 @@ async def _api_validate_dms_authenticated(user):
         and user.twitter_dms_access_token_secret != ""
     ):
         # Check if user is authenticated with DMs twitter app
+        dms_api = tweepy_dms_api_v1_1(user)
         try:
-            dms_client = tweepy_client(user, dms=True)
-            dms_client.get_me()
+            dms_api.verify_credentials()
             return True
         except Exception as e:
             return False
@@ -166,10 +166,10 @@ async def auth_login(request):
     user = await _logged_in_user(session)
     if user:
         # If we're already logged in, redirect
+        api = tweepy_api_v1_1(user)
         try:
-            client = tweepy_client(user)
-            response = client.get_me()
-            if response["data"]["id"] == User.twitter_id:
+            response = api.verify_credentials()
+            if response.id_str == User.twitter_id:
                 raise web.HTTPFound("/dashboard")
         except Exception as e:
             pass
@@ -227,15 +227,19 @@ async def auth_twitter_callback(request):
     )
 
     # Authenticate with twitter
-    client = create_tweepy_client(
+    api = create_tweepy_api_1_1(
         os.environ.get("TWITTER_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_CONSUMER_KEY"),
         access_token,
         access_token_secret,
     )
-    me = client.get_me()
-    twitter_id = me["data"]["id"]
-    username = me["data"]["username"]
+    try:
+        response = api.verify_credentials()
+    except Exception as e:
+        raise web.HTTPUnauthorized(text=f"Error: {e}")
+
+    twitter_id = response.id_str
+    username = response.screen_name
 
     # Save values in the session
     session["twitter_id"] = twitter_id
@@ -308,14 +312,18 @@ async def auth_twitter_dms_callback(request):
     )
 
     # Authenticate with twitter
-    client = create_tweepy_client(
+    api = create_tweepy_api_1_1(
         os.environ.get("TWITTER_DM_CONSUMER_TOKEN"),
         os.environ.get("TWITTER_DM_CONSUMER_KEY"),
         access_token,
         access_token_secret,
     )
-    me = client.get_me()
-    twitter_id = me["data"]["id"]
+    try:
+        response = api.verify_credentials()
+    except Exception as e:
+        raise web.HTTPUnauthorized(text=f"Error: {e}")
+
+    twitter_id = response.id_str
 
     # Does this user already exist?
     user = await User.query.where(User.twitter_id == twitter_id).gino.first()
@@ -472,16 +480,12 @@ async def api_get_user(request):
             f"Admin impersonating user @{user.twitter_screen_name}",
         )
 
-    client = tweepy_client(user)
-    response = client.get_user(
-        username=user.twitter_screen_name,
-        user_fields=["profile_image_url"],
-        user_auth=True,
-    )
+    api = tweepy_api_v1_1(user)
+    response = api.verify_credentials()
     return web.json_response(
         {
             "user_screen_name": user.twitter_screen_name,
-            "user_profile_url": response["data"]["profile_image_url"],
+            "user_profile_url": response.profile_image_url_https,
             "last_fetch": user.last_fetch,
             "can_switch": can_switch,
         }
@@ -1027,33 +1031,25 @@ async def api_get_dashboard(request):
             .gino.all()
         )
 
-        client = tweepy_client(user)
         api = tweepy_api_v1_1(user)
 
         for like in fascist_likes:
-            response = client.get_tweet(
-                like.twitter_id,
-                tweet_fields=["author_id", "created_at"],
-                user_auth=True,
-            )
+            response = api.get_status(like.twitter_id)
             try:
-                text = response["data"]["text"]
+                text = response.text
             except:
-                print(e)
                 text = ""
             try:
-                created_at = datetime.fromisoformat(
-                    response["data"]["created_at"][0:19]
-                ).timestamp()
+                created_at = response.created_at.timestamp()
             except:
                 created_at = 0
             try:
-                author_id = response["data"]["author_id"]
-                response = api.get_user(user_id=author_id)
-                name = response.name
-                username = response.screen_name
+                name = response.author.name
             except:
                 name = ""
+            try:
+                username = response.author.screen_name
+            except:
                 username = ""
 
             if username != "":
@@ -1129,9 +1125,9 @@ async def api_post_dashboard(request):
             raise web.HTTPBadRequest(text="Can only 'unblock' if the user is blocked")
 
         # Unblock the user
-        semiphemeral_client = tweepy_semiphemeral_client()
+        semiphemeral_api = tweepy_semiphemeral_api_1_1()
         try:
-            semiphemeral_client.unblock(target_user_id=user.twitter_id)
+            semiphemeral_api.destroy_block(user_id=user.twitter_id)
         except Exception as e:
             await log(
                 None,
@@ -1725,16 +1721,17 @@ async def admin_api_post_fascists(request):
     session = await get_session(request)
     user = await User.query.where(User.twitter_id == session["twitter_id"]).gino.first()
 
-    client = tweepy_client(user)
+    api = tweepy_api_v1_1(user)
 
     if data["action"] == "create":
         await _api_validate({"action": str, "username": str, "comment": str}, data)
 
-        response = client.get_user(username=data["username"], user_auth=True)
-        if "errors" in response:
+        try:
+            response = api.get_user(screen_name=data["username"])
+        except:
             return web.json_response(False)
 
-        fascist_twitter_user_id = response["data"]["id"]
+        fascist_twitter_user_id = response.id_str
 
         # If a fascist with this username already exists, just update the comment
         fascist = await Fascist.query.where(
@@ -1781,14 +1778,17 @@ async def admin_api_post_fascists(request):
         if fascist:
             await fascist.delete()
 
-        response = client.get_user(username=data["username"], user_auth=True)
-        if "errors" not in response:
-            fascist_twitter_user_id = response["data"]["id"]
+        try:
+            response = api.get_user(screen_name=data["username"])
+        except:
+            return web.json_response(False)
 
-            # Mark all the tweets from this user as is_fascist=False
-            await Like.update.values(is_fascist=False).where(
-                Like.author_id == fascist_twitter_user_id
-            ).gino.status()
+        fascist_twitter_user_id = response.id_str
+
+        # Mark all the tweets from this user as is_fascist=False
+        await Like.update.values(is_fascist=False).where(
+            Like.author_id == fascist_twitter_user_id
+        ).gino.status()
 
         return web.json_response(True)
 
