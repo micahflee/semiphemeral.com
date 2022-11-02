@@ -14,6 +14,8 @@ from common import (
 )
 import worker_jobs
 
+from sqlalchemy import or_
+
 import redis
 import rq
 from rq import Queue
@@ -445,76 +447,32 @@ async def _onetime_2022_05_add_all_jobs():
     print()
 
 
-async def _onetime_2022_10_fix_stalled_users():
+async def _fix_stalled_users():
     await connect_db()
 
-    one_week_ago = datetime.now() - timedelta(days=7)
-
-    # Find all the active users
-    users = (
-        await User.query.where(User.blocked == False)
-        .where(User.paused == False)
-        .gino.all()
-    )
+    # Find all users
+    users = await User.query.gino.all()
     count = len(users)
     i = 0
-    users_fixed = 0
     for user in users:
-        # Check if the user hasn't had a finished job in the last week
-        is_stale = False
-        last_job = (
-            await JobDetails.query.where(JobDetails.user_id == user.id)
-            .where(JobDetails.status == "finished")
-            .order_by(JobDetails.finished_timestamp.desc())
-            .gino.first()
-        )
-        if last_job:
-            if last_job.finished_timestamp < one_week_ago:
-                is_stale = True
-        else:
-            is_stale = True
+        # Cancel all pending jobs for this user
+        await JobDetails.update.values(status="canceled").where(
+            JobDetails.user_id == user.id
+        ).where(
+            or_(JobDetails.status == "pending", JobDetails.status == "active")
+        ).gino.status()
 
-        # If the user is stale, fix their account
-        if is_stale:
-            print(
-                f"[{i:,}/{count:,}, fixed {users_fixed:,}] user @{user.twitter_screen_name} is stale, fixing ..."
-            )
-            # Cancel the pending and active jobs
-            pending_jobs = (
-                await JobDetails.query.where(JobDetails.user_id == user.id)
-                .where(JobDetails.status == "pending")
-                .gino.all()
-            )
-            active_jobs = (
-                await JobDetails.query.where(JobDetails.user_id == user.id)
-                .where(JobDetails.status == "active")
-                .gino.all()
-            )
-            jobs = pending_jobs + active_jobs
-
-            for job in jobs:
-                try:
-                    redis_job = RQJob.fetch(job.redis_id, connection=conn)
-                    redis_job.cancel()
-                    redis_job.delete()
-                except rq.exceptions.NoSuchJobError:
-                    pass
-                await job.update(status="canceled").apply()
-
-            # Force downloading all tweets
-            await user.update(since_id=None).apply()
-
-            # Create a new delete job
-            job_details = await JobDetails.create(
+        if not user.paused and not user.blocked:
+            # Add a new delete job
+            await JobDetails.create(
                 job_type="delete",
                 user_id=user.id,
             )
-            redis_job = jobs_q.enqueue(
-                worker_jobs.delete, job_details.id, job_timeout="24h"
+            print(f"[{i:,}/{count:,} @{user.twitter_screen_name} added delete job")
+        else:
+            print(
+                f"[{i:,}/{count:,} @{user.twitter_screen_name} skipping, paused or blocked"
             )
-            await job_details.update(redis_id=redis_job.id).apply()
-
-            users_fixed += 1
 
         i += 1
 
@@ -610,11 +568,11 @@ def onetime_2022_05_add_all_jobs():
 
 
 @main.command(
-    "2022-10-fix-stalled-users",
-    short_help="Pause and restart users that are stalled",
+    "fix-stalled-users",
+    short_help="Cancel all jobs, and start new ones for non-paused users",
 )
-def onetime_2022_10_fix_stalled_users():
-    asyncio.run(_onetime_2022_10_fix_stalled_users())
+def fix_stalled_users():
+    asyncio.run(_fix_stalled_users())
 
 
 if __name__ == "__main__":
