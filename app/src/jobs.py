@@ -242,6 +242,10 @@ async def fetch(job_details_id, funcs):
 
     await job_details.update(data=json.dumps(data)).apply()
 
+    # In API v1.1 we don't get conversation_id, so we have to make a zillion requests to figure it out ourselves.
+    # This dict helps to cache that so we can avoid requests. Each item is a tuple (id, in_reply_to_id)
+    cache = {}
+
     # Fetch tweets
     for page in tweepy.Cursor(
         api.user_timeline, user_id=user.twitter_id, count=200, since_id=since_id
@@ -249,22 +253,27 @@ async def fetch(job_details_id, funcs):
         await log(job_details, f"Importing {len(page)} tweets")
         for status in page:
             # Get the conversation_id of this tweet
-            if status.in_reply_to_status_id_str is None:
-                conversation_id = status.id_str
-            else:
-                conversation_id = status.id_str
+            conversation_id = status.id_str
+            if status.in_reply_to_status_id_str is not None:
                 in_reply_to_id = status.in_reply_to_status_id_str
                 while True:
-                    try:
-                        response = api.get_status(in_reply_to_id)
-                    except:
-                        break
-                    if response.in_reply_to_status_id_str is None:
-                        conversation_id = response.id_str
+                    if in_reply_to_id in cache:
+                        _id, _in_reply_to_id = cache[in_reply_to_id]
+                    else:
+                        try:
+                            response = api.get_status(in_reply_to_id)
+                            _id = response.id_str
+                            _in_reply_to_id = response.in_reply_to_status_id_str
+                            cache[in_reply_to_id] = (_id, _in_reply_to_id)
+                        except:
+                            break
+
+                    if _in_reply_to_id is None:
+                        conversation_id = _id
                         break
                     else:
-                        conversation_id = status.id_str
-                        in_reply_to_id = response.in_reply_to_status_id_str
+                        conversation_id = _id
+                        in_reply_to_id = _in_reply_to_id
 
             # Make sure we have a thread for this tweet
             thread = await (
@@ -298,7 +307,7 @@ async def fetch(job_details_id, funcs):
                 await Tweet.create(
                     user_id=user.id,
                     twitter_id=status.id_str,
-                    created_at=status.created_at,
+                    created_at=status.created_at.replace(tzinfo=None),
                     text=status.text,
                     is_retweet=is_retweet,
                     retweet_id=retweet_id,
