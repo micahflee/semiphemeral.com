@@ -31,7 +31,7 @@ def create_tweepy_client(
         access_token=access_token,
         access_token_secret=access_token_secret,
         return_type=dict,
-        wait_on_rate_limit=False,
+        wait_on_rate_limit=True,
     )
 
 
@@ -71,7 +71,7 @@ def create_tweepy_api_1_1(
     auth = tweepy.OAuth1UserHandler(
         consumer_key, consumer_secret, access_token, access_token_secret
     )
-    return tweepy.API(auth, wait_on_rate_limit=False)
+    return tweepy.API(auth, wait_on_rate_limit=True)
 
 
 def tweepy_semiphemeral_api_1_1():

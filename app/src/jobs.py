@@ -13,7 +13,7 @@ from common import (
     tweepy_semiphemeral_client,
     tweepy_api_v1_1,
     tweepy_dms_api_v1_1,
-    tweepy_semiphemeral_api,
+    tweepy_semiphemeral_api_1_1,
 )
 from db import (
     connect_db,
@@ -94,10 +94,10 @@ def test_api_creds(func):
         ).gino.first()
         user = await User.query.where(User.id == job_details.user_id).gino.first()
         if user:
-            client = tweepy_client(user)
+            api = tweepy_api_v1_1(user)
             try:
-                client.get_me()
-            except Exception as e:
+                api.verify_credentials()
+            except tweepy.errors.Unauthorized:
                 print(
                     f"user_id={user.id} API creds failed, canceling job and pausing user"
                 )
@@ -125,28 +125,30 @@ def ensure_user_follows_us(func):
                 return await func(job_details_id, funcs)
 
             # Try following
-            client = tweepy_client(user)
+            api = tweepy_api_v1_1(user)
             while True:
                 try:
-                    client.follow_user(
-                        target_user_id=1209344563589992448  # @semiphemeral twitter ID
+                    api.create_friendship(
+                        user_id=1209344563589992448  # @semiphemeral twitter ID
                     )
                     break
                 except tweepy.errors.TooManyRequests as e:
                     await handle_tweepy_rate_limit(job_details, e, "client.follow_user")
-                except tweepy.errors.BadRequest as e:
-                    if "You cannot follow an account that is blocking you" in e.args[0]:
-                        # The semiphemeral user has blocked this user, so they're not allowed to use this service
-                        print(
-                            f"user_id={user.id} is blocked, canceling job and updating user"
-                        )
-                        await job_details.update(
-                            status="canceled", finished_timestamp=datetime.now()
-                        ).apply()
-                        await user.update(paused=True, blocked=True).apply()
-                        return False
+                except tweepy.errors.Forbidden:
+                    # The semiphemeral user has blocked this user, so they're not allowed to use this service
+                    print(
+                        f"user_id={user.id} is blocked, canceling job and updating user"
+                    )
+                    await job_details.update(
+                        status="canceled", finished_timestamp=datetime.now()
+                    ).apply()
+                    await user.update(paused=True, blocked=True).apply()
+                    return False
                 except Exception as e:
-                    await handle_tweepy_exception(job_details, e, "client.follow_user")
+                    await handle_tweepy_exception(
+                        job_details, e, "api.create_friendship"
+                    )
+                    break
 
         return await func(job_details_id, funcs)
 
@@ -232,7 +234,6 @@ async def fetch(job_details_id, funcs):
         ).apply()
         return
 
-    client = tweepy_client(user)
     api = tweepy_api_v1_1(user)
     since_id = user.since_id
 
@@ -251,105 +252,86 @@ async def fetch(job_details_id, funcs):
     await job_details.update(data=json.dumps(data)).apply()
 
     # Fetch tweets
-    pagination_token = None
-    while True:
-        while True:
-            try:
-                response = client.get_users_tweets(
-                    id=user.twitter_id,
-                    max_results=100,
-                    since_id=since_id,
-                    tweet_fields=[
-                        "author_id",
-                        "conversation_id",
-                        "created_at",
-                        "in_reply_to_user_id",
-                        "public_metrics",
-                        "referenced_tweets",
-                    ],
-                    pagination_token=pagination_token,
-                    user_auth=True,
-                )
-                break
-            except tweepy.errors.TooManyRequests as e:
-                await handle_tweepy_rate_limit(job_details, e, "client.get_user_tweets")
-            except Exception as e:
-                await handle_tweepy_exception(job_details, e, "client.get_user_tweets")
+    for page in tweepy.Cursor(
+        api.user_timeline, user_id=user.twitter_id, count=200, since_id=since_id
+    ).pages():
+        await log(job_details, f"Importing {len(page)} tweets")
+        for status in page:
+            # Get the conversation_id of this tweet
+            if status.in_reply_to_status_id_str is None:
+                conversation_id = status.id_str
+            else:
+                conversation_id = status.id_str
+                in_reply_to_id = status.in_reply_to_status_id_str
+                while True:
+                    try:
+                        response = api.get_status(in_reply_to_id)
+                    except:
+                        break
+                    if response.in_reply_to_status_id_str is None:
+                        conversation_id = response.id_str
+                        break
+                    else:
+                        conversation_id = status.id_str
+                        in_reply_to_id = response.in_reply_to_status_id_str
 
-        if response["meta"]["result_count"] == 0:
-            await log(job_details, f"No new tweets")
-            break
-
-        await log(job_details, f"Importing {len(response['data'])} tweets")
-
-        # Import these tweets
-        for api_tweet in response["data"]:
             # Make sure we have a thread for this tweet
             thread = await (
                 Thread.query.where(Thread.user_id == user.id)
-                .where(Thread.conversation_id == api_tweet["conversation_id"])
+                .where(Thread.conversation_id == conversation_id)
                 .gino.first()
             )
             if not thread:
                 thread = await Thread.create(
                     user_id=user.id,
-                    conversation_id=api_tweet["conversation_id"],
+                    conversation_id=conversation_id,
                     should_exclude=False,
                 )
 
             # Save or update the tweet
             tweet = await (
                 Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.twitter_id == api_tweet["id"])
+                .where(Tweet.twitter_id == status.id_str)
                 .gino.first()
             )
 
-            is_retweet = False
-            retweet_id = None
-            if "referenced_tweets" in api_tweet:
-                for referenced_tweet in api_tweet["referenced_tweets"]:
-                    if referenced_tweet["type"] == "retweeted":
-                        is_retweet = True
-                        retweet_id = referenced_tweet["id"]
-                        break
+            is_retweet = hasattr(status, "retweeted_status")
+            if is_retweet:
+                retweet_id = status.retweeted_status.id_str
+            else:
+                retweet_id = None
 
-            is_reply = "in_reply_to_user_id" in api_tweet
+            is_reply = status.in_reply_to_status_id_str is not None
 
             if not tweet:
                 await Tweet.create(
                     user_id=user.id,
-                    twitter_id=api_tweet["id"],
-                    created_at=datetime.fromisoformat(api_tweet["created_at"][0:19]),
-                    text=api_tweet["text"],
+                    twitter_id=status.id_str,
+                    created_at=status.created_at,
+                    text=status.text,
                     is_retweet=is_retweet,
                     retweet_id=retweet_id,
                     is_reply=is_reply,
-                    retweet_count=api_tweet["public_metrics"]["retweet_count"],
-                    like_count=api_tweet["public_metrics"]["like_count"],
+                    retweet_count=status.retweet_count,
+                    like_count=status.favorite_count,
                     exclude_from_delete=False,
                     is_deleted=False,
                     thread_id=thread.id,
                 )
             else:
                 await tweet.update(
-                    text=api_tweet["text"],
+                    text=status.text,
                     is_retweet=is_retweet,
                     retweet_id=retweet_id,
                     is_reply=is_reply,
-                    retweet_count=api_tweet["public_metrics"]["retweet_count"],
-                    like_count=api_tweet["public_metrics"]["like_count"],
+                    retweet_count=status.retweet_count,
+                    like_count=status.favorite_count,
                     thread_id=thread.id,
                 ).apply()
 
             data["progress"]["tweets_fetched"] += 1
 
         await job_details.update(data=json.dumps(data)).apply()
-
-        if "next_token" in response["meta"]:
-            pagination_token = response["meta"]["next_token"]
-        else:
-            # all done
-            break
 
     # Update progress
     if since_id:
@@ -361,7 +343,6 @@ async def fetch(job_details_id, funcs):
     await job_details.update(data=json.dumps(data)).apply()
 
     # Fetch likes
-    # Using Twitter API v1.1, so we can use since_id
     for page in tweepy.Cursor(
         api.get_favorites, user_id=user.twitter_id, count=200, since_id=since_id
     ).pages():
@@ -1220,7 +1201,7 @@ async def dm(job_details_id, funcs):
 
     data = json.loads(job_details.data)
 
-    semiphemeral_api = tweepy_semiphemeral_api()
+    semiphemeral_api = tweepy_semiphemeral_api_1_1()
     while True:
         try:
             semiphemeral_api.send_direct_message(
