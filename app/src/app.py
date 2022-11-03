@@ -1934,9 +1934,11 @@ async def main():
         or_(JobDetails.status == "active", JobDetails.status == "pending")
     ).gino.all()
     await log(None, f"Updating {len(jobs):,} jobs")
+    i = 0
     for job_details in jobs:
         await enqueue_job(job_details)
-        await log(None, f"Enqueued job {job_details.id:,}/{len(jobs):,}")
+        await log(None, f"Enqueued job {i:,}/{len(jobs):,}")
+        i += 1
 
     # Init stripe
     stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
