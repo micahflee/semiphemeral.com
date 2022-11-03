@@ -7,8 +7,6 @@ import rq
 from rq import Queue
 from rq.job import Job as RQJob, Retry as RQRetry
 
-from sqlalchemy import or_
-
 import worker_jobs
 
 from common import log
@@ -25,6 +23,7 @@ conn = redis.from_url(os.environ.get("REDIS_URL"))
 
 jobs_q = Queue("jobs", connection=conn)
 dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
+dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
 
 
 async def enqueue_job(job_details):
@@ -78,6 +77,12 @@ async def enqueue_job(job_details):
 
 
 async def main():
+    # Empty the queues
+    jobs_q.empty()
+    dm_jobs_high_q.empty()
+    dm_jobs_low_q.empty()
+
+    # Connect to the database
     await connect_db()
 
     # If staging, start by pausing all users and cancel all pending jobs
@@ -106,12 +111,13 @@ async def main():
             JobDetails.status == "pending"
         ).gino.status()
 
-    # Start over all active jobs
-    await log(None, "Make 'active' jobs 'pending', and start 'pending' jobs")
-    jobs = await JobDetails.query.where(
-        or_(JobDetails.status == "active", JobDetails.status == "pending")
-    ).gino.all()
-    await log(None, f"Updating {len(jobs):,} jobs")
+    # Start all active jobs
+    await log(None, "Make 'active' jobs as 'pending'")
+    await JobDetails.update.values(status="pending").where(
+        JobDetails.status == "active"
+    ).gino.status()
+    jobs = await JobDetails.query.where(JobDetails.status == "pending").gino.all()
+    await log(None, f"Enqueing {len(jobs):,} jobs")
     i = 0
     for job_details in jobs:
         await enqueue_job(job_details)
