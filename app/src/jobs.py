@@ -247,91 +247,96 @@ async def fetch(job_details_id, funcs):
     cache = {}
 
     # Fetch tweets
-    for page in tweepy.Cursor(
-        api.user_timeline, user_id=user.twitter_id, count=200, since_id=since_id
-    ).pages():
-        await log(job_details, f"Importing {len(page)} tweets")
-        for status in page:
-            # Get the conversation_id of this tweet
-            conversation_id = status.id_str
-            if status.in_reply_to_status_id_str is not None:
-                in_reply_to_id = status.in_reply_to_status_id_str
-                while True:
-                    if in_reply_to_id in cache:
-                        _id, _in_reply_to_id = cache[in_reply_to_id]
+    while True:
+        try:
+            for page in tweepy.Cursor(
+                api.user_timeline, user_id=user.twitter_id, count=200, since_id=since_id
+            ).pages():
+                await log(job_details, f"Importing {len(page)} tweets")
+                for status in page:
+                    # Get the conversation_id of this tweet
+                    conversation_id = status.id_str
+                    if status.in_reply_to_status_id_str is not None:
+                        in_reply_to_id = status.in_reply_to_status_id_str
+                        while True:
+                            if in_reply_to_id in cache:
+                                _id, _in_reply_to_id = cache[in_reply_to_id]
+                            else:
+                                try:
+                                    response = api.get_status(in_reply_to_id)
+                                    _id = response.id_str
+                                    _in_reply_to_id = response.in_reply_to_status_id_str
+                                    cache[in_reply_to_id] = (_id, _in_reply_to_id)
+                                except:
+                                    break
+
+                            if _in_reply_to_id is None:
+                                conversation_id = _id
+                                break
+                            else:
+                                conversation_id = _id
+                                in_reply_to_id = _in_reply_to_id
+
+                    # Make sure we have a thread for this tweet
+                    thread = await (
+                        Thread.query.where(Thread.user_id == user.id)
+                        .where(Thread.conversation_id == conversation_id)
+                        .gino.first()
+                    )
+                    if not thread:
+                        thread = await Thread.create(
+                            user_id=user.id,
+                            conversation_id=conversation_id,
+                            should_exclude=False,
+                        )
+
+                    # Save or update the tweet
+                    tweet = await (
+                        Tweet.query.where(Tweet.user_id == user.id)
+                        .where(Tweet.twitter_id == status.id_str)
+                        .gino.first()
+                    )
+
+                    is_retweet = hasattr(status, "retweeted_status")
+                    if is_retweet:
+                        retweet_id = status.retweeted_status.id_str
                     else:
-                        try:
-                            response = api.get_status(in_reply_to_id)
-                            _id = response.id_str
-                            _in_reply_to_id = response.in_reply_to_status_id_str
-                            cache[in_reply_to_id] = (_id, _in_reply_to_id)
-                        except:
-                            break
+                        retweet_id = None
 
-                    if _in_reply_to_id is None:
-                        conversation_id = _id
-                        break
+                    is_reply = status.in_reply_to_status_id_str is not None
+
+                    if not tweet:
+                        await Tweet.create(
+                            user_id=user.id,
+                            twitter_id=status.id_str,
+                            created_at=status.created_at.replace(tzinfo=None),
+                            text=status.text,
+                            is_retweet=is_retweet,
+                            retweet_id=retweet_id,
+                            is_reply=is_reply,
+                            retweet_count=status.retweet_count,
+                            like_count=status.favorite_count,
+                            exclude_from_delete=False,
+                            is_deleted=False,
+                            thread_id=thread.id,
+                        )
                     else:
-                        conversation_id = _id
-                        in_reply_to_id = _in_reply_to_id
+                        await tweet.update(
+                            text=status.text,
+                            is_retweet=is_retweet,
+                            retweet_id=retweet_id,
+                            is_reply=is_reply,
+                            retweet_count=status.retweet_count,
+                            like_count=status.favorite_count,
+                            thread_id=thread.id,
+                        ).apply()
 
-            # Make sure we have a thread for this tweet
-            thread = await (
-                Thread.query.where(Thread.user_id == user.id)
-                .where(Thread.conversation_id == conversation_id)
-                .gino.first()
-            )
-            if not thread:
-                thread = await Thread.create(
-                    user_id=user.id,
-                    conversation_id=conversation_id,
-                    should_exclude=False,
-                )
+                    data["progress"]["tweets_fetched"] += 1
 
-            # Save or update the tweet
-            tweet = await (
-                Tweet.query.where(Tweet.user_id == user.id)
-                .where(Tweet.twitter_id == status.id_str)
-                .gino.first()
-            )
-
-            is_retweet = hasattr(status, "retweeted_status")
-            if is_retweet:
-                retweet_id = status.retweeted_status.id_str
-            else:
-                retweet_id = None
-
-            is_reply = status.in_reply_to_status_id_str is not None
-
-            if not tweet:
-                await Tweet.create(
-                    user_id=user.id,
-                    twitter_id=status.id_str,
-                    created_at=status.created_at.replace(tzinfo=None),
-                    text=status.text,
-                    is_retweet=is_retweet,
-                    retweet_id=retweet_id,
-                    is_reply=is_reply,
-                    retweet_count=status.retweet_count,
-                    like_count=status.favorite_count,
-                    exclude_from_delete=False,
-                    is_deleted=False,
-                    thread_id=thread.id,
-                )
-            else:
-                await tweet.update(
-                    text=status.text,
-                    is_retweet=is_retweet,
-                    retweet_id=retweet_id,
-                    is_reply=is_reply,
-                    retweet_count=status.retweet_count,
-                    like_count=status.favorite_count,
-                    thread_id=thread.id,
-                ).apply()
-
-            data["progress"]["tweets_fetched"] += 1
-
-        await job_details.update(data=json.dumps(data)).apply()
+                await job_details.update(data=json.dumps(data)).apply()
+            break
+        except tweepy.errors.TwitterServerError as e:
+            await handle_tweepy_exception(job_details, e, "api.user_timeline")
 
     # Update progress
     if since_id:
@@ -343,36 +348,41 @@ async def fetch(job_details_id, funcs):
     await job_details.update(data=json.dumps(data)).apply()
 
     # Fetch likes
-    for page in tweepy.Cursor(
-        api.get_favorites, user_id=user.twitter_id, count=200, since_id=since_id
-    ).pages():
-        await log(job_details, f"Importing {len(page)} likes")
-        for status in page:
-            # Is the like already saved?
-            like = await (
-                Like.query.where(Like.user_id == user.id)
-                .where(Like.twitter_id == status.id_str)
-                .gino.first()
-            )
-            if not like:
-                fascist = await Fascist.query.where(
-                    Fascist.twitter_id == status.user.id_str
-                ).gino.first()
-                is_fascist = fascist is not None
+    while True:
+        try:
+            for page in tweepy.Cursor(
+                api.get_favorites, user_id=user.twitter_id, count=200, since_id=since_id
+            ).pages():
+                await log(job_details, f"Importing {len(page)} likes")
+                for status in page:
+                    # Is the like already saved?
+                    like = await (
+                        Like.query.where(Like.user_id == user.id)
+                        .where(Like.twitter_id == status.id_str)
+                        .gino.first()
+                    )
+                    if not like:
+                        fascist = await Fascist.query.where(
+                            Fascist.twitter_id == status.user.id_str
+                        ).gino.first()
+                        is_fascist = fascist is not None
 
-                # Save the like
-                await Like.create(
-                    user_id=user.id,
-                    twitter_id=status.id_str,
-                    created_at=status.created_at.replace(tzinfo=None),
-                    author_id=status.user.id_str,
-                    is_deleted=False,
-                    is_fascist=is_fascist,
-                )
+                        # Save the like
+                        await Like.create(
+                            user_id=user.id,
+                            twitter_id=status.id_str,
+                            created_at=status.created_at.replace(tzinfo=None),
+                            author_id=status.user.id_str,
+                            is_deleted=False,
+                            is_fascist=is_fascist,
+                        )
 
-            data["progress"]["likes_fetched"] += 1
+                    data["progress"]["likes_fetched"] += 1
 
-        await job_details.update(data=json.dumps(data)).apply()
+                await job_details.update(data=json.dumps(data)).apply()
+            break
+        except tweepy.errors.TwitterServerError as e:
+            await handle_tweepy_exception(job_details, e, "api.user_timeline")
 
     # All done, update the since_id
     async with gino_db.acquire() as conn:
@@ -527,10 +537,11 @@ async def delete(job_details_id, funcs):
                 try:
                     api.destroy_status(tweet.twitter_id)
                 except Exception as e:
-                    await log(
-                        job_details,
-                        f"Error deleting retweet {tweet.twitter_id}: {e}",
-                    )
+                    pass
+                    # await log(
+                    #     job_details,
+                    #     f"Error deleting retweet {tweet.twitter_id}: {e}",
+                    # )
 
                 await tweet.update(is_deleted=True).apply()
 
@@ -562,9 +573,10 @@ async def delete(job_details_id, funcs):
                 try:
                     api.destroy_favorite(like.twitter_id)
                 except Exception as e:
-                    await log(
-                        job_details, f"Error deleting like {like.twitter_id}: {e}"
-                    )
+                    pass
+                    # await log(
+                    #     job_details, f"Error deleting like {like.twitter_id}: {e}"
+                    # )
 
                 await like.update(is_deleted=True).apply()
 
@@ -585,7 +597,8 @@ async def delete(job_details_id, funcs):
             try:
                 api.destroy_status(tweet.twitter_id)
             except Exception as e:
-                await log(job_details, f"Error deleting tweet {tweet.twitter_id}: {e}")
+                pass
+                # await log(job_details, f"Error deleting tweet {tweet.twitter_id}: {e}")
 
             await tweet.update(is_deleted=True).apply()
 
@@ -656,7 +669,8 @@ async def delete(job_details_id, funcs):
                     try:
                         dm_api.delete_direct_message(dm["id"])
                     except Exception as e:
-                        await log(job_details, f"Skipping DM {dm.id}, {e}")
+                        pass
+                        # await log(job_details, f"Skipping DM {dm['id']}, {e}")
 
                     data["progress"]["dms_deleted"] += 1
                     await job_details.update(data=json.dumps(data)).apply()
