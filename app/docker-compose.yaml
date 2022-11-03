@@ -129,6 +129,40 @@ services:
         "dm_jobs_low"
       ]
 
+  monitor:
+    restart: "no"
+    build: "src"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DEPLOY_ENVIRONMENT={{ deploy_environment }}
+      - DOMAIN={{ domain }}
+      - TWITTER_CONSUMER_TOKEN={{ twitter_consumer_token }}
+      - TWITTER_CONSUMER_KEY={{ twitter_consumer_secret }}
+      - TWITTER_SEMIPHEMERAL_ACCESS_TOKEN={{ twitter_semiphemeral_access_token }}
+      - TWITTER_SEMIPHEMERAL_ACCESS_KEY_KEY={{ twitter_semiphemeral_access_secret }}
+      - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
+      - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
+      - DATABASE_URI=postgres://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
+      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_WEBHOOK={{ admin_webhook }}
+    networks:
+      - default
+      - host_private
+    ports:
+      - "9181:9181"
+    depends_on:
+      - redis
+      - web
+    command:
+      [
+        "python",
+        "-m",
+        "poetry",
+        "run",
+        "python",
+        "monitor.py"
+      ]
+
 networks:
   default:
     driver: bridge

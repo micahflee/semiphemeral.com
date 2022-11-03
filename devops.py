@@ -493,6 +493,25 @@ def forward_postgres(deploy_environment):
 
 @main.command()
 @click.argument("deploy_environment", nargs=1)
+def forward_rq_dashboard(deploy_environment):
+    """Forward the rq-dashboard port to localhost, using SSH"""
+    if not _validate_env(deploy_environment):
+        return
+
+    click.echo("rq-dashboard: http://127.0.0.1:9181")
+    _ssh(
+        deploy_environment,
+        "app",
+        [
+            "-N",
+            "-L",
+            f"9181:127.0.0.1:9181",
+        ],
+    )
+
+
+@main.command()
+@click.argument("deploy_environment", nargs=1)
 def update_app_code(deploy_environment):
     """Just rsync the app code"""
     if not _validate_env(deploy_environment):
