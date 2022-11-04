@@ -10,8 +10,10 @@ const props = defineProps({
 
     <h2>What if something is broken?</h2>
     <p>
-      Semiphemeral is still a beta service. If something isn't working like it should, or is confusing, please report
-      it. You can email semiphemeral@gmail.com. Make sure to include your Twitter username in your report!.
+      Semiphemeral is an after-work volunteer project in my free time. If something isn't working like it should, or is
+      confusing, please report it. You can email semiphemeral@micahflee.com. I will make an effort to respond, again in
+      my free time. Make sure to include your Twitter username
+      in your report!
     </p>
 
     <h2>Why aren't tweets showing up on the tweets page?</h2>
