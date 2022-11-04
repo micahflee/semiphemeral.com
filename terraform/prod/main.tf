@@ -80,11 +80,10 @@ resource "digitalocean_firewall" "bastion" {
 # app
 
 resource "digitalocean_droplet" "app" {
-  name   = "app-production"
-  image  = "ubuntu-22-04-x64"
-  region = "nyc1"
-  # size          = "s-2vcpu-2gb"
-  size          = "s-8vcpu-16gb"
+  name          = "app-production"
+  image         = "ubuntu-22-04-x64"
+  region        = "nyc1"
+  size          = "s-2vcpu-2gb"
   vpc_uuid      = digitalocean_vpc.semiphemeral.id
   monitoring    = true
   droplet_agent = true
