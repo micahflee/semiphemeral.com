@@ -101,27 +101,6 @@ class JobDetails(db.Model):
         )
 
 
-class Job(db.Model):
-    __tablename__ = "jobs"
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    job_type = db.Column(
-        db.String
-    )  # "fetch", "delete", "delete_dms", "delete_dm_groups"
-    status = db.Column(
-        db.String
-    )  # "pending", "active", "finished", "canceled", "blocked"
-    progress = db.Column(db.String)  # JSON object
-    scheduled_timestamp = db.Column(db.DateTime)
-    started_timestamp = db.Column(db.DateTime)
-    finished_timestamp = db.Column(db.DateTime)
-    container_name = db.Column(db.String)
-
-    def __str__(self):
-        return f"Job: type={self.job_type}, user_id={self.user_id}"
-
-
 class DirectMessageJob(db.Model):
     __tablename__ = "direct_message_jobs"
 

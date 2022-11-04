@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import tweepy
 
-from db import Tweet, Like, Thread, Nag, Job, Tip
+from db import Tweet, Like, Thread, Nag, JobDetails, Tip
 
 
 async def log(job_details, s):
@@ -148,7 +148,7 @@ async def send_admin_notification(message):
 async def delete_user(user):
     await Tip.delete.where(Tip.user_id == user.id).gino.status()
     await Nag.delete.where(Nag.user_id == user.id).gino.status()
-    await Job.delete.where(Job.user_id == user.id).gino.status()
+    await JobDetails.delete.where(JobDetails.user_id == user.id).gino.status()
     await Tweet.delete.where(Tweet.user_id == user.id).gino.status()
     await Like.delete.where(Like.user_id == user.id).gino.status()
     await Thread.delete.where(Thread.user_id == user.id).gino.status()
