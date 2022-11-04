@@ -130,16 +130,8 @@ def ensure_user_follows_us(func):
                 api.create_friendship(
                     user_id=1209344563589992448  # @semiphemeral twitter ID
                 )
-            except tweepy.errors.Forbidden:
-                # The semiphemeral user has blocked this user, so they're not allowed to use this service
-                print(f"user_id={user.id} is blocked, canceling job and updating user")
-                await job_details.update(
-                    status="canceled", finished_timestamp=datetime.now()
-                ).apply()
-                await user.update(paused=True, blocked=True).apply()
-                return False
             except Exception as e:
-                await handle_tweepy_exception(job_details, e, "api.create_friendship")
+                await log(job_details, f"Error on api.create_friendship, ignoring: {e}")
 
         return await func(job_details_id, funcs)
 
