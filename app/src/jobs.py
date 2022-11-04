@@ -124,14 +124,23 @@ def ensure_user_follows_us(func):
             if user.twitter_screen_name == "semiphemeral":
                 return await func(job_details_id, funcs)
 
-            # Try following
             api = tweepy_api_v1_1(user)
-            try:
-                api.create_friendship(
-                    user_id=1209344563589992448  # @semiphemeral twitter ID
-                )
-            except Exception as e:
-                await log(job_details, f"Error on api.create_friendship, ignoring: {e}")
+
+            # Is this user following us?
+            res = api.lookup_friendships(user_id=[user.twitter_id])
+            if len(res) > 0:
+                relationship = res[0]
+                if not relationship.is_following:
+                    # Try following
+                    try:
+                        api.create_friendship(
+                            user_id=1209344563589992448  # @semiphemeral twitter ID
+                        )
+                    except Exception as e:
+                        await log(
+                            job_details,
+                            f"Error on api.create_friendship, ignoring: {e}",
+                        )
 
         return await func(job_details_id, funcs)
 
