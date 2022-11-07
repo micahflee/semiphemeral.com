@@ -207,3 +207,7 @@ async def connect_db():
             await asyncio.sleep(60 * wait_min)
 
     return gino_db
+
+
+async def disconnect_db():
+    await db.pop_bind().close()
