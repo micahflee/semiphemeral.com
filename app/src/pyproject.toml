@@ -21,7 +21,7 @@ click = ">=7,<8"
 redis = "*"
 rq = "*"
 importlib-resources = "*"
-tweepy = "^4.12.0"
+tweepy = "^4.12.1"
 rq-dashboard = "^0.6.1"
 
 [tool.poetry.dev-dependencies]

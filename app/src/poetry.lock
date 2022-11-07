@@ -61,7 +61,7 @@ async-timeout = ">=3.0,<5.0"
 psycopg2-binary = ">=2.9.5"
 
 [package.extras]
-sa = ["sqlalchemy[postgresql_psycopg2binary] (>=1.3,<1.5)"]
+sa = ["sqlalchemy[postgresql-psycopg2binary] (>=1.3,<1.5)"]
 
 [[package]]
 name = "aiosignal"
@@ -135,7 +135,7 @@ python-versions = ">=3.5"
 dev = ["cloudpickle", "coverage[toml] (>=5.0.2)", "furo", "hypothesis", "mypy (>=0.900,!=0.940)", "pre-commit", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins", "sphinx", "sphinx-notfound-page", "zope.interface"]
 docs = ["furo", "sphinx", "sphinx-notfound-page", "zope.interface"]
 tests = ["cloudpickle", "coverage[toml] (>=5.0.2)", "hypothesis", "mypy (>=0.900,!=0.940)", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins", "zope.interface"]
-tests_no_zope = ["cloudpickle", "coverage[toml] (>=5.0.2)", "hypothesis", "mypy (>=0.900,!=0.940)", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins"]
+tests-no-zope = ["cloudpickle", "coverage[toml] (>=5.0.2)", "hypothesis", "mypy (>=0.900,!=0.940)", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins"]
 
 [[package]]
 name = "certifi"
@@ -165,7 +165,7 @@ optional = false
 python-versions = ">=3.6.0"
 
 [package.extras]
-unicode_backport = ["unicodedata2"]
+unicode-backport = ["unicodedata2"]
 
 [[package]]
 name = "click"
@@ -441,7 +441,7 @@ urllib3 = ">=1.21.1,<1.27"
 
 [package.extras]
 socks = ["PySocks (>=1.5.6,!=1.5.7)"]
-use_chardet_on_py3 = ["chardet (>=3.0.2,<6)"]
+use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
 name = "requests-oauthlib"
@@ -502,14 +502,14 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [package.extras]
 mssql = ["pyodbc"]
-mssql_pymssql = ["pymssql"]
-mssql_pyodbc = ["pyodbc"]
+mssql-pymssql = ["pymssql"]
+mssql-pyodbc = ["pyodbc"]
 mysql = ["mysqlclient"]
 oracle = ["cx_oracle"]
 postgresql = ["psycopg2"]
-postgresql_pg8000 = ["pg8000 (<1.16.6)"]
-postgresql_psycopg2binary = ["psycopg2-binary"]
-postgresql_psycopg2cffi = ["psycopg2cffi"]
+postgresql-pg8000 = ["pg8000 (<1.16.6)"]
+postgresql-psycopg2binary = ["psycopg2-binary"]
+postgresql-psycopg2cffi = ["psycopg2cffi"]
 pymysql = ["pymysql", "pymysql (<1)"]
 
 [[package]]
@@ -525,7 +525,7 @@ requests = {version = ">=2.20", markers = "python_version >= \"3.0\""}
 
 [[package]]
 name = "tweepy"
-version = "4.12.0"
+version = "4.12.1"
 description = "Twitter library for Python"
 category = "main"
 optional = false
@@ -539,6 +539,7 @@ requests-oauthlib = ">=1.2.0,<2"
 [package.extras]
 async = ["aiohttp (>=3.7.3,<4)", "async-lru (>=1.0.3,<2)"]
 dev = ["coverage (>=4.4.2)", "coveralls (>=2.1.0)", "tox (>=3.21.0)"]
+docs = ["myst-parser (==0.15.2)", "readthedocs-sphinx-search (==0.1.1)", "sphinx (==4.2.0)", "sphinx-hoverxref (==0.7b1)", "sphinx-rtd-theme (==1.0.0)", "sphinx-tabs (==3.2.0)"]
 socks = ["requests[socks] (>=2.27.0,<3)"]
 test = ["vcrpy (>=1.10.3)"]
 
@@ -604,7 +605,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "ee386441ffec8554196006caf4135c6bc914b58d04fc3bfcb80a63db53cf4455"
+content-hash = "bf150773d74fa0bd565aa293b36796e23bda3a1d69dd9ffdb6be0f386b98af1a"
 
 [metadata.files]
 aiohttp = [
@@ -1227,8 +1228,8 @@ stripe = [
     {file = "stripe-4.2.0.tar.gz", hash = "sha256:f0134704bd4e9410fae25034836dc6f5849d92c0f9083d58d43e01b3e631ac4c"},
 ]
 tweepy = [
-    {file = "tweepy-4.12.0-py3-none-any.whl", hash = "sha256:c463fa147f75016e3a5ed3713580c7339a301b58f90895e696bfae068556d7cc"},
-    {file = "tweepy-4.12.0.tar.gz", hash = "sha256:274f91dfee6d4aed83d9178fbe338bbfd3c06a4220cfe14438159685db7569b7"},
+    {file = "tweepy-4.12.1-py3-none-any.whl", hash = "sha256:86d4f6738cbd5a57f86dff7ae0caf52f66004d5777626bf5da970aa8c8aa35df"},
+    {file = "tweepy-4.12.1.tar.gz", hash = "sha256:5e4c5b5d22f9e5dd9678a708fae4e40e6eeb1a860a89891a5de3040d5f3da8fe"},
 ]
 urllib3 = [
     {file = "urllib3-1.26.12-py2.py3-none-any.whl", hash = "sha256:b930dd878d5a8afb066a637fbb35144fe7901e3b209d1cd4f524bd0e9deee997"},
