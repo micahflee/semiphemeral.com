@@ -17,6 +17,7 @@ from common import (
 )
 from db import (
     connect_db,
+    disconnect_db,
     JobDetails,
     User,
     Tip,
@@ -244,6 +245,7 @@ async def fetch(job_details_id, funcs):
         await job_details.update(
             status="canceled", finished_timestamp=datetime.now()
         ).apply()
+        await disconnect_db()
         return
 
     api = tweepy_api_v1_1(user)
@@ -462,6 +464,7 @@ async def fetch(job_details_id, funcs):
         await job_details.update(
             status="finished", finished_timestamp=datetime.now()
         ).apply()
+        await disconnect_db()
         return
 
     # Fetch is done! If semiphemeral is paused, send a DM
@@ -493,6 +496,7 @@ async def fetch(job_details_id, funcs):
         status="finished", finished_timestamp=datetime.now()
     ).apply()
     await log(job_details, f"Fetch finished")
+    await disconnect_db()
 
 
 # Delete job
@@ -508,6 +512,7 @@ async def delete(job_details_id, funcs):
     if job_details.status == "canceled":
         await log(job_details, str(job_details))
         await log(job_details, "canceled job, so quitting early")
+        await disconnect_db()
         return
     await job_details.update(status="active", started_timestamp=datetime.now()).apply()
     await log(job_details, str(job_details))
@@ -518,6 +523,7 @@ async def delete(job_details_id, funcs):
         await job_details.update(
             status="canceled", finished_timestamp=datetime.now()
         ).apply()
+        await disconnect_db()
         return
 
     api = tweepy_api_v1_1(user)
@@ -871,6 +877,8 @@ async def delete(job_details_id, funcs):
             )
             await new_job_details.update(redis_id=redis_job.id).apply()
 
+    await disconnect_db()
+
 
 # Delete DMs and DM Groups jobs
 
@@ -880,6 +888,7 @@ async def delete(job_details_id, funcs):
 @ensure_user_follows_us
 async def delete_dms(job_details_id, funcs):
     await delete_dms_job(job_details_id, "dms", funcs)
+    await disconnect_db()
 
 
 @init_db
@@ -887,6 +896,7 @@ async def delete_dms(job_details_id, funcs):
 @ensure_user_follows_us
 async def delete_dm_groups(job_details_id, funcs):
     await delete_dms_job(job_details_id, "groups", funcs)
+    await disconnect_db()
 
 
 async def delete_dms_job(job_details_id, dm_type, funcs):
@@ -1128,6 +1138,7 @@ async def block(job_details_id, funcs):
         status="finished", finished_timestamp=datetime.now()
     ).apply()
     await log(job_details, f"Block finished")
+    await disconnect_db()
 
 
 # Unblock job
@@ -1169,6 +1180,7 @@ async def unblock(job_details_id, funcs):
         status="finished", finished_timestamp=datetime.now()
     ).apply()
     await log(job_details, f"Unblock finished")
+    await disconnect_db()
 
 
 # DM job
@@ -1198,6 +1210,8 @@ async def dm(job_details_id, funcs):
             status="canceled", finished_timestamp=datetime.now()
         ).apply()
         await log(job_details, f"Failed to send DM: {e}")
+
+    await disconnect_db()
 
     # Sleep a minute between sending each DM
     await log(job_details, f"Sleeping 60s")
