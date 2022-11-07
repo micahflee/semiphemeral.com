@@ -106,6 +106,7 @@ def test_api_creds(func):
                 await job_details.update(
                     status="canceled", finished_timestamp=datetime.now()
                 ).apply()
+                await disconnect_db()
                 return False
 
         return await func(job_details_id, funcs)
@@ -128,7 +129,17 @@ def ensure_user_follows_us(func):
             api = tweepy_api_v1_1(user)
 
             # Is this user following us?
-            res = api.lookup_friendships(user_id=[user.twitter_id])
+            try:
+                res = api.lookup_friendships(user_id=[user.twitter_id])
+            except tweepy.errors.Forbidden:
+                # User is suspended, canceling job and pausing using
+                await user.update(paused=True).apply()
+                await job_details.update(
+                    status="canceled", finished_timestamp=datetime.now()
+                ).apply()
+                await disconnect_db()
+                return False
+
             if len(res) > 0:
                 relationship = res[0]
                 if not relationship.is_following:

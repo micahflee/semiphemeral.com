@@ -192,7 +192,6 @@ class Fascist(db.Model):
 async def connect_db():
     database_uri = os.environ.get("DATABASE_URI")
 
-    wait_min = 1
     tries = 0
     success = False
     while not success:
@@ -201,12 +200,11 @@ async def connect_db():
             success = True
         except TooManyConnectionsError:
             tries += 1
-            wait_min += 1
             print(
-                f"Try {tries}: Failed connecting to db, TooManyConnectionsError, waiting {wait_min} min",
+                f"Try {tries}: Failed connecting to db, TooManyConnectionsError, waiting 60s",
                 file=sys.stderr,
             )
-            await asyncio.sleep(60 * wait_min)
+            await asyncio.sleep(60)
 
     return gino_db
 
