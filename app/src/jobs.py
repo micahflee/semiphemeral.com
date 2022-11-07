@@ -136,11 +136,31 @@ def ensure_user_follows_us(func):
                         api.create_friendship(
                             user_id=1209344563589992448  # @semiphemeral twitter ID
                         )
+                        await log(
+                            job_details,
+                            f"@{user.twitter_screen_name} followed @semiphemeral",
+                        )
                     except Exception as e:
                         await log(
                             job_details,
-                            f"Error on api.create_friendship, ignoring: {e}",
+                            f"Error on api.create_friendship with v1.1 API, ignoring: {e}",
                         )
+                        # await log(
+                        #     job_details,
+                        #     f"Error on api.create_friendship with v1.1 API, trying with v2 API: {e}",
+                        # )
+                        # try:
+                        #     client = tweepy_client(user, wait_on_rate_limit=False)
+                        #     client.follow_user(target_user_id=1209344563589992448)
+                        #     await log(
+                        #         job_details,
+                        #         f"@{user.twitter_screen_name} followed @semiphemeral",
+                        #     )
+                        # except Exception as e:
+                        #     await log(
+                        #         job_details,
+                        #         f"Error on api.create_friendship with v2 API, ignoring: {e}",
+                        #     )
 
         return await func(job_details_id, funcs)
 

@@ -26,54 +26,59 @@ dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
 dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
 
 
-async def enqueue_job(job_details):
+async def enqueue_job(job_details, i, num_jobs):
+    func = None
+    job_id = None
+    job_timeout = None
+
     if job_details.job_type == "fetch":
-        redis_job = jobs_q.enqueue(
-            worker_jobs.fetch,
-            job_details.id,
-            job_timeout="24h",
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
-        )
+        func = worker_jobs.fetch
+        job_id = job_details.id
+        job_timeout = "24h"
     elif job_details.job_type == "delete":
-        redis_job = jobs_q.enqueue(
-            worker_jobs.delete,
-            job_details.id,
-            job_timeout="24h",
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
-        )
+        func = worker_jobs.delete
+        job_id = job_details.id
+        job_timeout = "24h"
     elif job_details.job_type == "delete_dms":
-        redis_job = jobs_q.enqueue(
-            worker_jobs.delete_dms,
-            job_details.id,
-            job_timeout="24h",
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
-        )
+        func = worker_jobs.delete_dms
+        job_id = job_details.id
+        job_timeout = "24h"
     elif job_details.job_type == "delete_dm_groups":
-        redis_job = jobs_q.enqueue(
-            worker_jobs.delete_dm_groups,
-            job_details.id,
-            job_timeout="24h",
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
-        )
+        func = worker_jobs.delete_dm_groups
+        job_id = job_details.id
+        job_timeout = "24h"
     elif job_details.job_type == "block":
-        redis_job = jobs_q.enqueue(
-            worker_jobs.block,
-            job_details.id,
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
-        )
+        func = worker_jobs.block
+        job_id = job_details.id
     elif job_details.job_type == "unblock":
-        redis_job = jobs_q.enqueue(
-            worker_jobs.unblock,
-            job_details.id,
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
-        )
+        func = worker_jobs.unblock
+        job_id = job_details.id
     elif job_details.job_type == "dm":
-        redis_job = dm_jobs_high_q.enqueue(
-            worker_jobs.dm,
-            job_details.id,
+        func = worker_jobs.dm
+        job_id = job_details.id
+
+    if job_details.scheduled_timestamp:
+        redis_job = jobs_q.enqueue_at(
+            job_details.scheduled_timestamp,
+            func,
+            job_id,
+            job_timeout=job_timeout,
             retry=RQRetry(max=3, interval=[60, 120, 240]),
         )
-    await job_details.update(status="pending", redis_id=redis_job.id).apply()
+        await log(
+            None,
+            f"{i:,}/{num_jobs:,} Enqueued scheduled job for {job_details.scheduled_timestamp}",
+        )
+    else:
+        redis_job = jobs_q.enqueue(
+            func,
+            job_id,
+            job_timeout=job_timeout,
+            retry=RQRetry(max=3, interval=[60, 120, 240]),
+        )
+        await log(None, f"{i:,}/{num_jobs:,} Enqueued job ASAP")
+
+    await job_details.update(redis_id=redis_job.id).apply()
 
 
 async def main():
@@ -119,9 +124,9 @@ async def main():
     jobs = await JobDetails.query.where(JobDetails.status == "pending").gino.all()
     await log(None, f"Enqueing {len(jobs):,} jobs")
     i = 0
+    num_jobs = len(jobs)
     for job_details in jobs:
-        await enqueue_job(job_details)
-        await log(None, f"Enqueued job {i:,}/{len(jobs):,}")
+        await enqueue_job(job_details, i, num_jobs)
         i += 1
 
     # Start the rq-dashboard
