@@ -59,6 +59,8 @@ services:
       - host_private
     ports:
       - "9181:9181"
+    expose:
+      - "9181"
     depends_on:
       - redis
     command:
@@ -119,12 +121,8 @@ services:
         "-m",
         "poetry",
         "run",
-        "rq",
-        "worker",
-        "--url",
-        "redis://redis:6379",
-        "--with-scheduler",
-        "jobs"
+        "python",
+        "worker.py"
       ]
 
   dms_worker:
