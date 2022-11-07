@@ -23,7 +23,11 @@ async def log(job_details, s):
 
 
 def create_tweepy_client(
-    consumer_key, consumer_secret, access_token, access_token_secret
+    consumer_key,
+    consumer_secret,
+    access_token,
+    access_token_secret,
+    wait_on_rate_limit=True,
 ):
     return tweepy.Client(
         consumer_key=consumer_key,
@@ -31,11 +35,11 @@ def create_tweepy_client(
         access_token=access_token,
         access_token_secret=access_token_secret,
         return_type=dict,
-        wait_on_rate_limit=True,
+        wait_on_rate_limit=wait_on_rate_limit,
     )
 
 
-def tweepy_client(user, dms=False):
+def tweepy_client(user, dms=False, wait_on_rate_limit=True):
     if dms:
         consumer_key = os.environ.get("TWITTER_DM_CONSUMER_TOKEN")
         consumer_secret = os.environ.get("TWITTER_DM_CONSUMER_KEY")
@@ -48,7 +52,11 @@ def tweepy_client(user, dms=False):
         access_token_secret = user.twitter_access_token_secret
 
     return create_tweepy_client(
-        consumer_key, consumer_secret, access_token, access_token_secret
+        consumer_key,
+        consumer_secret,
+        access_token,
+        access_token_secret,
+        wait_on_rate_limit=True,
     )
 
 
