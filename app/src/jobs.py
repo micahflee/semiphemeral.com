@@ -114,71 +114,6 @@ def test_api_creds(func):
     return wrapper
 
 
-def ensure_user_follows_us(func):
-    async def wrapper(job_details_id, funcs):
-        job_details = await JobDetails.query.where(
-            JobDetails.id == job_details_id
-        ).gino.first()
-        user = await User.query.where(User.id == job_details.user_id).gino.first()
-
-        if user:
-            # Make an exception for semiphemeral user, because semiphemeral can't follow semiphemeral
-            if user.twitter_screen_name == "semiphemeral":
-                return await func(job_details_id, funcs)
-
-            api = tweepy_api_v1_1(user)
-
-            # Is this user following us?
-            try:
-                res = api.lookup_friendships(user_id=[user.twitter_id])
-            except tweepy.errors.Forbidden:
-                # User is suspended, canceling job and pausing using
-                await user.update(paused=True).apply()
-                await job_details.update(
-                    status="canceled", finished_timestamp=datetime.now()
-                ).apply()
-                await disconnect_db()
-                return False
-
-            if len(res) > 0:
-                relationship = res[0]
-                if not relationship.is_following:
-                    # Try following
-                    try:
-                        api.create_friendship(
-                            user_id=1209344563589992448  # @semiphemeral twitter ID
-                        )
-                        await log(
-                            job_details,
-                            f"@{user.twitter_screen_name} followed @semiphemeral",
-                        )
-                    except Exception as e:
-                        await log(
-                            job_details,
-                            f"Error on api.create_friendship with v1.1 API, ignoring: {e}",
-                        )
-                        # await log(
-                        #     job_details,
-                        #     f"Error on api.create_friendship with v1.1 API, trying with v2 API: {e}",
-                        # )
-                        # try:
-                        #     client = tweepy_client(user, wait_on_rate_limit=False)
-                        #     client.follow_user(target_user_id=1209344563589992448)
-                        #     await log(
-                        #         job_details,
-                        #         f"@{user.twitter_screen_name} followed @semiphemeral",
-                        #     )
-                        # except Exception as e:
-                        #     await log(
-                        #         job_details,
-                        #         f"Error on api.create_friendship with v2 API, ignoring: {e}",
-                        #     )
-
-        return await func(job_details_id, funcs)
-
-    return wrapper
-
-
 # Helper functions
 
 
@@ -242,7 +177,6 @@ async def broken_and_cancel(user, job_details):
 
 @init_db
 @test_api_creds
-@ensure_user_follows_us
 async def fetch(job_details_id, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
@@ -515,7 +449,6 @@ async def fetch(job_details_id, funcs):
 
 @init_db
 @test_api_creds
-@ensure_user_follows_us
 async def delete(job_details_id, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
@@ -896,7 +829,6 @@ async def delete(job_details_id, funcs):
 
 @init_db
 @test_api_creds
-@ensure_user_follows_us
 async def delete_dms(job_details_id, funcs):
     await delete_dms_job(job_details_id, "dms", funcs)
     await disconnect_db()
@@ -904,7 +836,6 @@ async def delete_dms(job_details_id, funcs):
 
 @init_db
 @test_api_creds
-@ensure_user_follows_us
 async def delete_dm_groups(job_details_id, funcs):
     await delete_dms_job(job_details_id, "groups", funcs)
     await disconnect_db()
@@ -1205,8 +1136,62 @@ async def dm(job_details_id, funcs):
     await job_details.update(status="active", started_timestamp=datetime.now()).apply()
     await log(job_details, str(job_details))
 
-    data = json.loads(job_details.data)
+    # Make sure the user follows us
+    user = await User.query.where(User.id == job_details.user_id).gino.first()
+    if user:
+        # Make an exception for semiphemeral user, because semiphemeral can't follow semiphemeral
+        if user.twitter_screen_name != "semiphemeral":
+            api = tweepy_api_v1_1(user)
 
+            # Is this user following us?
+            try:
+                res = api.lookup_friendships(user_id=["1209344563589992448"])
+            except tweepy.errors.Forbidden as e:
+                # User is suspended, canceling job and pausing using
+                await log(
+                    job_details,
+                    f"User is suspended, pausing user and canceling job: {e}",
+                )
+                await user.update(paused=True).apply()
+                await job_details.update(
+                    status="canceled", finished_timestamp=datetime.now()
+                ).apply()
+                await disconnect_db()
+                return
+
+            if len(res) > 0:
+                relationship = res[0]
+                if not relationship.is_following:
+                    # Try following
+                    try:
+                        api.create_friendship(
+                            user_id="1209344563589992448"  # @semiphemeral twitter ID
+                        )
+                        await log(
+                            job_details,
+                            f"@{user.twitter_screen_name} followed @semiphemeral",
+                        )
+                    except Exception as e:
+                        await log(
+                            job_details,
+                            f"Error on api.create_friendship with v1.1 API, try again in an hour: {e}",
+                        )
+                        scheduled_timestamp = datetime.now() + timedelta(hours=1)
+                        await job_details.update(
+                            status="pending", scheduled_timestamp=scheduled_timestamp
+                        ).apply()
+                        redis_job = jobs_q.enqueue_at(
+                            scheduled_timestamp,
+                            funcs["delete"],
+                            job_details.id,
+                            job_timeout="1h",
+                        )
+                        await job_details.update(redis_id=redis_job.id).apply()
+                        await disconnect_db()
+                        return
+
+    # Send the DM
+    data = json.loads(job_details.data)
     semiphemeral_api = tweepy_semiphemeral_api_1_1()
     try:
         semiphemeral_api.send_direct_message(
