@@ -29,7 +29,7 @@ dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
 async def enqueue_job(job_details, i, num_jobs):
     func = None
     job_id = None
-    job_timeout = None
+    job_timeout = "10m"
 
     if job_details.job_type == "fetch":
         func = worker_jobs.fetch
