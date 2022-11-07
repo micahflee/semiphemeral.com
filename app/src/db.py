@@ -1,4 +1,5 @@
 import os
+import sys
 import asyncio
 from gino import Gino
 from asyncpg.exceptions import TooManyConnectionsError
@@ -202,7 +203,8 @@ async def connect_db():
             tries += 1
             wait_min += 1
             print(
-                f"Try {tries}: Failed connecting to db, TooManyConnectionsError, waiting {wait_min} min"
+                f"Try {tries}: Failed connecting to db, TooManyConnectionsError, waiting {wait_min} min",
+                file=sys.stderr,
             )
             await asyncio.sleep(60 * wait_min)
 
