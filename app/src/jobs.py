@@ -63,8 +63,8 @@ async def handle_tweepy_rate_limit(job_details, e, api_endpoint):
 
 
 async def handle_tweepy_exception(job_details, e, api_endpoint):
-    await log(job_details, f"Error on {api_endpoint}, sleeping 30s: {e}")
-    await asyncio.sleep(30)
+    await log(job_details, f"Error on {api_endpoint}, sleeping 120s: {e}")
+    await asyncio.sleep(120)
 
 
 # Decorators
