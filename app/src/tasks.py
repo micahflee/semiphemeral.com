@@ -6,36 +6,35 @@ import click
 from datetime import datetime, timedelta
 
 import db
-from db import connect_db, User, JobDetails, Like, Tweet
+from db import connect_db, disconnect_db, User, JobDetails, Like, Tweet
 from common import (
     send_admin_notification,
     tweepy_client,
+    tweepy_api_v1_1,
     delete_user,
+    add_job,
+    add_dm_job,
+    conn,
+    jobs_q,
+    dm_jobs_high_q,
+    dm_jobs_low_q,
 )
 import worker_jobs
 
+import tweepy
 from sqlalchemy import or_
 
-import redis
 import rq
-from rq import Queue
 from rq.job import Job as RQJob
 from rq.registry import FailedJobRegistry
 
-conn = redis.from_url(os.environ.get("REDIS_URL"))
-jobs_q = Queue("jobs", connection=conn)
-dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
-dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
-
 
 async def _send_reminders():
-    gino_db = await connect_db()
+    await connect_db()
 
     # Do we need to send reminders?
     print("Checking if we need to send reminders")
-
     message = f"Hello! Just in case you forgot about me, your Semiphemeral account has been paused for several months. You can login at https://{os.environ.get('DOMAIN')}/ to unpause your account and start automatically deleting your old tweets and likes, except for the ones you want to keep."
-
     three_months_ago = datetime.now() - timedelta(days=90)
     reminded_users = []
 
@@ -75,18 +74,9 @@ async def _send_reminders():
                 if remind:
                     reminded_users.append(user.twitter_screen_name)
                     print(f"Reminding @{user.twitter_screen_name}")
-
-                    job_details = await JobDetails.create(
-                        job_type="dm",
-                        data=json.dumps(
-                            {
-                                "dest_twitter_id": user.twitter_id,
-                                "message": message,
-                            }
-                        ),
+                    await add_dm_job(
+                        worker_jobs.funcs, user.twitter_id, message, priority="low"
                     )
-                    redis_job = dm_jobs_low_q.enqueue(worker_jobs.dm, job_details.id)
-                    await job_details.update(redis_id=redis_job.id).apply()
 
     if len(reminded_users) > 0:
         admin_message = (
@@ -95,9 +85,11 @@ async def _send_reminders():
         )
         await send_admin_notification(admin_message)
 
+    await disconnect_db()
+
 
 async def _cleanup_users():
-    gino_db = await connect_db()
+    await connect_db()
 
     users = await User.query.gino.all()
     i = 0
@@ -109,10 +101,10 @@ async def _cleanup_users():
             f"\r[{i:,}/{count:,}] checking @{user.twitter_screen_name} ..." + " " * 20,
             end="",
         )
-        client = tweepy_client(user)
+        api = tweepy_api_v1_1(user)
         try:
-            client.get_me()
-        except Exception as e:
+            api.verify_credentials()
+        except tweepy.errors.Unauthorized:
             print(
                 f"\r[{i:,}/{count:,}, deleted {users_deleted:,}] deleting @{user.twitter_screen_name}: {e}"
             )
@@ -124,10 +116,11 @@ async def _cleanup_users():
     admin_message = f"Deleted {users_deleted} users and all their data"
     print(admin_message)
     await send_admin_notification(admin_message)
+    await disconnect_db()
 
 
 async def _cleanup_dm_jobs():
-    gino_db = await connect_db()
+    await connect_db()
 
     dm_jobs = await JobDetails.query.where(JobDetails.status == "pending").gino.all()
     print(f"there are {len(dm_jobs)} pending DM jobs")
@@ -155,42 +148,7 @@ async def _cleanup_dm_jobs():
     admin_message = f"Deleted {num_deleted} pending DM jobs from deleted users"
     print(admin_message)
     await send_admin_notification(admin_message)
-
-
-# async def _unblock_users():
-#     gino_db = await connect_db()
-
-#     blocked_users = await User.query.where(User.blocked == True).gino.all()
-#     i = 0
-#     unblocked_user_count = 0
-#     count = len(blocked_users)
-#     for user in blocked_users:
-#         print(
-#             f"\r[{i}/{count}] checking @{user.twitter_screen_name} ..." + " " * 20,
-#             end="",
-#         )
-
-#         # Are they already unblocked?
-#         try:
-#             async with SemiphemeralPeonyClient(user) as client:
-#                 friendship = await client.api.friendships.show.get(
-#                     source_screen_name=user.twitter_screen_name,
-#                     target_screen_name="semiphemeral",
-#                 )
-
-#             if not friendship["relationship"]["source"]["blocked_by"]:
-#                 unblocked_user_count += 1
-#                 await user.update(paused=True, blocked=False).apply()
-#                 print(
-#                     f"\r[{i}/{count}, unblocked {unblocked_user_count}], set @{user.twitter_screen_name} to unblocked"
-#                 )
-#         except Exception as e:
-#             print(f"\r[{i}/{count}, deleting @{user.twitter_screen_name}: {e}")
-#             await delete_user(user)
-
-#         i += 1
-
-#     print("")
+    await disconnect_db()
 
 
 async def _update_fascists():
@@ -221,260 +179,71 @@ async def _update_fascists():
         ).gino.status()
 
 
-async def _reset_since_id():
-    await connect_db()
-    print("Setting since_id=None for all users")
-    await User.update.values(since_id=None).gino.status()
-    print("Done")
-
-
-async def _delete_nonexcluded_tweets():
-    await connect_db()
-    print("Deleting tweets that aren't excluded from deletion")
-    await Tweet.delete.where(Tweet.exclude_from_delete == False).gino.status()
-    print("Done")
-
-
-async def _onetime_2022_05_add_redis_jobs():
+async def _fix_stalled_users():
     await connect_db()
 
-    # Convert Jobs
-    count = 0
-    jobs = await db.Job.query.gino.all()
-    print(f"Found {len(jobs)} Jobs")
-    for job in jobs:
-        try:
-            progress = json.loads(job.progress)
-            data = {"progress": progress}
-        except:
-            data = {}
-
-        job_details = await JobDetails.create(
-            user_id=job.user_id,
-            job_type=job.job_type,
-            status=job.status,
-            data=json.dumps(data),
-            scheduled_timestamp=job.scheduled_timestamp,
-            started_timestamp=job.started_timestamp,
-            finished_timestamp=job.finished_timestamp,
-        )
-
-        # Create redis jobs for pending an active jobs, and make them all pending
-        if job.status == "pending" or job.status == "active":
-            if job_details.job_type == "fetch":
-                redis_job = jobs_q.enqueue_at(
-                    job.scheduled_timestamp, worker_jobs.fetch, job_details.id
-                )
-            elif job_details.job_type == "delete":
-                redis_job = jobs_q.enqueue_at(
-                    job.scheduled_timestamp, worker_jobs.delete, job_details.id
-                )
-            elif job_details.job_type == "delete_dms":
-                redis_job = jobs_q.enqueue_at(
-                    job.scheduled_timestamp, worker_jobs.delete_dms, job_details.id
-                )
-            elif job_details.job_type == "delete_dm_groups":
-                redis_job = jobs_q.enqueue_at(
-                    job.scheduled_timestamp,
-                    worker_jobs.delete_dm_groups,
-                    job_details.id,
-                )
-            await job_details.update(status="pending", redis_id=redis_job.id).apply()
-
-        count += 1
-        print(f"\rConverted {count}/{len(jobs)} Jobs     ", end="")
-
-    print()
-
-    # Convert DirectMessageJobs
-    count = 0
-    dm_jobs = await db.DirectMessageJob.query.gino.all()
-    print(f"Found {len(dm_jobs)} DirectMessageJobs")
-    for dm_job in dm_jobs:
-        data = {
-            "dest_twitter_id": dm_job.dest_twitter_id,
-            "message": dm_job.message,
-        }
-
-        if dm_job.status == "pending":
-            status = "pending"
-        elif dm_job.status == "sent":
-            status = "finished"
-        else:
-            status = "canceled"
-
-        if dm_job.priority == 0:
-            q = dm_jobs_high_q
-        else:
-            q = dm_jobs_low_q
-
-        job_details = await JobDetails.create(
-            job_type="dm",
-            status=status,
-            data=json.dumps(data),
-            scheduled_timestamp=dm_job.scheduled_timestamp,
-            started_timestamp=dm_job.sent_timestamp,
-            finished_timestamp=dm_job.sent_timestamp,
-        )
-
-        # # Create redis jobs for pending jobs
-        # if dm_job.status == "pending":
-        #     redis_job = q.enqueue_at(
-        #         dm_job.scheduled_timestamp, worker_jobs.dm, job_details.id
-        #     )
-        #     await job_details.update(redis_id=redis_job.id).apply()
-
-        count += 1
-        print(f"\rConverted {count}/{len(dm_jobs)} DirectMessageJobs     ", end="")
-
-    print(
-        "Skipped actually sending any pending DMs, because rewards are low and risks are high"
-    )
-
-    print()
-
-    # Convert BlockJob
-    count = 0
-    block_jobs = await db.BlockJob.query.gino.all()
-    print(f"Found {len(block_jobs)} BlockJobs")
-    for block_job in block_jobs:
-        data = {"twitter_username": block_job.twitter_username}
-        if block_job.status == "pending":
-            status = "pending"
-        elif block_job.status == "blocked":
-            status = "finished"
-        else:
-            status = "canceled"
-
-        job_details = await JobDetails.create(
-            user_id=block_job.user_id,
-            job_type="block",
-            status=status,
-            data=json.dumps(data),
-            scheduled_timestamp=block_job.scheduled_timestamp,
-            started_timestamp=block_job.blocked_timestamp,
-            finished_timestamp=block_job.blocked_timestamp,
-        )
-
-        # Create redis jobs for pending jobs
-        if block_job.status == "pending":
-            redis_job = q.enqueue_at(
-                block_job.scheduled_timestamp, worker_jobs.block, job_details.id
-            )
-            await job_details.update(redis_id=redis_job.id).apply()
-
-        count += 1
-        print(f"\rConverted {count}/{len(block_jobs)} BlockJobs     ", end="")
-
-    print()
-
-    # Convert UnblockJob
-    count = 0
-    unblock_jobs = await db.UnblockJob.query.gino.all()
-    print(f"Found {len(unblock_jobs)} UnblockJobs")
-    for unblock_job in unblock_jobs:
-        data = {"twitter_username": unblock_job.twitter_username}
-        if unblock_job.status == "pending":
-            status = "pending"
-        elif unblock_job.status == "unblocked":
-            status = "finished"
-        else:
-            status = "canceled"
-
-        job_details = await JobDetails.create(
-            user_id=unblock_job.user_id,
-            job_type="unblock",
-            status=status,
-            data=json.dumps(data),
-            scheduled_timestamp=unblock_job.scheduled_timestamp,
-            started_timestamp=unblock_job.blocked_timestamp,
-            finished_timestamp=unblock_job.blocked_timestamp,
-        )
-
-        # Create redis jobs for pending jobs
-        if unblock_job.status == "pending":
-            redis_job = q.enqueue_at(
-                unblock_job.scheduled_timestamp, worker_jobs.unblock, job_details.id
-            )
-            await job_details.update(redis_id=redis_job.id).apply()
-
-        count += 1
-        print(f"\rConverted {count}/{len(unblock_jobs)} UnblockJobs     ", end="")
-
-    print()
-
-
-async def _onetime_2022_05_add_all_jobs():
-    await connect_db()
-
-    pending_jobs_count = 0
-    new_jobs_count = 0
-
-    # Find all the active users
+    # Find all users
     users = (
         await User.query.where(User.blocked == False)
         .where(User.paused == False)
         .gino.all()
     )
+    count = len(users)
+    i = 0
     for user in users:
-        # Find pending delete jobs for this user
-        jobs = (
+        pending_delete_jobs = (
             await JobDetails.query.where(JobDetails.user_id == user.id)
             .where(JobDetails.status == "pending")
             .where(JobDetails.job_type == "delete")
             .gino.all()
         )
-        if len(jobs) == 0:
-            # Create a new delete job
-            job_details = await JobDetails.create(
-                job_type="delete",
-                user_id=user.id,
-            )
-            redis_job = jobs_q.enqueue(
-                worker_jobs.delete, job_details.id, job_timeout="24h"
-            )
-            await job_details.update(redis_id=redis_job.id).apply()
-
-            new_jobs_count += 1
-        else:
-            pending_jobs_count += 1
-
-        print(
-            f"\r{pending_jobs_count:,} users with pending delete jobs, {new_jobs_count:,} delete jobs created",
-            end="",
-        )
-
-    print()
-
-
-async def _fix_stalled_users():
-    await connect_db()
-
-    # Find all users
-    users = await User.query.gino.all()
-    count = len(users)
-    i = 0
-    for user in users:
-        # Cancel all pending jobs for this user
-        await JobDetails.update.values(status="canceled").where(
-            JobDetails.user_id == user.id
-        ).where(
-            or_(JobDetails.status == "pending", JobDetails.status == "active")
-        ).gino.status()
-
-        if not user.paused and not user.blocked:
-            # Add a new delete job
-            await JobDetails.create(
-                job_type="delete",
-                user_id=user.id,
-            )
+        if len(pending_delete_jobs) == 0:
+            await add_job("delete", user.id, worker_jobs.funcs)
             print(f"[{i:,}/{count:,} @{user.twitter_screen_name} added delete job")
-        else:
-            print(
-                f"[{i:,}/{count:,} @{user.twitter_screen_name} skipping, paused or blocked"
-            )
 
         i += 1
+
+    await disconnect_db()
+
+
+async def _cancel_dupe_jobs():
+    await connect_db()
+    i = 0
+    print("querying users")
+    users = (
+        await User.query.where(User.blocked == False)
+        .where(User.paused == False)
+        .gino.all()
+    )
+    count = len(users)
+    for user in users:
+        for job_type in ["fetch", "delete"]:
+            print(
+                f"{i:,}/{count:,} @{user.twitter_screen_name} querying pending {job_type} jobs"
+            )
+            pending_jobs = (
+                await JobDetails.query.where(JobDetails.user_id == user.id)
+                .where(JobDetails.status == "pending")
+                .where(JobDetails.job_type == job_type)
+                .gino.all()
+            )
+            if len(pending_jobs) > 1:
+                skipped_first = False
+                for job in pending_jobs:
+                    if not skipped_first:
+                        skipped_first = True
+                        continue
+
+                    await job.update(
+                        status="canceled", finished_timestamp=datetime.now()
+                    ).apply()
+                    print(
+                        f"{i:,}/{count:,} @{user.twitter_screen_name} canceled {job_type} job {job.id}"
+                    )
+
+        i += 1
+
+    await disconnect_db()
 
 
 @click.group()
@@ -506,14 +275,6 @@ def cleanup_dm_jobs():
     asyncio.run(_cleanup_dm_jobs())
 
 
-# @main.command(
-#     "unblock-users",
-#     short_help="Set users to unblocked if they shouldn't be blocked",
-# )
-# def unblock_users():
-#     asyncio.run(_unblock_users())
-
-
 @main.command(
     "failed-jobs-registry",
     short_help="View failed jobs from the redis queue",
@@ -536,43 +297,19 @@ def unblock_users():
 
 
 @main.command(
-    "reset-since-id",
-    short_help="Set since_id=None for all users, forcing them to redownload all tweets",
-)
-def reset_since_id():
-    asyncio.run(_reset_since_id())
-
-
-@main.command(
-    "delete-nonexcluded-tweets",
-    short_help="Delete tweets that aren't excluded from deletion",
-)
-def delete_nonexcluded_tweets():
-    asyncio.run(_delete_nonexcluded_tweets())
-
-
-@main.command(
-    "2022-05-add-redis-jobs",
-    short_help="Convert old jobs into JobDetails and redis jobs",
-)
-def onetime_2022_05_add_redis_jobs():
-    asyncio.run(_onetime_2022_05_add_redis_jobs())
-
-
-@main.command(
-    "2022-05-add-all-jobs",
-    short_help="Add jobs for everyone who isn't paused, and doesn't have a pending job",
-)
-def onetime_2022_05_add_all_jobs():
-    asyncio.run(_onetime_2022_05_add_all_jobs())
-
-
-@main.command(
     "fix-stalled-users",
     short_help="Cancel all jobs, and start new ones for non-paused users",
 )
 def fix_stalled_users():
     asyncio.run(_fix_stalled_users())
+
+
+@main.command(
+    "cancel-dupe-jobs",
+    short_help="Each user should have at most 1 fetch and 1 delete job, this cancels dupes",
+)
+def cancel_dupe_jobs():
+    asyncio.run(_cancel_dupe_jobs())
 
 
 if __name__ == "__main__":

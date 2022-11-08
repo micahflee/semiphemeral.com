@@ -66,7 +66,9 @@ async def add_job(
     await job_details.update(redis_id=redis_job.id).apply()
 
 
-async def add_dm_job(funcs, dest_twitter_id, message, scheduled_timestamp=None):
+async def add_dm_job(
+    funcs, dest_twitter_id, message, scheduled_timestamp=None, priority="high"
+):
     if not scheduled_timestamp:
         scheduled_timestamp = datetime.now()
     job_details = await JobDetails.create(
@@ -75,7 +77,11 @@ async def add_dm_job(funcs, dest_twitter_id, message, scheduled_timestamp=None):
         data=json.dumps({"dest_twitter_id": dest_twitter_id, "message": message}),
         scheduled_timestamp=scheduled_timestamp,
     )
-    redis_job = dm_jobs_high_q.enqueue_at(
+    if priority == "high":
+        q = dm_jobs_high_q
+    else:
+        q = dm_jobs_low_q
+    redis_job = q.enqueue_at(
         scheduled_timestamp,
         funcs["dm"],
         job_details.id,
