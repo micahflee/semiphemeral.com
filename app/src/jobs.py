@@ -131,33 +131,6 @@ async def calculate_thread(user, status_id):
     return await calculate_thread(user, tweet.in_reply_to_status_id) + [status_id]
 
 
-async def calculate_excluded_threads(user):
-    """
-    Based on the user's settings, figure out which threads should be excluded from
-    deletion, and which threads should have their tweets deleted
-    """
-    # Reset the should_exclude flag for all threads
-    await Thread.update.values(should_exclude=False).where(
-        Thread.user_id == user.id
-    ).gino.status()
-
-    # Set should_exclude for all threads based on the settings
-    if user.tweets_threads_threshold:
-        threads = (
-            await Thread.query.select_from(Thread.join(Tweet))
-            .where(Thread.id == Tweet.thread_id)
-            .where(Thread.user_id == user.id)
-            .where(Tweet.user_id == user.id)
-            .where(Tweet.is_deleted == False)
-            .where(Tweet.is_retweet == False)
-            .where(Tweet.retweet_count >= user.tweets_retweet_threshold)
-            .where(Tweet.like_count >= user.tweets_like_threshold)
-            .gino.all()
-        )
-        for thread in threads:
-            await thread.update(should_exclude=True).apply()
-
-
 async def broken_and_cancel(user, job_details):
     await log(
         job_details,
@@ -365,11 +338,33 @@ async def fetch(job_details_id, funcs):
         new_since_id = r[0][0]
         await user.update(since_id=new_since_id).apply()
 
+    # Based on the user's settings, figure out which threads should be excluded from deletion,
+    # and which threads should have their tweets deleted
+
     # Calculate which threads should be excluded from deletion
     data["progress"]["status"] = "Calculating which threads to exclude from deletion"
     await job_details.update(data=json.dumps(data)).apply()
 
-    await calculate_excluded_threads(user)
+    # Reset the should_exclude flag for all threads
+    await Thread.update.values(should_exclude=False).where(
+        Thread.user_id == user.id
+    ).gino.status()
+
+    # Set should_exclude for all threads based on the settings
+    if user.tweets_threads_threshold:
+        threads = (
+            await Thread.query.select_from(Thread.join(Tweet))
+            .where(Thread.id == Tweet.thread_id)
+            .where(Thread.user_id == user.id)
+            .where(Tweet.user_id == user.id)
+            .where(Tweet.is_deleted == False)
+            .where(Tweet.is_retweet == False)
+            .where(Tweet.retweet_count >= user.tweets_retweet_threshold)
+            .where(Tweet.like_count >= user.tweets_like_threshold)
+            .gino.all()
+        )
+        for thread in threads:
+            await thread.update(should_exclude=True).apply()
 
     data["progress"]["status"] = "Finished"
     await job_details.update(data=json.dumps(data)).apply()
