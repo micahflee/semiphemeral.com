@@ -96,7 +96,6 @@ async def _cleanup_users():
     count = len(users)
     users_deleted = 0
     for user in users:
-        # See if the user has valid creds
         print(
             f"\r[{i:,}/{count:,}] checking @{user.twitter_screen_name} ..." + " " * 20,
             end="",
@@ -106,7 +105,7 @@ async def _cleanup_users():
             api.verify_credentials()
         except tweepy.errors.Unauthorized:
             print(
-                f"\r[{i:,}/{count:,}, deleted {users_deleted:,}] deleting @{user.twitter_screen_name}: {e}"
+                f"\r[{i:,}/{count:,}, deleted {users_deleted:,}] deleting @{user.twitter_screen_name}"
             )
             await delete_user(user)
             users_deleted += 1
