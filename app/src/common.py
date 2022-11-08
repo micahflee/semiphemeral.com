@@ -1,11 +1,21 @@
 import os
 import sys
 import requests
+import json
 from datetime import datetime, timedelta
 
 import tweepy
 
 from db import Tweet, Like, Thread, Nag, JobDetails, Tip
+
+import redis
+from rq import Queue
+from rq.job import Retry
+
+conn = redis.from_url(os.environ.get("REDIS_URL"))
+jobs_q = Queue("jobs", connection=conn)
+dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
+dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
 
 
 async def log(job_details, s):
@@ -17,6 +27,62 @@ async def log(job_details, s):
         )
     else:
         print(f"[{datetime.now().strftime('%c')}] {s}", file=sys.stderr)
+
+
+# Add a job
+async def add_job(
+    job_type, user_id, funcs, data={}, job_timeout="24h", scheduled_timestamp=None
+):
+    # Make sure there's not already a scheduled job of this type
+    existing_job_details = (
+        await JobDetails.query.where(JobDetails.user_id == user_id)
+        .where(JobDetails.job_type == job_type)
+        .where(JobDetails.status == "pending")
+        .gino.all()
+    )
+    if existing_job_details:
+        await log(
+            None,
+            f"Skipping adding {job_type} job for user_id={user_id}, job is already pending",
+        )
+        return
+
+    # Add the job
+    if not scheduled_timestamp:
+        scheduled_timestamp = datetime.now()
+    job_details = await JobDetails.create(
+        job_type=job_type,
+        user_id=user_id,
+        data=json.dumps(data),
+        scheduled_timestamp=scheduled_timestamp,
+    )
+    redis_job = jobs_q.enqueue_at(
+        scheduled_timestamp,
+        funcs[job_type],
+        job_details.id,
+        job_timeout=job_timeout,
+        retry=Retry(max=3, interval=[60, 120, 240]),
+    )
+    await job_details.update(redis_id=redis_job.id).apply()
+
+
+async def add_dm_job(funcs, dest_twitter_id, message, scheduled_timestamp=None):
+    if not scheduled_timestamp:
+        scheduled_timestamp = datetime.now()
+    job_details = await JobDetails.create(
+        job_type="dm",
+        user_id=None,
+        data=json.dumps({"dest_twitter_id": dest_twitter_id, "message": message}),
+        scheduled_timestamp=scheduled_timestamp,
+    )
+    redis_job = dm_jobs_high_q.enqueue_at(
+        scheduled_timestamp,
+        funcs["dm"],
+        job_details.id,
+        job_timeout="10m",
+        retry=Retry(max=3, interval=[60, 120, 240]),
+    )
+    await job_details.update(redis_id=redis_job.id).apply()
 
 
 # Twitter API v2

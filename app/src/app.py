@@ -25,6 +25,11 @@ from common import (
     tweepy_api_v1_1,
     tweepy_dms_api_v1_1,
     tweepy_semiphemeral_api_1_1,
+    conn,
+    jobs_q,
+    dm_jobs_high_q,
+    add_job,
+    add_dm_job,
 )
 from db import (
     db,
@@ -40,17 +45,9 @@ from db import (
 
 import worker_jobs
 
-import redis
 import rq
-from rq import Queue
 from rq.job import Job as RQJob, Retry as RQRetry
 from rq.registry import FailedJobRegistry
-
-print(f"Connecting to redis at: {os.environ.get('REDIS_URL')}")
-conn = redis.from_url(os.environ.get("REDIS_URL"))
-
-jobs_q = Queue("jobs", connection=conn)
-dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
 
 jobs_registry = FailedJobRegistry(queue=jobs_q)
 dm_jobs_registry = FailedJobRegistry(queue=dm_jobs_high_q)
@@ -258,17 +255,7 @@ async def auth_twitter_callback(request):
         )
 
         # Create a new fetch job
-        job_details = await JobDetails.create(
-            job_type="fetch",
-            user_id=user.id,
-        )
-        redis_job = jobs_q.enqueue(
-            worker_jobs.fetch,
-            job_details.id,
-            job_timeout="24h",
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
-        )
-        await job_details.update(redis_id=redis_job.id).apply()
+        await add_job("fetch", user.id, worker_jobs.funcs)
     else:
         # Make sure to update the user's twitter access token and secret
         await log(None, f"Authenticating user @{user.twitter_screen_name}")
@@ -1150,17 +1137,7 @@ async def api_post_dashboard(request):
         await user.update(blocked=False, since_id=None).apply()
 
         # Create a new fetch job
-        job_details = await JobDetails.create(
-            job_type="fetch",
-            user_id=user.id,
-        )
-        redis_job = jobs_q.enqueue(
-            worker_jobs.fetch,
-            job_details.id,
-            job_timeout="24h",
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
-        )
-        await job_details.update(redis_id=redis_job.id).apply()
+        await add_job("fetch", user.id, worker_jobs.funcs)
 
         return web.json_response({"unblocked": True})
 
@@ -1192,17 +1169,7 @@ async def api_post_dashboard(request):
             await user.update(paused=False).apply()
 
             # Create a new delete job
-            job_details = await JobDetails.create(
-                job_type="delete",
-                user_id=user.id,
-            )
-            redis_job = jobs_q.enqueue(
-                worker_jobs.delete,
-                job_details.id,
-                job_timeout="24h",
-                retry=RQRetry(max=3, interval=[60, 120, 240]),
-            )
-            await job_details.update(redis_id=redis_job.id).apply()
+            await add_job("delete", user.id, worker_jobs.funcs)
 
         elif data["action"] == "pause":
             if user.paused:
@@ -1235,17 +1202,7 @@ async def api_post_dashboard(request):
                 )
 
             # Create a new fetch job
-            job_details = await JobDetails.create(
-                job_type="fetch",
-                user_id=user.id,
-            )
-            redis_job = jobs_q.enqueue(
-                worker_jobs.fetch,
-                job_details.id,
-                job_timeout="24h",
-                retry=RQRetry(max=3, interval=[60, 120, 240]),
-            )
-            await job_details.update(redis_id=redis_job.id).apply()
+            await add_job("fetch", user.id, worker_jobs.funcs)
 
         return web.json_response(True)
 
@@ -1447,27 +1404,7 @@ async def api_post_dms(request):
         f.write(json.dumps(conversations, indent=2))
 
     # Create a new delete_dms job
-    job_details = await JobDetails.create(
-        job_type="delete_dms",
-        user_id=user.id,
-    )
-    if dm_type == "dms":
-        redis_job = jobs_q.enqueue(
-            worker_jobs.delete_dms,
-            job_details.id,
-            job_timeout="24h",
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
-        )
-        await job_details.update(redis_id=redis_job.id).apply()
-    elif dm_type == "groups":
-        redis_job = jobs_q.enqueue(
-            worker_jobs.delete_dm_groups,
-            job_details.id,
-            job_timeout="24h",
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
-        )
-        await job_details.update(redis_id=redis_job.id).apply()
-
+    await add_job(job_type, user.id, worker_jobs.funcs)
     return web.json_response({"error": False})
 
 
@@ -1756,16 +1693,9 @@ async def admin_api_post_fascists(request):
         ).gino.status()
 
         # Make sure the fascist is blocked
-        job_details = await JobDetails.create(
-            job_type="block", data=json.dumps({"twitter_username": data["username"]})
+        await add_job(
+            "block", None, worker_jobs.funcs, {"twitter_username": data["username"]}
         )
-        redis_job = jobs_q.enqueue(
-            worker_jobs.block,
-            job_details.id,
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
-        )
-        await job_details.update(redis_id=redis_job.id).apply()
-
         return web.json_response(True)
 
     elif data["action"] == "delete":
