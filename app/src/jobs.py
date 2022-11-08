@@ -14,6 +14,8 @@ from common import (
     tweepy_api_v1_1,
     tweepy_dms_api_v1_1,
     tweepy_semiphemeral_api_1_1,
+    add_job,
+    add_dm_job,
 )
 from db import (
     connect_db,
@@ -31,11 +33,6 @@ from sqlalchemy.sql import text
 
 import redis
 from rq import Queue, Retry
-
-conn = redis.from_url(os.environ.get("REDIS_URL"))
-jobs_q = Queue("jobs", connection=conn)
-dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
-dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
 
 
 class JobCanceled(Exception):
@@ -387,22 +384,17 @@ async def fetch(job_details_id, funcs):
     )
     if len(fascist_likes) > 4:
         # Create a block job
-        new_job_details = await JobDetails.create(
-            job_type="block",
-            data=json.dumps(
-                {
-                    "twitter_username": user.twitter_screen_name,
-                    "twitter_id": user.twitter_id,
-                    "user_id": user.id,
-                }
-            ),
+        await add_job(
+            "block",
+            None,
+            funcs,
+            data={
+                "twitter_username": user.twitter_screen_name,
+                "twitter_id": user.twitter_id,
+                "user_id": user.id,
+            },
+            job_timeout="10m",
         )
-        redis_job = jobs_q.enqueue(
-            funcs["block"],
-            new_job_details.id,
-            retry=Retry(max=3, interval=[60, 120, 240]),
-        )
-        await new_job_details.update(redis_id=redis_job.id).apply()
 
         # Don't send any DMs
         await log(job_details, f"Blocking user")
@@ -423,19 +415,7 @@ async def fetch(job_details_id, funcs):
         message += f"The next step is look through your tweets and manually mark which ones you want to make sure never get deleted. Visit https://{os.environ.get('DOMAIN')}/tweets to finish.\n\nWhen you're done, you can start deleting your tweets from the dashboard."
 
         # Create DM job
-        new_job_details = await JobDetails.create(
-            job_type="dm",
-            data=json.dumps(
-                {
-                    "dest_twitter_id": user.twitter_id,
-                    "message": message,
-                }
-            ),
-        )
-        redis_job = dm_jobs_high_q.enqueue(
-            funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
-        )
-        await new_job_details.update(redis_id=redis_job.id).apply()
+        await add_dm_job(funcs, user.twitter_id, message)
 
     await job_details.update(
         status="finished", finished_timestamp=datetime.now()
@@ -658,16 +638,7 @@ async def delete(job_details_id, funcs):
 
     # Schedule the next delete job
     scheduled_timestamp = datetime.now() + timedelta(days=1)
-    new_job_details = await JobDetails.create(
-        job_type="delete", user_id=user.id, scheduled_timestamp=scheduled_timestamp
-    )
-    redis_job = jobs_q.enqueue_at(
-        scheduled_timestamp, funcs["delete"], new_job_details.id, job_timeout="24h"
-    )
-    with open("/tmp/debug.log", "w") as f:
-        f.write(str(redis_job))
-        f.write("\n")
-    await new_job_details.update(redis_id=redis_job.id).apply()
+    await add_job("delete", user.id, funcs, scheduled_timestamp=scheduled_timestamp)
 
     # Has the user tipped in the last year?
     one_year = timedelta(days=365)
@@ -706,36 +677,10 @@ async def delete(job_details_id, funcs):
 
         # The user has never been nagged, so this is the first delete
         message = f"Congratulations! Semiphemeral has deleted {data['progress']['tweets_deleted']:,} tweets, unretweeted {data['progress']['retweets_deleted']:,} tweets, and unliked {data['progress']['likes_deleted']:,} tweets. Doesn't that feel nice?\n\nEach day, I will download your latest tweets and likes and then delete the old ones based on your settings. You can sit back, relax, and enjoy the privacy.\n\nYou can always change your settings, mark new tweets to never delete, and pause Semiphemeral from the website https://{os.environ.get('DOMAIN')}/dashboard."
-
-        new_job_details = await JobDetails.create(
-            job_type="dm",
-            data=json.dumps(
-                {
-                    "dest_twitter_id": user.twitter_id,
-                    "message": message,
-                }
-            ),
-        )
-        redis_job = dm_jobs_high_q.enqueue(
-            funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
-        )
-        await new_job_details.update(redis_id=redis_job.id).apply()
+        await add_dm_job(funcs, user.twitter_id, message)
 
         message = f"Semiphemeral is free, but running this service costs money. Care to chip in?\n\nIf you tip any amount, even just $1, I will stop nagging you for a year. Otherwise, I'll gently remind you once a month.\n\n(It's fine if you want to ignore these DMs. I won't care. I'm a bot, so I don't have feelings).\n\nVisit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
-
-        new_job_details = await JobDetails.create(
-            job_type="dm",
-            data=json.dumps(
-                {
-                    "dest_twitter_id": user.twitter_id,
-                    "message": message,
-                }
-            ),
-        )
-        redis_job = dm_jobs_high_q.enqueue(
-            funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
-        )
-        await new_job_details.update(redis_id=redis_job.id).apply()
+        await add_dm_job(funcs, user.twitter_id, message)
 
     else:
         if should_nag:
@@ -804,22 +749,7 @@ async def delete(job_details_id, funcs):
                             ]["likes_deleted"]
 
             message = f"Since you've been using Semiphemeral, I have deleted {total_progress['tweets_deleted']:,} tweets, unretweeted {total_progress['retweets_deleted']:,} tweets, and unliked {total_progress['likes_deleted']:,} tweets for you.\n\nJust since last month, I've deleted {total_progress_since_last_nag['tweets_deleted']:,} tweets, unretweeted {total_progress_since_last_nag['retweets_deleted']:,} tweets, and unliked {total_progress_since_last_nag['likes_deleted']:,} tweets.\n\nSemiphemeral is free, but running this service costs money. Care to chip in? Visit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
-
-            new_job_details = await JobDetails.create(
-                job_type="dm",
-                data=json.dumps(
-                    {
-                        "dest_twitter_id": user.twitter_id,
-                        "message": message,
-                    }
-                ),
-            )
-            redis_job = dm_jobs_high_q.enqueue(
-                funcs["dm"],
-                new_job_details.id,
-                retry=Retry(max=3, interval=[60, 120, 240]),
-            )
-            await new_job_details.update(redis_id=redis_job.id).apply()
+            await add_dm_job(funcs, user.twitter_id, message)
 
     await disconnect_db()
 
@@ -964,20 +894,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
         message = f"Congratulations, Semiphemeral just finished deleting {data['progress']['dms_deleted']:,} of your old direct messages."
     elif dm_type == "groups":
         message = f"Congratulations, Semiphemeral just finished deleting {data['progress']['dms_deleted']:,} of your old group direct messages."
-
-    new_job_details = await JobDetails.create(
-        job_type="dm",
-        data=json.dumps(
-            {
-                "dest_twitter_id": user.twitter_id,
-                "message": message,
-            }
-        ),
-    )
-    redis_job = dm_jobs_high_q.enqueue(
-        funcs["dm"], new_job_details.id, retry=Retry(max=3, interval=[60, 120, 240])
-    )
-    await new_job_details.update(redis_id=redis_job.id).apply()
+    await add_dm_job(funcs, user.twitter_id, message)
 
     await job_details.update(
         status="finished", finished_timestamp=datetime.now()
@@ -1031,41 +948,24 @@ async def block(job_details_id, funcs):
 
             # Send the DM
             message = f"You have liked {len(fascist_likes):,} tweets from a prominent fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated.\n\nTo see which tweets you liked and learn how to get yourself unblocked, see https://{os.environ.get('DOMAIN')}/dashboard.\n\nOr you can wait until {unblock_timestamp_formatted} when you will get automatically unblocked, at which point you can login to reactivate your account so long as you've stop liking tweets from fascists."
-
-            new_job_details = await JobDetails.create(
-                job_type="dm",
-                data=json.dumps(
-                    {
-                        "dest_twitter_id": user.twitter_id,
-                        "message": message,
-                    }
-                ),
-            )
-            redis_job = dm_jobs_high_q.enqueue(
-                funcs["dm"],
-                new_job_details.id,
-                retry=Retry(max=3, interval=[60, 120, 240]),
-            )
-            await new_job_details.update(redis_id=redis_job.id).apply()
+            await add_dm_job(funcs, user.twitter_id, message)
 
             # Wait 65 seconds before blocking, to ensure they receive the DM
             await asyncio.sleep(65)
 
             # Create the unblock job
-            new_job_details = await JobDetails.create(
-                job_type="unblock",
-                data=json.dumps(
-                    {
-                        "user_id": user.id,
-                        "twitter_username": user.twitter_screen_name,
-                        "twitter_id": user.twitter_id,
-                    }
-                ),
+            await add_job(
+                "unblock",
+                None,
+                funcs,
+                data={
+                    "user_id": user.id,
+                    "twitter_username": user.twitter_screen_name,
+                    "twitter_id": user.twitter_id,
+                },
+                job_timeout="10m",
+                scheduled_timestamp=unblock_timestamp,
             )
-            redis_job = jobs_q.enqueue_at(
-                unblock_timestamp, funcs["unblock"], new_job_details.id
-            )
-            await new_job_details.update(redis_id=redis_job.id).apply()
 
         # Block the user
         try:
@@ -1136,6 +1036,8 @@ async def dm(job_details_id, funcs):
     await job_details.update(status="active", started_timestamp=datetime.now()).apply()
     await log(job_details, str(job_details))
 
+    data = json.loads(job_details.data)
+
     # Make sure the user follows us
     user = await User.query.where(User.id == job_details.user_id).gino.first()
     if user:
@@ -1177,21 +1079,20 @@ async def dm(job_details_id, funcs):
                             f"Error on api.create_friendship with v1.1 API, try again in an hour: {e}",
                         )
                         scheduled_timestamp = datetime.now() + timedelta(hours=1)
-                        await job_details.update(
-                            status="pending", scheduled_timestamp=scheduled_timestamp
-                        ).apply()
-                        redis_job = jobs_q.enqueue_at(
-                            scheduled_timestamp,
-                            funcs["delete"],
-                            job_details.id,
-                            job_timeout="1h",
+                        await add_dm_job(
+                            funcs,
+                            data["dest_twitter_id"],
+                            data["message"],
+                            scheduled_timestamp=scheduled_timestamp,
                         )
-                        await job_details.update(redis_id=redis_job.id).apply()
+
+                        await job_details.update(
+                            status="canceled", finished_timestamp=datetime.now()
+                        ).apply()
                         await disconnect_db()
                         return
 
     # Send the DM
-    data = json.loads(job_details.data)
     semiphemeral_api = tweepy_semiphemeral_api_1_1()
     try:
         semiphemeral_api.send_direct_message(
