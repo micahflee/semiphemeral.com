@@ -151,6 +151,11 @@ async def fetch(job_details_id, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
     ).gino.first()
+    if job_details.status == "canceled":
+        await log(job_details, "Job already canceled, quitting early")
+        await disconnect_db()
+        return
+
     await job_details.update(status="active", started_timestamp=datetime.now()).apply()
     await log(job_details, str(job_details))
 
@@ -429,10 +434,10 @@ async def delete(job_details_id, funcs):
         JobDetails.id == job_details_id
     ).gino.first()
     if job_details.status == "canceled":
-        await log(job_details, str(job_details))
-        await log(job_details, "canceled job, so quitting early")
+        await log(job_details, "Job already canceled, quitting early")
         await disconnect_db()
         return
+
     await job_details.update(status="active", started_timestamp=datetime.now()).apply()
     await log(job_details, str(job_details))
 
@@ -770,6 +775,11 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
     ).gino.first()
+    if job_details.status == "canceled":
+        await log(job_details, "Job already canceled, quitting early")
+        await disconnect_db()
+        return
+
     await job_details.update(status="active", started_timestamp=datetime.now()).apply()
     await log(job_details, str(job_details))
 
@@ -905,6 +915,11 @@ async def block(job_details_id, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
     ).gino.first()
+    if job_details.status == "canceled":
+        await log(job_details, "Job already canceled, quitting early")
+        await disconnect_db()
+        return
+
     await job_details.update(status="active", started_timestamp=datetime.now()).apply()
     await log(job_details, str(job_details))
 
@@ -986,6 +1001,11 @@ async def unblock(job_details_id, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
     ).gino.first()
+    if job_details.status == "canceled":
+        await log(job_details, "Job already canceled, quitting early")
+        await disconnect_db()
+        return
+
     await job_details.update(status="active", started_timestamp=datetime.now()).apply()
     await log(job_details, str(job_details))
 
@@ -1028,6 +1048,11 @@ async def dm(job_details_id, funcs):
     job_details = await JobDetails.query.where(
         JobDetails.id == job_details_id
     ).gino.first()
+    if job_details.status == "canceled":
+        await log(job_details, "Job already canceled, quitting early")
+        await disconnect_db()
+        return
+
     await job_details.update(status="active", started_timestamp=datetime.now()).apply()
     await log(job_details, str(job_details))
 
