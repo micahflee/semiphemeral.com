@@ -208,7 +208,6 @@ async def _fix_stalled_users():
 async def _cancel_dupe_jobs():
     await connect_db()
     i = 0
-    print("querying users")
     users = (
         await User.query.where(User.blocked == False)
         .where(User.paused == False)
@@ -217,9 +216,6 @@ async def _cancel_dupe_jobs():
     count = len(users)
     for user in users:
         for job_type in ["fetch", "delete"]:
-            print(
-                f"{i:,}/{count:,} @{user.twitter_screen_name} querying pending {job_type} jobs"
-            )
             pending_jobs = (
                 await JobDetails.query.where(JobDetails.user_id == user.id)
                 .where(JobDetails.status == "pending")

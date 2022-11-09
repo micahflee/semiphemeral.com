@@ -156,7 +156,7 @@ services:
         "run",
         "python",
         "worker.py",
-        "dms"
+        "--dms"
       ]
 
 networks:
