@@ -13,11 +13,21 @@ from aiohttp_session.cookie_storage import EncryptedCookieStorage
 import jinja2
 import aiohttp_jinja2
 import stripe
-from sqlalchemy.sql import text
-from sqlalchemy import or_
 import tweepy
 
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, or_
+from sqlalchemy.sql import text
+from db import (
+    User,
+    Tip,
+    RecurringTip,
+    Tweet,
+    Like,
+    Fascist,
+    JobDetails,
+    engine as db_engine,
+    session as db_session,
+)
 
 from common import (
     log,
@@ -32,17 +42,6 @@ from common import (
     dm_jobs_high_q,
     add_job,
     add_dm_job,
-)
-from db import (
-    User,
-    Tip,
-    RecurringTip,
-    Tweet,
-    Like,
-    Fascist,
-    JobDetails,
-    engine as db_engine,
-    session as db_session,
 )
 
 import worker_jobs
@@ -1503,7 +1502,7 @@ async def admin_api_get_jobs(request):
     )
 
     with db_engine.connect() as conn:
-        result = conn.execute(
+        pending_jobs_count = conn.execute(
             text(
                 """SELECT
 	COUNT(id)
@@ -1515,10 +1514,8 @@ WHERE
 	AND (scheduled_timestamp IS NULL OR scheduled_timestamp <= NOW())
     """
             )
-        )
-        pending_jobs_count = result.all()[0][0]
-
-        result = conn.execute(
+        ).scalar()
+        scheduled_jobs_count = conn.execute(
             text(
                 """SELECT
 	COUNT(id)
@@ -1530,8 +1527,7 @@ WHERE
 	AND scheduled_timestamp > NOW()
     """
             )
-        )
-        scheduled_jobs_count = result.all()[0][0]
+        ).scalar()
 
     async def to_client(job):
         if job.scheduled_timestamp:
