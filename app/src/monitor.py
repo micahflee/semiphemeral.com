@@ -84,23 +84,25 @@ async def main():
         )
         db_session.execute(update(User).values({"paused": True}))
         db_session.execute(
-            update(JobDetails).values(
-                {"status": "canceled"}.where(JobDetails.status == "active")
-            )
+            update(JobDetails)
+            .values({"status": "canceled"})
+            .where(JobDetails.status == "active")
         )
         db_session.execute(
-            update(JobDetails).values(
-                {"status": "canceled"}.where(JobDetails.status == "pending")
-            )
+            update(JobDetails)
+            .values({"status": "canceled"})
+            .where(JobDetails.status == "pending")
         )
+        db_session.commit()
 
     # Mark active jobs pending
     await log(None, "Make 'active' jobs 'pending'")
     db_session.execute(
-        update(JobDetails).values(
-            {"status": "pending"}.where(JobDetails.status == "active")
-        )
+        update(JobDetails)
+        .values({"status": "pending"})
+        .where(JobDetails.status == "active")
     )
+    db_session.commit()
 
     # Add pending jobs to the worker queues
     jobs = db_session.scalars(
