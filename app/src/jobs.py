@@ -345,7 +345,7 @@ async def fetch(job_details_id, funcs, disconnect=True):
             .where(Tweet.is_retweet == False)
             .where(Tweet.retweet_count >= user.tweets_retweet_threshold)
             .where(Tweet.like_count >= user.tweets_like_threshold)
-        )
+        ).fetchall()
         for thread in threads:
             thread.should_exclude = True
             db_session.add(thread)

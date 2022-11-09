@@ -685,7 +685,7 @@ async def api_get_export_download(request):
             .where(Tweet.user_id == user.id)
             .where(Tweet.is_deleted == False)
             .order_by(Tweet.created_at.desc())
-        )
+        ).fetchall()
         for tweet in tweets:
             url = f"https://twitter.com/{user.twitter_screen_name}/status/{tweet.twitter_id}"
 
@@ -722,14 +722,14 @@ async def api_get_tip(request):
         .where(Tip.user_id == user.id)
         .where(Tip.paid == True)
         .order_by(Tip.timestamp.desc())
-    )
+    ).fetchall()
 
     recurring_tips = db_session.scalars(
         select(RecurringTip)
         .where(RecurringTip.user_id == user.id)
         .where(RecurringTip.status == "active")
         .order_by(RecurringTip.timestamp.desc())
-    )
+    ).fetchall()
 
     def tip_to_client(tip):
         return {
@@ -996,21 +996,21 @@ async def api_get_dashboard(request):
         .where(JobDetails.user_id == user.id)
         .where(JobDetails.status == "pending")
         .order_by(JobDetails.scheduled_timestamp)
-    )
+    ).fetchall()
 
     active_jobs = db_session.scalars(
         select(JobDetails)
         .where(JobDetails.user_id == user.id)
         .where(JobDetails.status == "active")
         .order_by(JobDetails.started_timestamp)
-    )
+    ).fetchall()
 
     finished_jobs = db_session.scalars(
         select(JobDetails)
         .where(JobDetails.user_id == user.id)
         .where(JobDetails.status == "finished")
         .order_by(JobDetails.finished_timestamp.desc())
-    )
+    ).fetchall()
 
     def to_client(jobs):
         jobs_json = []
@@ -1052,7 +1052,7 @@ async def api_get_dashboard(request):
             .where(Like.is_fascist == True)
             .where(Like.created_at > six_months_ago)
             .order_by(Like.created_at.desc())
-        )
+        ).fetchall()
 
         api = tweepy_api_v1_1(user)
 
@@ -1190,12 +1190,12 @@ async def api_post_dashboard(request):
             select(JobDetails)
             .where(JobDetails.user_id == user.id)
             .where(JobDetails.status == "pending")
-        )
+        ).fetchall()
         active_jobs = db_session.scalars(
             select(JobDetails)
             .where(JobDetails.user_id == user.id)
             .where(JobDetails.status == "active")
-        )
+        ).fetchall()
         jobs = pending_jobs + active_jobs
 
         if data["action"] == "start":
@@ -1271,7 +1271,7 @@ async def api_get_tweets(request):
         .where(Tweet.is_deleted == False)
         .where(Tweet.is_retweet == False)
         .order_by(Tweet.created_at.desc())
-    )
+    ).fetchall()
     for tweet in tweets:
         created_at = tweet.created_at.timestamp()
         tweets_for_client.append(
@@ -1499,7 +1499,7 @@ async def admin_api_get_jobs(request):
         select(JobDetails)
         .query.where(JobDetails.status == "active")
         .order_by(JobDetails.id)
-    )
+    ).fetchall()
 
     with db_engine.connect() as conn:
         pending_jobs_count = conn.execute(
@@ -1577,7 +1577,9 @@ WHERE
 
 @admin_required
 async def admin_api_get_users(request):
-    users = db_session.scalars(select(User).order_by(User.twitter_screen_name))
+    users = db_session.scalars(
+        select(User).order_by(User.twitter_screen_name)
+    ).fetchall()
     active_users = []
     paused_users = []
     blocked_users = []
@@ -1641,7 +1643,7 @@ async def admin_api_get_user(request):
         .where(Like.user_id == user_id)
         .where(Like.is_fascist == True)
         .order_by(Like.created_at.desc())
-    )
+    ).fetchall()
     fascist_tweet_urls = [
         f"https://twitter.com/semiphemeral/status/{like.twitter_id}"
         for like in fascist_likes
@@ -1705,7 +1707,7 @@ async def admin_api_post_fascists(request):
 
     # Get a twitter client to look up this fascist user
     session = await get_session(request)
-    user = db_session.scalars(
+    user = db_session.scalar(
         select(User).where(User.twitter_id == session["twitter_id"])
     )
 
@@ -1722,7 +1724,7 @@ async def admin_api_post_fascists(request):
         fascist_twitter_user_id = response.id_str
 
         # If a fascist with this username already exists, just update the comment
-        fascist = db_session.scalars(
+        fascist = db_session.scalar(
             select(Fascist).where(Fascist.username == data["username"])
         )
         if fascist:
@@ -1754,7 +1756,7 @@ async def admin_api_post_fascists(request):
         await _api_validate({"action": str, "username": str}, data)
 
         # Delete the fascist
-        fascist = db_session.scalars(
+        fascist = db_session.scalar(
             select(Fascist).where(Fascist.username == data["username"])
         )
         if fascist:
@@ -1781,7 +1783,7 @@ async def admin_api_get_tips(request):
     users = {}
     tips = db_session.scalars(
         select(Tip).where(Tip.paid == True).order_by(Tip.timestamp.desc())
-    )
+    ).fetchall()
     for tip in tips:
         if tip.user_id not in users:
             user = db_session.scalar(select(User).where(User.id == tip.user_id))
