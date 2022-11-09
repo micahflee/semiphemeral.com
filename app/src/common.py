@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 
 import tweepy
 
-from db import Tweet, Like, Thread, Nag, JobDetails, Tip
+from sqlalchemy import select, delete
+from db import db_session, Tweet, Like, Thread, Nag, JobDetails, Tip
 
 import redis
 from rq import Queue
@@ -41,11 +42,11 @@ async def add_job(
     )
 
     # Make sure there's not already a scheduled job of this type
-    existing_job_details = (
-        await JobDetails.query.where(JobDetails.user_id == user_id)
+    existing_job_details = db_session.scalar(
+        select(JobDetails)
+        .where(JobDetails.user_id == user_id)
         .where(JobDetails.job_type == job_type)
         .where(JobDetails.status == "pending")
-        .gino.all()
     )
     if existing_job_details:
         await log(
@@ -55,12 +56,15 @@ async def add_job(
         return
 
     # Add the job
-    job_details = await JobDetails.create(
+    job_details = JobDetails(
         job_type=job_type,
         user_id=user_id,
         data=json.dumps(data),
         scheduled_timestamp=scheduled_timestamp,
     )
+    db_session.add(job_details)
+    db_session.commit()
+
     redis_job = jobs_q.enqueue_at(
         scheduled_timestamp,
         funcs[job_type],
@@ -68,7 +72,10 @@ async def add_job(
         job_timeout=job_timeout,
         # retry=Retry(max=3, interval=[60, 120, 240]),
     )
-    await job_details.update(redis_id=redis_job.id).apply()
+
+    job_details.redis_id = redis_job.id
+    db_session.add(job_details)
+    db_session.commit()
 
 
 async def add_dm_job(
@@ -81,12 +88,15 @@ async def add_dm_job(
         f"add_dm_job: dest_twitter_id={dest_twitter_id}, scheduled_timestamp={scheduled_timestamp}",
     )
 
-    job_details = await JobDetails.create(
+    job_details = JobDetails(
         job_type="dm",
         user_id=None,
         data=json.dumps({"dest_twitter_id": dest_twitter_id, "message": message}),
         scheduled_timestamp=scheduled_timestamp,
     )
+    db_session.add(job_details)
+    db_session.commit()
+
     if priority == "high":
         q = dm_jobs_high_q
     else:
@@ -98,7 +108,10 @@ async def add_dm_job(
         job_timeout="10m",
         # retry=Retry(max=3, interval=[60, 120, 240]),
     )
-    await job_details.update(redis_id=redis_job.id).apply()
+
+    job_details.redis_id = redis_job.id
+    db_session.add(job_details)
+    db_session.commit()
 
 
 # Twitter API v2
@@ -207,8 +220,9 @@ async def tweets_to_delete(user, include_manually_excluded=False):
         # shortly before Twitter was launched
         datetime_threshold = datetime(2006, 7, 1)
 
-    query = (
-        Tweet.query.select_from(Tweet.join(Thread))
+    statement = (
+        select(Tweet)
+        .join(Tweet.thread)
         .where(Tweet.user_id == user.id)
         .where(Tweet.is_deleted == False)
         .where(Tweet.is_retweet == False)
@@ -216,12 +230,12 @@ async def tweets_to_delete(user, include_manually_excluded=False):
         .where(Thread.should_exclude == False)
     )
     if user.tweets_enable_retweet_threshold:
-        query = query.where(Tweet.retweet_count < user.tweets_retweet_threshold)
+        statement = statement.where(Tweet.retweet_count < user.tweets_retweet_threshold)
     if user.tweets_enable_like_threshold:
-        query = query.where(Tweet.like_count < user.tweets_like_threshold)
+        statement = statement.where(Tweet.like_count < user.tweets_like_threshold)
     if not include_manually_excluded:
-        query = query.where(Tweet.exclude_from_delete == False)
-    tweets_to_delete = await query.gino.all()
+        statement = statement.where(Tweet.exclude_from_delete == False)
+    tweets_to_delete = db_session.scalars(statement)
 
     return tweets_to_delete
 
@@ -236,10 +250,13 @@ async def send_admin_notification(message):
 
 
 async def delete_user(user):
-    await Tip.delete.where(Tip.user_id == user.id).gino.status()
-    await Nag.delete.where(Nag.user_id == user.id).gino.status()
-    await JobDetails.delete.where(JobDetails.user_id == user.id).gino.status()
-    await Tweet.delete.where(Tweet.user_id == user.id).gino.status()
-    await Like.delete.where(Like.user_id == user.id).gino.status()
-    await Thread.delete.where(Thread.user_id == user.id).gino.status()
-    await user.delete()
+    db_session.execute(delete(Tip).where(Tip.user_id == user.id))
+    db_session.execute(delete(Nag).where(Nag.user_id == user.id))
+    db_session.execute(delete(JobDetails).where(JobDetails.user_id == user.id))
+    db_session.execute(delete(Tweet).where(Tweet.user_id == user.id))
+    db_session.execute(delete(Like).where(Like.user_id == user.id))
+    db_session.execute(delete(Thread).where(Thread.user_id == user.id))
+    db_session.commit()
+
+    db_session.delete(user)
+    db_session.commit()
