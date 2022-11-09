@@ -10,7 +10,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
 )
-from sqlalchemy.orm import declarative_base, Session
+from sqlalchemy.orm import declarative_base, relationship, Session
 
 Base = declarative_base()
 
@@ -158,6 +158,8 @@ class Thread(Base):
     conversation_id = Column(String)
     should_exclude = Column(Boolean)
 
+    tweets = relationship("Tweet", back_populates="thread")
+
 
 class Tweet(Base):
     __tablename__ = "tweets"
@@ -175,6 +177,8 @@ class Tweet(Base):
     exclude_from_delete = Column(Boolean)
     is_deleted = Column(Boolean)
     thread_id = Column(Integer, ForeignKey("threads.id"))
+
+    thread = relationship("Thread", back_populates="threads")
 
 
 class Like(Base):
