@@ -17,6 +17,8 @@ from sqlalchemy.sql import text
 from sqlalchemy import or_
 import tweepy
 
+from sqlalchemy import select, delete
+
 from common import (
     log,
     send_admin_notification,
@@ -32,8 +34,6 @@ from common import (
     add_dm_job,
 )
 from db import (
-    db,
-    connect_db,
     User,
     Tip,
     RecurringTip,
@@ -41,18 +41,18 @@ from db import (
     Like,
     Fascist,
     JobDetails,
+    engine as db_engine,
+    session as db_session,
 )
 
 import worker_jobs
 
 import rq
-from rq.job import Job as RQJob, Retry as RQRetry
+from rq.job import Job as RQJob
 from rq.registry import FailedJobRegistry
 
 jobs_registry = FailedJobRegistry(queue=jobs_q)
 dm_jobs_registry = FailedJobRegistry(queue=dm_jobs_high_q)
-
-gino_db = None
 
 
 async def _logged_in_user(session):
@@ -61,9 +61,9 @@ async def _logged_in_user(session):
     """
     if "twitter_id" in session:
         # Get the user
-        user = await User.query.where(
-            User.twitter_id == session["twitter_id"]
-        ).gino.first()
+        user = db_session.scalar(
+            select(User).where(User.twitter_id == session["twitter_id"])
+        )
         if not user:
             del session["twitter_id"]
             return None
@@ -73,9 +73,11 @@ async def _logged_in_user(session):
             user.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
             and "impersonating_twitter_id" in session
         ):
-            impersonating_user = await User.query.where(
-                User.twitter_id == session["impersonating_twitter_id"]
-            ).gino.first()
+            impersonating_user = db_session.scalar(
+                select(User).where(
+                    User.twitter_id == session["impersonating_twitter_id"]
+                )
+            )
             return impersonating_user
 
         return user
@@ -120,11 +122,13 @@ def authentication_required_401(func):
         session = await get_session(request)
         if "twitter_id" not in session:
             raise web.HTTPUnauthorized(text="Authentication required")
-        user = await User.query.where(
-            User.twitter_id == session["twitter_id"]
-        ).gino.first()
+
+        user = db_session.scalar(
+            select(User).where(User.twitter_id == session["twitter_id"])
+        )
         if not user:
             raise web.HTTPUnauthorized(text="Authentication required")
+
         return await func(request)
 
     return wrapper
@@ -135,11 +139,13 @@ def authentication_required_302(func):
         session = await get_session(request)
         if "twitter_id" not in session:
             raise web.HTTPFound(location="/")
-        user = await User.query.where(
-            User.twitter_id == session["twitter_id"]
-        ).gino.first()
+
+        user = db_session.scalar(
+            select(User).where(User.twitter_id == session["twitter_id"])
+        )
         if not user:
             raise web.HTTPFound(location="/")
+
         return await func(request)
 
     return wrapper
@@ -148,9 +154,9 @@ def authentication_required_302(func):
 def admin_required(func):
     async def wrapper(request):
         session = await get_session(request)
-        user = await User.query.where(
-            User.twitter_id == session["twitter_id"]
-        ).gino.first()
+        user = db_session.scalar(
+            select(User).where(User.twitter_id == session["twitter_id"])
+        )
         if not user or user.twitter_screen_name != os.environ.get("ADMIN_USERNAME"):
             raise web.HTTPNotFound()
         return await func(request)
@@ -242,10 +248,10 @@ async def auth_twitter_callback(request):
     session["twitter_id"] = twitter_id
 
     # Does this user already exist?
-    user = await User.query.where(User.twitter_id == twitter_id).gino.first()
+    user = db_session.scalar(select(User).where(User.twitter_id == twitter_id))
     if user is None:
         # Create a new user
-        user = await User.create(
+        user = User(
             twitter_id=twitter_id,
             twitter_screen_name=username,
             twitter_access_token=access_token,
@@ -253,16 +259,18 @@ async def auth_twitter_callback(request):
             paused=True,
             blocked=False,
         )
+        db_session.add(user)
+        db_session.commit()
 
         # Create a new fetch job
         await add_job("fetch", user.id, worker_jobs.funcs)
     else:
         # Make sure to update the user's twitter access token and secret
         await log(None, f"Authenticating user @{user.twitter_screen_name}")
-        await user.update(
-            twitter_access_token=access_token,
-            twitter_access_token_secret=access_token_secret,
-        ).apply()
+        user.twitter_access_token = access_token
+        user.twitter_access_token_secret = access_token_secret
+        db_session.add(user)
+        db_session.commit()
 
     # Redirect to app
     raise web.HTTPFound(location="/dashboard")
@@ -313,17 +321,17 @@ async def auth_twitter_dms_callback(request):
     twitter_id = response.id_str
 
     # Does this user already exist?
-    user = await User.query.where(User.twitter_id == twitter_id).gino.first()
+    user = db_session.scalar(select(User).where(User.twitter_id == twitter_id))
     if user is None:
         # Uh, that's weird, there really should already be a user... so just ignore in that case
         await log(None, f"Authenticating DMs: user is None, this should never happen")
     else:
         # Update the user's DM twitter access token and secret
         await log(None, f"Authenticating DMs for user @{user.twitter_screen_name}")
-        await user.update(
-            twitter_dms_access_token=access_token,
-            twitter_dms_access_token_secret=access_token_secret,
-        ).apply()
+        user.twitter_dms_access_token = access_token
+        user.twitter_dms_access_token_secret = access_token_secret
+        db_session.add(user)
+        db_session.commit()
 
     # Redirect to settings page again
     raise web.HTTPFound(location="/settings")
@@ -341,23 +349,26 @@ async def stripe_callback(request):
         await log(None, "stripe_callback: charge.succeeded")
         amount_dollars = data["data"]["object"]["amount"] / 100
 
-        tip = await Tip.query.where(
-            Tip.stripe_payment_intent == data["data"]["object"]["payment_intent"]
-        ).gino.first()
+        tip = db_session.scalar(
+            select(Tip).where(
+                Tip.stripe_payment_intent == data["data"]["object"]["payment_intent"]
+            )
+        )
         if tip:
             # Update tip in database
             print("stripe_callback: updating tip in database")
             timestamp = datetime.utcfromtimestamp(data["data"]["object"]["created"])
-            await tip.update(
-                stripe_charge_id=data["data"]["object"]["id"],
-                receipt_url=data["data"]["object"]["receipt_url"],
-                paid=data["data"]["object"]["paid"],
-                refunded=data["data"]["object"]["refunded"],
-                amount=data["data"]["object"]["amount"],
-                timestamp=timestamp,
-            ).apply()
 
-            user = await User.query.where(User.id == tip.user_id).gino.first()
+            tip.stripe_charge_id = data["data"]["object"]["id"]
+            tip.receipt_url = data["data"]["object"]["receipt_url"]
+            tip.paid = data["data"]["object"]["paid"]
+            tip.refunded = data["data"]["object"]["refunded"]
+            tip.amount = data["data"]["object"]["amount"]
+            tip.timestamp = timestamp
+            db_session.add(tip)
+            db_session.commit()
+
+            user = db_session.scalar(select(User).where(User.twitter_id == tip.user_id))
             if user:
                 message = f"https://twitter.com/{user.twitter_screen_name} tipped ${amount_dollars} with stripe"
             else:
@@ -370,19 +381,26 @@ async def stripe_callback(request):
     elif data["type"] == "checkout.session.completed":
         await log(None, "stripe_callback: checkout.session.completed")
         amount_dollars = data["data"]["object"]["amount_total"] / 100
-        recurring_tip = await RecurringTip.query.where(
-            RecurringTip.stripe_checkout_session_id == data["data"]["object"]["id"]
-        ).gino.first()
+        recurring_tip = db_session.scalar(
+            select(RecurringTip).where(
+                RecurringTip.stripe_checkout_session_id == data["data"]["object"]["id"]
+            )
+        )
         if recurring_tip:
             await log(None, "stripe_callback: updating recurring tip in database")
-            await recurring_tip.update(
-                stripe_customer_id=data["data"]["object"]["customer"],
-                stripe_subscription_id=data["data"]["object"]["subscription"],
-                amount=data["data"]["object"]["amount_total"],
-                status="active",
-            ).apply()
 
-            user = await User.query.where(User.id == recurring_tip.user_id).gino.first()
+            recurring_tip.stripe_customer_id = data["data"]["object"]["customer"]
+            recurring_tip.stripe_subscription_id = data["data"]["object"][
+                "subscription"
+            ]
+            recurring_tip.amount = data["data"]["object"]["amount_total"]
+            recurring_tip.status = "active"
+            db_session.add(recurring_tip)
+            db_session.commit()
+
+            user = db_session.scalar(
+                select(User).where(User.id == recurring_tip.user_id)
+            )
             if user:
                 message = f"https://twitter.com/{user.twitter_screen_name} starting ${amount_dollars}/month tips with stripe"
             else:
@@ -394,14 +412,18 @@ async def stripe_callback(request):
     elif data["type"] == "invoice.paid":
         await log(None, "stripe_callback: invoice.paid")
         amount_dollars = data["data"]["object"]["amount_paid"] / 100
-        recurring_tip = await RecurringTip.query.where(
-            RecurringTip.stripe_customer_id == data["data"]["object"]["customer"]
-        ).gino.first()
+        recurring_tip = db_session.scalar(
+            select(RecurringTip).where(
+                RecurringTip.stripe_customer_id == data["data"]["object"]["customer"]
+            )
+        )
         if recurring_tip:
-            user = await User.query.where(User.id == recurring_tip.user_id).gino.first()
+            user = db_session.scalar(
+                select(User).where(User.id == recurring_tip.user_id)
+            )
             if user:
                 timestamp = datetime.utcfromtimestamp(data["data"]["object"]["created"])
-                await Tip.create(
+                tip = Tip(
                     user_id=user.id,
                     payment_processor="stripe",
                     stripe_charge_id=data["data"]["object"]["charge"],
@@ -412,6 +434,8 @@ async def stripe_callback(request):
                     timestamp=timestamp,
                     recurring_tip_id=recurring_tip.id,
                 )
+                db_session.add(tip)
+                db_session.commit()
                 message = f"https://twitter.com/{user.twitter_screen_name} tipped ${amount_dollars} (monthly) with stripe"
             else:
                 message = f"invalid user (id={tip.user_id}) tipped ${amount_dollars} (monthy) with stripe"
@@ -429,9 +453,11 @@ async def stripe_callback(request):
     elif data["type"] == "charge.refunded":
         await log(None, "stripe_callback: charge.refunded")
         charge_id = data["data"]["object"]["id"]
-        tip = await Tip.query.where(Tip.stripe_charge_id == charge_id).gino.first()
+        tip = db_session.scalar(select(Tip).where(Tip.stripe_charge_id == charge_id))
         if tip:
-            await tip.update(refunded=True).apply()
+            tip.refunded = True
+            db_session.add(tip)
+            db_session.commit()
 
     # All other callbacks
     else:
@@ -454,7 +480,9 @@ async def api_get_user(request):
     can_switch = False
 
     # Get the actual logged in user
-    user = await User.query.where(User.twitter_id == session["twitter_id"]).gino.first()
+    user = db_session.scalar(
+        select(User).where(User.twitter_id == session["twitter_id"])
+    )
 
     # Are we the administrator impersonating another user?
     if (
@@ -560,26 +588,29 @@ async def api_post_settings(request):
         if direct_messages_threshold > 29:
             direct_messages_threshold = 29
 
-        await user.update(
-            delete_tweets=data["delete_tweets"],
-            tweets_days_threshold=data["tweets_days_threshold"],
-            tweets_enable_retweet_threshold=data["tweets_enable_retweet_threshold"],
-            tweets_retweet_threshold=data["tweets_retweet_threshold"],
-            tweets_enable_like_threshold=data["tweets_enable_like_threshold"],
-            tweets_like_threshold=data["tweets_like_threshold"],
-            tweets_threads_threshold=data["tweets_threads_threshold"],
-            retweets_likes=data["retweets_likes"],
-            retweets_likes_delete_retweets=data["retweets_likes_delete_retweets"],
-            retweets_likes_retweets_threshold=data["retweets_likes_retweets_threshold"],
-            retweets_likes_delete_likes=data["retweets_likes_delete_likes"],
-            retweets_likes_likes_threshold=data["retweets_likes_likes_threshold"],
-            direct_messages=data["direct_messages"],
-            direct_messages_threshold=direct_messages_threshold,
-        ).apply()
+        user.delete_tweets = data["delete_tweets"]
+        user.tweets_days_threshold = data["tweets_days_threshold"]
+        user.tweets_enable_retweet_threshold = data["tweets_enable_retweet_threshold"]
+        user.tweets_retweet_threshold = data["tweets_retweet_threshold"]
+        user.tweets_enable_like_threshold = data["tweets_enable_like_threshold"]
+        user.tweets_like_threshold = data["tweets_like_threshold"]
+        user.tweets_threads_threshold = data["tweets_threads_threshold"]
+        user.retweets_likes = data["retweets_likes"]
+        user.retweets_likes_delete_retweets = data["retweets_likes_delete_retweets"]
+        user.retweets_likes_retweets_threshold = data[
+            "retweets_likes_retweets_threshold"
+        ]
+        user.retweets_likes_delete_likes = data["retweets_likes_delete_likes"]
+        user.retweets_likes_likes_threshold = data["retweets_likes_likes_threshold"]
+        user.direct_messages = data["direct_messages"]
+        user.direct_messages_threshold = direct_messages_threshold
 
         # Does the user want to force downloading all tweets next time?
         if data["download_all_tweets"]:
-            await user.update(since_id=None).apply()
+            user.since_id = None
+
+        db_session.add(user)
+        db_session.commit()
 
         return web.json_response(True)
 
@@ -650,11 +681,11 @@ async def api_get_export_download(request):
         writer = csv.DictWriter(f, fieldnames=fieldnames, dialect="unix")
         writer.writeheader()
 
-        tweets = (
-            await Tweet.query.where(Tweet.user_id == user.id)
+        tweets = db_session.scalars(
+            select(Tweet)
+            .where(Tweet.user_id == user.id)
             .where(Tweet.is_deleted == False)
             .order_by(Tweet.created_at.desc())
-            .gino.all()
         )
         for tweet in tweets:
             url = f"https://twitter.com/{user.twitter_screen_name}/status/{tweet.twitter_id}"
@@ -687,18 +718,18 @@ async def api_get_tip(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
 
-    tips = (
-        await Tip.query.where(Tip.user_id == user.id)
+    tips = db_session.scalars(
+        select(Tip)
+        .where(Tip.user_id == user.id)
         .where(Tip.paid == True)
         .order_by(Tip.timestamp.desc())
-        .gino.all()
     )
 
-    recurring_tips = (
-        await RecurringTip.query.where(RecurringTip.user_id == user.id)
+    recurring_tips = db_session.scalars(
+        select(RecurringTip)
+        .where(RecurringTip.user_id == user.id)
         .where(RecurringTip.status == "active")
         .order_by(RecurringTip.timestamp.desc())
-        .gino.all()
     )
 
     def tip_to_client(tip):
@@ -830,13 +861,15 @@ async def api_post_tip(request):
                 ),
             )
 
-            await RecurringTip.create(
+            recurring_tip = RecurringTip(
                 user_id=user.id,
                 payment_processor="stripe",
                 stripe_checkout_session_id=checkout_session.id,
                 status="pending",
                 timestamp=datetime.now(),
             )
+            db_session.add(recurring_tip)
+            db_session.commit()
         else:
             checkout_session = await loop.run_in_executor(
                 None,
@@ -865,13 +898,15 @@ async def api_post_tip(request):
                 ),
             )
 
-            await Tip.create(
+            tip = Tip(
                 user_id=user.id,
                 payment_processor="stripe",
                 stripe_payment_intent=checkout_session.payment_intent,
                 paid=False,
                 timestamp=datetime.now(),
             )
+            db_session.add(tip)
+            db_session.commit()
 
         return web.json_response({"error": False, "id": checkout_session.id})
 
@@ -899,9 +934,9 @@ async def api_post_tip_cancel_recurring(request):
     )
 
     # Get the recurring tip, and validate
-    recurring_tip = await RecurringTip.query.where(
-        RecurringTip.id == data["recurring_tip_id"]
-    ).gino.first()
+    recurring_tip = db_session.scalar(
+        select(RecurringTip).where(RecurringTip.id == data["recurring_tip_id"])
+    )
     if not recurring_tip:
         return web.json_response(
             {"error": True, "error_message": f"Cannot find recurring tip"}
@@ -919,7 +954,9 @@ async def api_post_tip_cancel_recurring(request):
             stripe.Subscription.delete, sid=recurring_tip.stripe_subscription_id
         ),
     )
-    await recurring_tip.update(status="canceled").apply()
+    recurring_tip.status = "canceled"
+    db_session.add(recurring_tip)
+    db_session.commit()
     return web.json_response({"error": False})
 
 
@@ -931,12 +968,12 @@ async def api_get_tip_recent(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
 
-    tip = (
-        await Tip.query.where(Tip.user_id == user.id)
+    tip = db_session.scalar(
+        select(RecurringTip)
+        .where(Tip.user_id == user.id)
         .where(Tip.paid == True)
         .where(Tip.refunded == False)
         .order_by(Tip.timestamp.desc())
-        .gino.first()
     )
 
     if tip:
@@ -955,25 +992,25 @@ async def api_get_dashboard(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
 
-    pending_jobs = (
-        await JobDetails.query.where(JobDetails.user_id == user.id)
+    pending_jobs = db_session.scalars(
+        select(JobDetails)
+        .where(JobDetails.user_id == user.id)
         .where(JobDetails.status == "pending")
         .order_by(JobDetails.scheduled_timestamp)
-        .gino.all()
     )
 
-    active_jobs = (
-        await JobDetails.query.where(JobDetails.user_id == user.id)
+    active_jobs = db_session.scalars(
+        select(JobDetails)
+        .where(JobDetails.user_id == user.id)
         .where(JobDetails.status == "active")
         .order_by(JobDetails.started_timestamp)
-        .gino.all()
     )
 
-    finished_jobs = (
-        await JobDetails.query.where(JobDetails.user_id == user.id)
+    finished_jobs = db_session.scalars(
+        select(JobDetails)
+        .where(JobDetails.user_id == user.id)
         .where(JobDetails.status == "finished")
         .order_by(JobDetails.finished_timestamp.desc())
-        .gino.all()
     )
 
     def to_client(jobs):
@@ -1010,12 +1047,12 @@ async def api_get_dashboard(request):
     if user.blocked:
         # Get fascist tweets that this user has liked
         six_months_ago = datetime.now() - timedelta(days=180)
-        fascist_likes = (
-            await Like.query.where(Like.user_id == user.id)
+        fascist_likes = db_session.scalars(
+            select(Like)
+            .where(Like.user_id == user.id)
             .where(Like.is_fascist == True)
             .where(Like.created_at > six_months_ago)
             .order_by(Like.created_at.desc())
-            .gino.all()
         )
 
         api = tweepy_api_v1_1(user)
@@ -1121,7 +1158,10 @@ async def api_post_dashboard(request):
                 f"Error unblocking: {e}",
             )
 
-        await user.update(blocked=False, since_id=None).apply()
+        user.blocked = False
+        user.since_id = None
+        db_session.add(user)
+        db_session.commit()
         return web.json_response({"message": "You are unblocked"})
 
     if data["action"] == "reactivate":
@@ -1131,10 +1171,14 @@ async def api_post_dashboard(request):
             )
 
         # Delete the user's likes so we can start over and check them all
-        await Like.delete.where(Like.user_id == user.id).gino.status()
+        db_session.execute(delete(Like).where(Like.user_id == user.id))
 
         # User has been unblocked
-        await user.update(blocked=False, since_id=None).apply()
+        user.blocked = False
+        user.since_id = None
+        db_session.add(user)
+
+        db_session.commit()
 
         # Create a new fetch job
         await add_job("fetch", user.id, worker_jobs.funcs)
@@ -1143,15 +1187,15 @@ async def api_post_dashboard(request):
 
     else:
         # Get pending and active jobs
-        pending_jobs = (
-            await JobDetails.query.where(JobDetails.user_id == user.id)
+        pending_jobs = db_session.scalars(
+            select(JobDetails)
+            .where(JobDetails.user_id == user.id)
             .where(JobDetails.status == "pending")
-            .gino.all()
         )
-        active_jobs = (
-            await JobDetails.query.where(JobDetails.user_id == user.id)
+        active_jobs = db_session.scalars(
+            select(JobDetails)
+            .where(JobDetails.user_id == user.id)
             .where(JobDetails.status == "active")
-            .gino.all()
         )
         jobs = pending_jobs + active_jobs
 
@@ -1166,7 +1210,9 @@ async def api_post_dashboard(request):
                 )
 
             # Unpause
-            await user.update(paused=False).apply()
+            user.paused = False
+            db_session.add(user)
+            db_session.commit()
 
             # Create a new delete job
             await add_job("delete", user.id, worker_jobs.funcs)
@@ -1185,10 +1231,14 @@ async def api_post_dashboard(request):
                     redis_job.delete()
                 except rq.exceptions.NoSuchJobError:
                     pass
-                await job.update(status="canceled").apply()
+                job.status = "canceled"
+                db_session.add(job)
+                db_session.commit()
 
             # Pause
-            await user.update(paused=True).apply()
+            user.paused = True
+            db_session.add(user)
+            db_session.commit()
 
         elif data["action"] == "fetch":
             if not user.paused:
@@ -1216,13 +1266,14 @@ async def api_get_tweets(request):
     user = await _logged_in_user(session)
 
     tweets_for_client = []
-    for tweet in (
-        await Tweet.query.where(Tweet.user_id == user.id)
+    tweets = db_session.scalars(
+        select(Tweet)
+        .where(Tweet.user_id == user.id)
         .where(Tweet.is_deleted == False)
         .where(Tweet.is_retweet == False)
         .order_by(Tweet.created_at.desc())
-        .gino.all()
-    ):
+    )
+    for tweet in tweets:
         created_at = tweet.created_at.timestamp()
         tweets_for_client.append(
             {
@@ -1252,16 +1303,18 @@ async def api_post_tweets(request):
 
     # Validate
     await _api_validate({"status_id": str, "exclude": bool}, data)
-    tweet = (
-        await Tweet.query.where(Tweet.user_id == user.id)
+    tweet = db_session.scalar(
+        select(Tweet)
+        .where(Tweet.user_id == user.id)
         .where(Tweet.twitter_id == data["status_id"])
-        .gino.first()
     )
     if not tweet:
         raise web.HTTPBadRequest(text="Invalid status_id")
 
     # Update exclude from delete
-    await tweet.update(exclude_from_delete=data["exclude"]).apply()
+    tweet.exclude_from_delete = data["exclude"]
+    db_session.add(tweet)
+    db_session.commit()
 
     return web.json_response(True)
 
@@ -1276,8 +1329,9 @@ async def api_get_dms(request):
 
     is_dm_app_authenticated = await _api_validate_dms_authenticated(user)
 
-    job = (
-        await JobDetails.query.where(JobDetails.user_id == user.id)
+    job = db_session.scalar(
+        select(JobDetails)
+        .where(JobDetails.user_id == user.id)
         .where(
             or_(
                 JobDetails.job_type == "delete_dms",
@@ -1285,7 +1339,6 @@ async def api_get_dms(request):
             )
         )
         .where(or_(JobDetails.status == "pending", JobDetails.status == "active"))
-        .gino.first()
     )
     is_dm_job_ongoing = job is not None
 
@@ -1443,14 +1496,14 @@ async def app_admin(request):
 async def admin_api_get_jobs(request):
     global gino_db
 
-    active_jobs = (
-        await JobDetails.query.where(JobDetails.status == "active")
+    active_jobs = db_session.scalars(
+        select(JobDetails)
+        .query.where(JobDetails.status == "active")
         .order_by(JobDetails.id)
-        .gino.all()
     )
 
-    async with gino_db.acquire() as gino_conn:
-        result = await gino_conn.all(
+    with db_engine.connect() as conn:
+        result = conn.execute(
             text(
                 """SELECT
 	COUNT(id)
@@ -1463,9 +1516,9 @@ WHERE
     """
             )
         )
-        pending_jobs_count = result[0][0]
+        pending_jobs_count = result.all()[0][0]
 
-        result = await gino_conn.all(
+        result = conn.execute(
             text(
                 """SELECT
 	COUNT(id)
@@ -1478,7 +1531,7 @@ WHERE
     """
             )
         )
-        scheduled_jobs_count = result[0][0]
+        scheduled_jobs_count = result.all()[0][0]
 
     async def to_client(job):
         if job.scheduled_timestamp:
@@ -1528,7 +1581,7 @@ WHERE
 
 @admin_required
 async def admin_api_get_users(request):
-    users = await User.query.order_by(User.twitter_screen_name).gino.all()
+    users = db_session.scalars(select(User).order_by(User.twitter_screen_name))
     active_users = []
     paused_users = []
     blocked_users = []
@@ -1561,9 +1614,9 @@ async def admin_api_get_users(request):
     impersonating_twitter_username = None
 
     if "impersonating_twitter_id" in session:
-        impersonating_user = await User.query.where(
-            User.twitter_id == session["impersonating_twitter_id"]
-        ).gino.first()
+        impersonating_user = db_session.scalar(
+            select(User).where(User.twitter_id == session["impersonating_twitter_id"])
+        )
         if impersonating_user:
             impersonating_twitter_id = session["impersonating_twitter_id"]
             impersonating_twitter_username = impersonating_user.twitter_screen_name
@@ -1582,16 +1635,16 @@ async def admin_api_get_users(request):
 @admin_required
 async def admin_api_get_user(request):
     user_id = int(request.match_info["user_id"])
-    user = await User.query.where(User.id == user_id).gino.first()
+    user = db_session.scalar(select(User).where(User.id == user_id))
     if not user:
         return web.json_response(False)
 
     # Get fascist tweets that this user has liked
-    fascist_likes = (
-        await Like.query.where(Like.user_id == user_id)
+    fascist_likes = db_session.scalars(
+        select(Like)
+        .where(Like.user_id == user_id)
         .where(Like.is_fascist == True)
         .order_by(Like.created_at.desc())
-        .gino.all()
     )
     fascist_tweet_urls = [
         f"https://twitter.com/semiphemeral/status/{like.twitter_id}"
@@ -1618,9 +1671,9 @@ async def admin_api_post_user_impersonate(request):
     if data["twitter_id"] == "0":
         del session["impersonating_twitter_id"]
     else:
-        impersonating_user = await User.query.where(
-            User.twitter_id == data["twitter_id"]
-        ).gino.first()
+        impersonating_user = db_session.scalar(
+            select(User).where(User.twitter_id == data["twitter_id"])
+        )
         if impersonating_user:
             session["impersonating_twitter_id"] = data["twitter_id"]
 
@@ -1629,7 +1682,7 @@ async def admin_api_post_user_impersonate(request):
 
 @admin_required
 async def admin_api_get_fascists(request):
-    fascists = await Fascist.query.order_by(Fascist.username).gino.all()
+    fascists = db_session.scalars(select(Fascist).order_by(Fascist.username))
 
     def to_client(fascists):
         fascists_json = []
@@ -1656,7 +1709,9 @@ async def admin_api_post_fascists(request):
 
     # Get a twitter client to look up this fascist user
     session = await get_session(request)
-    user = await User.query.where(User.twitter_id == session["twitter_id"]).gino.first()
+    user = db_session.scalars(
+        select(User).where(User.twitter_id == session["twitter_id"])
+    )
 
     api = tweepy_api_v1_1(user)
 
@@ -1671,13 +1726,14 @@ async def admin_api_post_fascists(request):
         fascist_twitter_user_id = response.id_str
 
         # If a fascist with this username already exists, just update the comment
-        fascist = await Fascist.query.where(
-            Fascist.username == data["username"]
-        ).gino.first()
+        fascist = db_session.scalars(
+            select(Fascist).where(Fascist.username == data["username"])
+        )
         if fascist:
-            await fascist.update(
-                twitter_id=fascist_twitter_user_id, comment=data["comment"]
-            ).apply()
+            fascist.twitter_id = fascist_twitter_user_id
+            fascist.comment = data["comment"]
+            db_session.add(fascist)
+            db_session.commit()
             return web.json_response(True)
 
         # Create the fascist
@@ -1702,11 +1758,12 @@ async def admin_api_post_fascists(request):
         await _api_validate({"action": str, "username": str}, data)
 
         # Delete the fascist
-        fascist = await Fascist.query.where(
-            Fascist.username == data["username"]
-        ).gino.first()
+        fascist = db_session.scalars(
+            select(Fascist).where(Fascist.username == data["username"])
+        )
         if fascist:
-            await fascist.delete()
+            db_session.delete(fascist)
+            db_session.commit()
 
         try:
             response = api.get_user(screen_name=data["username"])
@@ -1726,15 +1783,12 @@ async def admin_api_post_fascists(request):
 @admin_required
 async def admin_api_get_tips(request):
     users = {}
-    tips = (
-        await Tip.query.where(Tip.paid == True)
-        .order_by(Tip.timestamp.desc())
-        .gino.all()
+    tips = db_session.scalars(
+        select(Tip).where(Tip.paid == True).order_by(Tip.timestamp.desc())
     )
-
     for tip in tips:
         if tip.user_id not in users:
-            user = await User.query.where(User.id == tip.user_id).gino.first()
+            user = db_session.scalar(select(User).where(User.id == tip.user_id))
             if user:
                 users[tip.user_id] = {
                     "twitter_username": user.twitter_screen_name,
@@ -1774,10 +1828,6 @@ async def maintenance_refresh_logging(request=None):
 
 
 async def main():
-    print("Connecting to the database")
-    global gino_db
-    gino_db = await connect_db()
-
     await send_admin_notification(
         f"Semiphemeral container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
     )

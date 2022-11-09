@@ -51,7 +51,7 @@ services:
       - TWITTER_SEMIPHEMERAL_ACCESS_KEY_KEY={{ twitter_semiphemeral_access_secret }}
       - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
-      - DATABASE_URI=postgres://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
+      - DATABASE_URI=postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
     networks:
@@ -101,7 +101,7 @@ services:
       - TWITTER_SEMIPHEMERAL_ACCESS_KEY_KEY={{ twitter_semiphemeral_access_secret }}
       - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
-      - DATABASE_URI=postgres://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
+      - DATABASE_URI=postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
     networks:
@@ -138,7 +138,7 @@ services:
       - TWITTER_SEMIPHEMERAL_ACCESS_KEY_KEY={{ twitter_semiphemeral_access_secret }}
       - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
-      - DATABASE_URI=postgres://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
+      - DATABASE_URI=postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
     networks:

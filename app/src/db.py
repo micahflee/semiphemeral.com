@@ -1,100 +1,108 @@
 import os
-import sys
-import asyncio
-from gino import Gino
-from asyncpg.exceptions import TooManyConnectionsError
 
-db = Gino()
+from sqlalchemy import (
+    create_engine,
+    Column,
+    ForeignKey,
+    Integer,
+    Float,
+    String,
+    Boolean,
+    DateTime,
+)
+from sqlalchemy.orm import declarative_base, Session
+
+Base = declarative_base()
 
 
-class User(db.Model):
+class User(Base):
     __tablename__ = "users"
 
-    id = db.Column(db.Integer, primary_key=True)
-    twitter_id = db.Column(db.String)
-    twitter_screen_name = db.Column(db.String)
-    twitter_access_token = db.Column(db.String)
-    twitter_access_token_secret = db.Column(db.String)
-    twitter_dms_access_token = db.Column(db.String)
-    twitter_dms_access_token_secret = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    twitter_id = Column(String)
+    twitter_screen_name = Column(String)
+    twitter_access_token = Column(String)
+    twitter_access_token_secret = Column(String)
+    twitter_dms_access_token = Column(String)
+    twitter_dms_access_token_secret = Column(String)
 
-    delete_tweets = db.Column(db.Boolean, default=False)
-    tweets_days_threshold = db.Column(db.Integer, default=30)
-    tweets_enable_retweet_threshold = db.Column(db.Boolean, default=True)
-    tweets_retweet_threshold = db.Column(db.Integer, default=20)
-    tweets_enable_like_threshold = db.Column(db.Boolean, default=True)
-    tweets_like_threshold = db.Column(db.Integer, default=20)
-    tweets_threads_threshold = db.Column(db.Boolean, default=True)
+    delete_tweets = Column(Boolean, default=False)
+    tweets_days_threshold = Column(Integer, default=30)
+    tweets_enable_retweet_threshold = Column(Boolean, default=True)
+    tweets_retweet_threshold = Column(Integer, default=20)
+    tweets_enable_like_threshold = Column(Boolean, default=True)
+    tweets_like_threshold = Column(Integer, default=20)
+    tweets_threads_threshold = Column(Boolean, default=True)
 
-    retweets_likes = db.Column(db.Boolean, default=False)
-    retweets_likes_delete_retweets = db.Column(db.Boolean, default=True)
-    retweets_likes_retweets_threshold = db.Column(db.Integer, default=30)
-    retweets_likes_delete_likes = db.Column(db.Boolean, default=True)
-    retweets_likes_likes_threshold = db.Column(db.Integer, default=60)
+    retweets_likes = Column(Boolean, default=False)
+    retweets_likes_delete_retweets = Column(Boolean, default=True)
+    retweets_likes_retweets_threshold = Column(Integer, default=30)
+    retweets_likes_delete_likes = Column(Boolean, default=True)
+    retweets_likes_likes_threshold = Column(Integer, default=60)
 
-    direct_messages = db.Column(db.Boolean, default=False)
-    direct_messages_threshold = db.Column(db.Integer, default=7)
+    direct_messages = Column(Boolean, default=False)
+    direct_messages_threshold = Column(Integer, default=7)
 
-    since_id = db.Column(db.String)
-    last_fetch = db.Column(db.DateTime)
-    paused = db.Column(db.Boolean, default=True)
-    blocked = db.Column(db.Boolean)
+    since_id = Column(String)
+    last_fetch = Column(DateTime)
+    paused = Column(Boolean, default=True)
+    blocked = Column(Boolean)
 
 
-class Tip(db.Model):
+class Tip(Base):
     __tablename__ = "tips"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    payment_processor = db.Column(db.String)
-    stripe_charge_id = db.Column(db.String)
-    stripe_payment_intent = db.Column(db.String)
-    receipt_url = db.Column(db.String)
-    paid = db.Column(db.Boolean)
-    refunded = db.Column(db.Boolean)
-    amount = db.Column(db.Float)
-    timestamp = db.Column(db.DateTime)
-    recurring_tip_id = db.Column(db.Integer)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    payment_processor = Column(String)
+    stripe_charge_id = Column(String)
+    stripe_payment_intent = Column(String)
+    receipt_url = Column(String)
+    paid = Column(Boolean)
+    refunded = Column(Boolean)
+    amount = Column(Float)
+    timestamp = Column(DateTime)
+    recurring_tip_id = Column(Integer)
 
 
-class RecurringTip(db.Model):
+class RecurringTip(Base):
     __tablename__ = "recurring_tips"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    payment_processor = db.Column(db.String)
-    stripe_checkout_session_id = db.Column(db.String)
-    stripe_customer_id = db.Column(db.String)
-    stripe_subscription_id = db.Column(db.String)
-    status = db.Column(db.String)
-    amount = db.Column(db.Float)
-    timestamp = db.Column(db.DateTime)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    payment_processor = Column(String)
+    stripe_checkout_session_id = Column(String)
+    stripe_customer_id = Column(String)
+    stripe_subscription_id = Column(String)
+    status = Column(String)
+    amount = Column(Float)
+    timestamp = Column(DateTime)
 
 
-class Nag(db.Model):
+class Nag(Base):
     __tablename__ = "nags"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    timestamp = db.Column(db.DateTime)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    timestamp = Column(DateTime)
 
 
-class JobDetails(db.Model):
+class JobDetails(Base):
     __tablename__ = "job_details"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer)  # not required for all job types
-    job_type = db.Column(
-        db.String
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)  # not required for all job types
+    job_type = Column(
+        String
     )  # "fetch", "delete", "delete_dms", "delete_dm_groups", "dm", "block", "unblock"
-    status = db.Column(
-        db.String, default="pending"
+    status = Column(
+        String, default="pending"
     )  # "pending", "active", "finished", "canceled"
-    data = db.Column(db.String, default="{}")  # JSON object
-    redis_id = db.Column(db.String)
-    scheduled_timestamp = db.Column(db.DateTime)
-    started_timestamp = db.Column(db.DateTime)
-    finished_timestamp = db.Column(db.DateTime)
+    data = Column(String, default="{}")  # JSON object
+    redis_id = Column(String)
+    scheduled_timestamp = Column(DateTime)
+    started_timestamp = Column(DateTime)
+    finished_timestamp = Column(DateTime)
 
     def __str__(self):
         return (
@@ -102,112 +110,113 @@ class JobDetails(db.Model):
         )
 
 
-class DirectMessageJob(db.Model):
+class DirectMessageJob(Base):
     __tablename__ = "direct_message_jobs"
 
-    id = db.Column(db.Integer, primary_key=True)
-    dest_twitter_id = db.Column(db.String)
-    message = db.Column(db.String)
-    status = db.Column(db.String)  # "pending", "sent", "failed"
-    scheduled_timestamp = db.Column(db.DateTime)
-    sent_timestamp = db.Column(db.DateTime)
-    priority = db.Column(db.Integer)
+    id = Column(Integer, primary_key=True)
+    dest_twitter_id = Column(String)
+    message = Column(String)
+    status = Column(String)  # "pending", "sent", "failed"
+    scheduled_timestamp = Column(DateTime)
+    sent_timestamp = Column(DateTime)
+    priority = Column(Integer)
 
 
-class BlockJob(db.Model):
+class BlockJob(Base):
     __tablename__ = "block_jobs"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer)  # optional
-    twitter_username = db.Column(db.String)
-    status = db.Column(db.String)  # "pending", "blocked"
-    scheduled_timestamp = db.Column(db.DateTime)
-    blocked_timestamp = db.Column(db.DateTime)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)  # optional
+    twitter_username = Column(String)
+    status = Column(String)  # "pending", "blocked"
+    scheduled_timestamp = Column(DateTime)
+    blocked_timestamp = Column(DateTime)
 
     def __str__(self):
         return f"BlockJob: user=@{self.twitter_username}"
 
 
-class UnblockJob(db.Model):
+class UnblockJob(Base):
     __tablename__ = "unblock_jobs"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer)  # optional
-    twitter_username = db.Column(db.String)
-    status = db.Column(db.String)  # "pending", "unblocked"
-    scheduled_timestamp = db.Column(db.DateTime)
-    unblocked_timestamp = db.Column(db.DateTime)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)  # optional
+    twitter_username = Column(String)
+    status = Column(String)  # "pending", "unblocked"
+    scheduled_timestamp = Column(DateTime)
+    unblocked_timestamp = Column(DateTime)
 
     def __str__(self):
         return f"UnblockJob: user=@{self.twitter_username}"
 
 
-class Thread(db.Model):
+class Thread(Base):
     __tablename__ = "threads"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    conversation_id = db.Column(db.String)
-    should_exclude = db.Column(db.Boolean)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    conversation_id = Column(String)
+    should_exclude = Column(Boolean)
 
 
-class Tweet(db.Model):
+class Tweet(Base):
     __tablename__ = "tweets"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    twitter_id = db.Column(db.String)
-    created_at = db.Column(db.DateTime)
-    text = db.Column(db.String)
-    is_retweet = db.Column(db.Boolean)
-    retweet_id = db.Column(db.String)
-    is_reply = db.Column(db.Boolean)
-    retweet_count = db.Column(db.Integer)
-    like_count = db.Column(db.Integer)
-    exclude_from_delete = db.Column(db.Boolean)
-    is_deleted = db.Column(db.Boolean)
-    thread_id = db.Column(db.Integer, db.ForeignKey("threads.id"))
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    twitter_id = Column(String)
+    created_at = Column(DateTime)
+    text = Column(String)
+    is_retweet = Column(Boolean)
+    retweet_id = Column(String)
+    is_reply = Column(Boolean)
+    retweet_count = Column(Integer)
+    like_count = Column(Integer)
+    exclude_from_delete = Column(Boolean)
+    is_deleted = Column(Boolean)
+    thread_id = Column(Integer, ForeignKey("threads.id"))
 
 
-class Like(db.Model):
+class Like(Base):
     __tablename__ = "likes"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    twitter_id = db.Column(db.String)
-    created_at = db.Column(db.DateTime)
-    author_id = db.Column(db.String)
-    is_deleted = db.Column(db.Boolean)
-    is_fascist = db.Column(db.Boolean)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    twitter_id = Column(String)
+    created_at = Column(DateTime)
+    author_id = Column(String)
+    is_deleted = Column(Boolean)
+    is_fascist = Column(Boolean)
 
 
-class Fascist(db.Model):
+class Fascist(Base):
     __tablename__ = "fascists"
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String)
-    twitter_id = db.Column(db.String)
-    comment = db.Column(db.String)
+    id = Column(Integer, primary_key=True)
+    username = Column(String)
+    twitter_id = Column(String)
+    comment = Column(String)
 
 
-async def connect_db():
-    database_uri = os.environ.get("DATABASE_URI")
-
-    tries = 0
-    success = False
-    while not success:
-        try:
-            gino_db = await db.set_bind(database_uri)
-            success = True
-        except TooManyConnectionsError:
-            tries += 1
-            print(
-                f"Try {tries}: Failed connecting to db, TooManyConnectionsError, waiting 60s",
-                file=sys.stderr,
-            )
-            await asyncio.sleep(60)
-
-    return gino_db
+engine = create_engine(os.environ.get("DATABASE_URI"), future=True)
+session = Session(engine)
 
 
-async def disconnect_db():
-    await db.pop_bind().close()
+# tries = 0
+# success = False
+# while not success:
+#     try:
+#         gino_db = await db.set_bind(database_uri)
+#         success = True
+#     except TooManyConnectionsError:
+#         tries += 1
+#         print(
+#             f"Try {tries}: Failed connecting to db, TooManyConnectionsError, waiting 60s",
+#             file=sys.stderr,
+#         )
+#         await asyncio.sleep(60)
+
+# return gino_db
+
+
+# async def disconnect_db():
+#     await db.pop_bind().close()
