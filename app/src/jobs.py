@@ -6,7 +6,7 @@ import time
 
 import tweepy
 
-from sqlalchemy import select, delete, update
+from sqlalchemy import select, update
 from sqlalchemy.sql import text
 from db import (
     JobDetails,

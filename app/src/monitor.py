@@ -4,13 +4,13 @@ import subprocess
 
 import worker_jobs
 
-from common import log, conn, jobs_q, dm_jobs_high_q, dm_jobs_low_q
+from common import log, jobs_q, dm_jobs_high_q, dm_jobs_low_q
 
+from sqlalchemy import select, update
 from db import (
-    connect_db,
-    disconnect_db,
     User,
     JobDetails,
+    session as db_session,
 )
 
 
@@ -66,56 +66,55 @@ async def enqueue_job(job_details, i, num_jobs):
         )
         await log(None, f"{i:,}/{num_jobs:,} Enqueued job ASAP")
 
-    await job_details.update(redis_id=redis_job.id).apply()
+    job_details.redis_id = redis_job.id
+    db_session.add(job_details)
+    db_session.commit()
 
 
 async def main():
     # Empty the queues
-    await log(None, f"size of jobs_q: {jobs_q.count}")
-    await log(None, f"size of dm_jobs_high_q: {dm_jobs_high_q.count}")
-    await log(None, f"size of dm_jobs_low_q: {dm_jobs_low_q.count}")
     jobs_q.empty()
     dm_jobs_high_q.empty()
     dm_jobs_low_q.empty()
-    await log(None, f"size of jobs_q: {jobs_q.count}")
-    await log(None, f"size of dm_jobs_high_q: {dm_jobs_high_q.count}")
-    await log(None, f"size of dm_jobs_low_q: {dm_jobs_low_q.count}")
-
-    # Connect to the database
-    await connect_db()
 
     # If staging, start by pausing all users and cancel all pending jobs
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
         await log(
             None, "Staging environment, so pausing all users and canceling all jobs"
         )
-        await User.update.values(paused=True).gino.status()
-
-        await JobDetails.update.values(status="canceled").where(
-            JobDetails.status == "active"
-        ).gino.status()
-
-        await JobDetails.update.values(status="canceled").where(
-            JobDetails.status == "pending"
-        ).gino.status()
+        db_session.execute(update(User).values({"paused": True}))
+        db_session.execute(
+            update(JobDetails).values(
+                {"status": "canceled"}.where(JobDetails.status == "active")
+            )
+        )
+        db_session.execute(
+            update(JobDetails).values(
+                {"status": "canceled"}.where(JobDetails.status == "pending")
+            )
+        )
 
     # Mark active jobs pending
     await log(None, "Make 'active' jobs 'pending'")
-    await JobDetails.update.values(status="pending").where(
-        JobDetails.status == "active"
-    ).gino.status()
+    db_session.execute(
+        update(JobDetails).values(
+            {"status": "pending"}.where(JobDetails.status == "active")
+        )
+    )
 
     # Add pending jobs to the worker queues
-    jobs = await JobDetails.query.where(JobDetails.status == "pending").gino.all()
-    await log(None, f"Enqueing {len(jobs):,} jobs")
-    i = 0
+    jobs = db_session.scalars(
+        select(JobDetails).where(JobDetails.status == "pending")
+    ).fetchall()
     num_jobs = len(jobs)
+    await log(None, f"Enqueing {num_jobs:,} jobs")
+    i = 0
     for job_details in jobs:
         await enqueue_job(job_details, i, num_jobs)
         i += 1
 
     # Disconnect
-    await disconnect_db()
+    db_session.close()
 
     # Start the rq-dashboard
     subprocess.run(["rq-dashboard", "--redis-url", os.environ.get("REDIS_URL")])
