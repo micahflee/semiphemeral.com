@@ -31,9 +31,6 @@ from db import (
 )
 from sqlalchemy.sql import text
 
-import redis
-from rq import Queue, Retry
-
 
 class JobCanceled(Exception):
     pass
@@ -129,17 +126,6 @@ async def calculate_thread(user, status_id):
     if not tweet.in_reply_to_status_id:
         return [status_id]
     return await calculate_thread(user, tweet.in_reply_to_status_id) + [status_id]
-
-
-async def broken_and_cancel(user, job_details):
-    await log(
-        job_details,
-        f"Account seems broken, canceling job and pausing user",
-    )
-    await user.update(paused=True).apply()
-    await job_details.update(
-        status="canceled", finished_timestamp=datetime.now()
-    ).apply()
 
 
 # Fetch job
