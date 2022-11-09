@@ -178,7 +178,7 @@ class Tweet(Base):
     is_deleted = Column(Boolean)
     thread_id = Column(Integer, ForeignKey("threads.id"))
 
-    thread = relationship("Thread", back_populates="threads")
+    thread = relationship("Thread", back_populates="tweets")
 
 
 class Like(Base):

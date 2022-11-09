@@ -478,7 +478,7 @@ def forward_postgres(deploy_environment):
 
     terraform_output = _get_terraform_output(deploy_environment)
     click.echo(
-        f"postbird connection URL: postgres://{variables['postgres_user']}:{variables['postgres_password']}@127.0.0.1:5432/{variables['postgres_db']}"
+        f"postbird connection URL: postgresql://{variables['postgres_user']}:{variables['postgres_password']}@127.0.0.1:5432/{variables['postgres_db']}"
     )
     _ssh(
         deploy_environment,

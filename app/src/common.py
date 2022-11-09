@@ -207,39 +207,6 @@ def tweepy_dms_api_v1_1(user):
     )
 
 
-async def tweets_to_delete(user, include_manually_excluded=False):
-    """
-    Return the tweets that are staged for deletion for this user
-    """
-    try:
-        datetime_threshold = datetime.utcnow() - timedelta(
-            days=user.tweets_days_threshold
-        )
-    except OverflowError:
-        # If we get "OverflowError: date value out of range", set the date to July 1, 2006,
-        # shortly before Twitter was launched
-        datetime_threshold = datetime(2006, 7, 1)
-
-    statement = (
-        select(Tweet)
-        .join(Tweet.thread)
-        .where(Tweet.user_id == user.id)
-        .where(Tweet.is_deleted == False)
-        .where(Tweet.is_retweet == False)
-        .where(Tweet.created_at < datetime_threshold)
-        .where(Thread.should_exclude == False)
-    )
-    if user.tweets_enable_retweet_threshold:
-        statement = statement.where(Tweet.retweet_count < user.tweets_retweet_threshold)
-    if user.tweets_enable_like_threshold:
-        statement = statement.where(Tweet.like_count < user.tweets_like_threshold)
-    if not include_manually_excluded:
-        statement = statement.where(Tweet.exclude_from_delete == False)
-    tweets_to_delete = db_session.scalars(statement)
-
-    return tweets_to_delete
-
-
 async def send_admin_notification(message):
     # Webhook
     webhook_url = os.environ.get("ADMIN_WEBHOOK")
