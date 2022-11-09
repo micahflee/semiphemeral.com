@@ -154,13 +154,9 @@ services:
         "-m",
         "poetry",
         "run",
-        "rq",
-        "worker",
-        "--url",
-        "redis://redis:6379",
-        "--with-scheduler",
-        "dm_jobs_high",
-        "dm_jobs_low"
+        "python",
+        "worker.py",
+        "dms"
       ]
 
 networks:
