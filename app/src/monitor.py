@@ -2,28 +2,16 @@ import asyncio
 import os
 import subprocess
 
-import redis
-import rq
-from rq import Queue
-from rq.job import Job as RQJob, Retry as RQRetry
-
 import worker_jobs
 
-from common import log
+from common import log, conn, jobs_q, dm_jobs_high_q, dm_jobs_low_q
 
 from db import (
-    db,
     connect_db,
+    disconnect_db,
     User,
     JobDetails,
 )
-
-print(f"Connecting to redis at: {os.environ.get('REDIS_URL')}")
-conn = redis.from_url(os.environ.get("REDIS_URL"))
-
-jobs_q = Queue("jobs", connection=conn)
-dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
-dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
 
 
 async def enqueue_job(job_details, i, num_jobs):
@@ -63,7 +51,7 @@ async def enqueue_job(job_details, i, num_jobs):
             func,
             job_id,
             job_timeout=job_timeout,
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
+            # retry=RQRetry(max=3, interval=[60, 120, 240]),
         )
         await log(
             None,
@@ -74,7 +62,7 @@ async def enqueue_job(job_details, i, num_jobs):
             func,
             job_id,
             job_timeout=job_timeout,
-            retry=RQRetry(max=3, interval=[60, 120, 240]),
+            # retry=RQRetry(max=3, interval=[60, 120, 240]),
         )
         await log(None, f"{i:,}/{num_jobs:,} Enqueued job ASAP")
 
@@ -83,9 +71,15 @@ async def enqueue_job(job_details, i, num_jobs):
 
 async def main():
     # Empty the queues
+    await log(None, f"size of jobs_q: {jobs_q.count}")
+    await log(None, f"size of dm_jobs_high_q: {dm_jobs_high_q.count}")
+    await log(None, f"size of dm_jobs_low_q: {dm_jobs_low_q.count}")
     jobs_q.empty()
     dm_jobs_high_q.empty()
     dm_jobs_low_q.empty()
+    await log(None, f"size of jobs_q: {jobs_q.count}")
+    await log(None, f"size of dm_jobs_high_q: {dm_jobs_high_q.count}")
+    await log(None, f"size of dm_jobs_low_q: {dm_jobs_low_q.count}")
 
     # Connect to the database
     await connect_db()
@@ -97,30 +91,21 @@ async def main():
         )
         await User.update.values(paused=True).gino.status()
 
-        await JobDetails.update.values(status="pending").where(
+        await JobDetails.update.values(status="canceled").where(
             JobDetails.status == "active"
         ).gino.status()
-
-        pending_jobs = await JobDetails.query.where(
-            JobDetails.status == "pending"
-        ).gino.all()
-        for job in pending_jobs:
-            try:
-                redis_job = RQJob.fetch(job.redis_id, connection=conn)
-                redis_job.cancel()
-                redis_job.delete()
-            except rq.exceptions.NoSuchJobError:
-                pass
 
         await JobDetails.update.values(status="canceled").where(
             JobDetails.status == "pending"
         ).gino.status()
 
-    # Start all active jobs
+    # Mark active jobs pending
     await log(None, "Make 'active' jobs 'pending'")
     await JobDetails.update.values(status="pending").where(
         JobDetails.status == "active"
     ).gino.status()
+
+    # Add pending jobs to the worker queues
     jobs = await JobDetails.query.where(JobDetails.status == "pending").gino.all()
     await log(None, f"Enqueing {len(jobs):,} jobs")
     i = 0
@@ -128,6 +113,9 @@ async def main():
     for job_details in jobs:
         await enqueue_job(job_details, i, num_jobs)
         i += 1
+
+    # Disconnect
+    await disconnect_db()
 
     # Start the rq-dashboard
     subprocess.run(["rq-dashboard", "--redis-url", os.environ.get("REDIS_URL")])
