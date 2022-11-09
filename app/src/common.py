@@ -7,11 +7,10 @@ from datetime import datetime, timedelta
 import tweepy
 
 from sqlalchemy import select, delete
-from db import db_session, Tweet, Like, Thread, Nag, JobDetails, Tip
+from db import Tweet, Like, Thread, Nag, JobDetails, Tip, session as db_session
 
 import redis
 from rq import Queue
-from rq.job import Retry
 
 conn = redis.from_url(os.environ.get("REDIS_URL"))
 jobs_q = Queue("jobs", connection=conn)

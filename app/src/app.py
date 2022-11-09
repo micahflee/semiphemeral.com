@@ -1496,9 +1496,7 @@ async def admin_api_get_jobs(request):
     global gino_db
 
     active_jobs = db_session.scalars(
-        select(JobDetails)
-        .query.where(JobDetails.status == "active")
-        .order_by(JobDetails.id)
+        select(JobDetails).where(JobDetails.status == "active").order_by(JobDetails.id)
     ).fetchall()
 
     with db_engine.connect() as conn:
@@ -1539,7 +1537,7 @@ WHERE
         else:
             started_timestamp = None
 
-        user = await User.query.where(User.id == job.user_id).gino.first()
+        user = db_session.scalar(select(User).where(User.id == job.user_id))
         if user:
             twitter_username = user.twitter_screen_name
             twitter_link = f"https://twitter.com/{user.twitter_screen_name}"

@@ -105,10 +105,14 @@ def test_api_creds(func):
 
 
 @test_api_creds
-async def fetch(job_details_id, funcs, disconnect=True):
+async def fetch(job_details_id, funcs):
     job_details = db_session.scalar(
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
+
+    # Don't disconnect from the db if this is a delete job
+    disconnect = job_details.job_type == "fetch"
+
     if job_details.status == "canceled":
         await log(job_details, "Job already canceled, quitting early")
         if disconnect:
@@ -194,7 +198,7 @@ async def fetch(job_details_id, funcs, disconnect=True):
                         .where(Thread.conversation_id == conversation_id)
                     )
                     if not thread:
-                        thread = Thread.create(
+                        thread = Thread(
                             user_id=user.id,
                             conversation_id=conversation_id,
                             should_exclude=False,
@@ -309,8 +313,9 @@ async def fetch(job_details_id, funcs, disconnect=True):
     with db_engine.connect() as conn:
         new_since_id = conn.execute(
             text(
-                "SELECT twitter_id FROM tweets WHERE user_id=:user_id ORDER BY CAST(twitter_id AS bigint) DESC LIMIT 1"
-            )
+                "SELECT twitter_id FROM tweets WHERE user_id=:user_id ORDER BY CAST(twitter_id AS bigint) DESC LIMIT 1",
+            ),
+            {"user_id": user.id},
         ).scalar()
 
     user.since_id = new_since_id
