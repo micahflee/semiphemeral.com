@@ -33,6 +33,13 @@ async def log(job_details, s):
 async def add_job(
     job_type, user_id, funcs, data={}, job_timeout="24h", scheduled_timestamp=None
 ):
+    if not scheduled_timestamp:
+        scheduled_timestamp = datetime.now()
+    await log(
+        None,
+        f"add_job: job_type={job_type}, user_id={user_id}, data={data}, job_timeout={job_timeout}, scheduled_timestamp={scheduled_timestamp}",
+    )
+
     # Make sure there's not already a scheduled job of this type
     existing_job_details = (
         await JobDetails.query.where(JobDetails.user_id == user_id)
@@ -48,8 +55,6 @@ async def add_job(
         return
 
     # Add the job
-    if not scheduled_timestamp:
-        scheduled_timestamp = datetime.now()
     job_details = await JobDetails.create(
         job_type=job_type,
         user_id=user_id,
@@ -61,7 +66,7 @@ async def add_job(
         funcs[job_type],
         job_details.id,
         job_timeout=job_timeout,
-        retry=Retry(max=3, interval=[60, 120, 240]),
+        # retry=Retry(max=3, interval=[60, 120, 240]),
     )
     await job_details.update(redis_id=redis_job.id).apply()
 
@@ -71,6 +76,11 @@ async def add_dm_job(
 ):
     if not scheduled_timestamp:
         scheduled_timestamp = datetime.now()
+    await log(
+        None,
+        f"add_dm_job: dest_twitter_id={dest_twitter_id}, scheduled_timestamp={scheduled_timestamp}",
+    )
+
     job_details = await JobDetails.create(
         job_type="dm",
         user_id=None,
@@ -86,7 +96,7 @@ async def add_dm_job(
         funcs["dm"],
         job_details.id,
         job_timeout="10m",
-        retry=Retry(max=3, interval=[60, 120, 240]),
+        # retry=Retry(max=3, interval=[60, 120, 240]),
     )
     await job_details.update(redis_id=redis_job.id).apply()
 

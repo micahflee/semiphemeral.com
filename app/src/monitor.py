@@ -117,7 +117,7 @@ async def main():
         ).gino.status()
 
     # Start all active jobs
-    await log(None, "Make 'active' jobs as 'pending'")
+    await log(None, "Make 'active' jobs 'pending'")
     await JobDetails.update.values(status="pending").where(
         JobDetails.status == "active"
     ).gino.status()
