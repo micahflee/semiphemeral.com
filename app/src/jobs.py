@@ -5,6 +5,7 @@ import time
 
 import tweepy
 
+import psycopg2
 from sqlalchemy import select, update
 from sqlalchemy.sql import text
 from db import (
@@ -327,11 +328,17 @@ def fetch(job_details_id, funcs):
     db_session.commit()
 
     # Reset the should_exclude flag for all threads
-    db_session.execute(
-        update(Thread)
-        .values({"should_exclude": False})
-        .where(Thread.user_id == user.id)
-    )
+    while True:
+        try:
+            db_session.execute(
+                update(Thread)
+                .values({"should_exclude": False})
+                .where(Thread.user_id == user.id)
+            )
+            break
+        except psycopg2.errors.DeadlockDetected as e:
+            log(job_details, "deadlock detected, sleeping 10s and trying again")
+            time.sleep(10)
 
     # Set should_exclude for all threads based on the settings
     if user.tweets_threads_threshold:
