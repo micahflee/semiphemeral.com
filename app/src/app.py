@@ -45,7 +45,7 @@ from flask import (
     jsonify,
     render_template,
 )
-from flask.ext.session import Session
+from flask_session import Session
 from functools import wraps
 
 import worker_jobs
@@ -195,7 +195,7 @@ def static_assets(filename):
 
 
 @app.route("/admin-assets/<path:filename>")
-def static_assets(filename):
+def static_admin_assets(filename):
     return send_from_directory(
         f"admin-frontend/dist-{os.environ.get('DEPLOY_ENVIRONMENT')}/admin-assets",
         filename,
@@ -1684,7 +1684,7 @@ def admin_api_users(current_user):
 
 @app.route("/admin_api/users/<user_id>")
 @admin_required
-def admin_api_users(current_user, user_id):
+def admin_api_users_user(current_user, user_id):
     """
     Get information about a specific user
     """
@@ -1716,7 +1716,7 @@ def admin_api_users(current_user, user_id):
 
 @app.route("/admin_api/users/impersonate")
 @admin_required
-def admin_api_users(current_user, methods=["POST"]):
+def admin_api_users_impersonate(current_user, methods=["POST"]):
     """
     Impersonate a user
     """
@@ -1869,7 +1869,7 @@ def admin_api_fascists(current_user):
 
 @app.route("/admin_api/tips")
 @admin_required
-def admin_api_users(current_user):
+def admin_api_tips(current_user):
     """
     Get all the tips
     """
