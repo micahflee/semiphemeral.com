@@ -12,7 +12,10 @@ function impersonate() {
     })
   })
     .then(function (response) {
-      window.location.href = "/dashboard"
+      console.log(response)
+      if (confirm("Go to dashboard?")) {
+        window.location.href = "/dashboard"
+      }
     })
     .catch(function (err) {
       console.log("Error", err)

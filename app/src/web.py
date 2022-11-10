@@ -78,26 +78,24 @@ def _logged_in_user():
     """
     Return the currently logged in user
     """
-    twitter_id = session.get("twitter_id")
-    if twitter_id:
+    if session.get("twitter_id"):
         user = db_session.scalar(
-            select(User).where(User.twitter_id == session["twitter_id"])
+            select(User).where(User.twitter_id == session.get("twitter_id"))
         )
         if not user:
             session["twitter_id"] = None
             return None
 
         # Are we the administrator impersonating another user?
-        impersonating_twitter_id = session.get("impersonating_twitter_id")
-        if (
-            user.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
-            and impersonating_twitter_id
+        if user.twitter_screen_name == os.environ.get("ADMIN_USERNAME") and session.get(
+            "impersonating_twitter_id"
         ):
             impersonating_user = db_session.scalar(
                 select(User).where(
-                    User.twitter_id == session["impersonating_twitter_id"]
+                    User.twitter_id == session.get("impersonating_twitter_id")
                 )
             )
+
             return impersonating_user
 
         return user
@@ -127,17 +125,13 @@ def _api_validate(expected_fields, json_data):
 
 
 def _api_validate_dms_authenticated(user):
-    if (
-        user.twitter_dms_access_token != ""
-        and user.twitter_dms_access_token_secret != ""
-    ):
-        # Check if user is authenticated with DMs twitter app
-        dms_api = tweepy_dms_api_v1_1(user)
-        try:
-            dms_api.verify_credentials()
-            return True
-        except Exception as e:
-            return False
+    # Check if user is authenticated with DMs twitter app
+    dms_api = tweepy_dms_api_v1_1(user)
+    try:
+        dms_api.verify_credentials()
+        return True
+    except Exception as e:
+        return False
 
 
 # Decorators
@@ -171,10 +165,17 @@ def admin_required(f):
     @wraps(f)
     def decorator(*args, **kwargs):
         current_user = _logged_in_user()
-        if not current_user or current_user.twitter_screen_name != os.environ.get(
-            "ADMIN_USERNAME"
-        ):
-            return redirect("/", 302)
+        if session.get("impersonating_twitter_id"):
+            user = db_session.scalar(
+                select(User).where(User.twitter_id == session.get("twitter_id"))
+            )
+            if not user or user.twitter_screen_name != os.environ.get("ADMIN_USERNAME"):
+                return redirect("/", 302)
+        else:
+            if not current_user or current_user.twitter_screen_name != os.environ.get(
+                "ADMIN_USERNAME"
+            ):
+                return redirect("/", 302)
 
         return f(current_user, *args, **kwargs)
 
@@ -216,7 +217,7 @@ def auth_login():
         try:
             response = api.verify_credentials()
             if response.id_str == User.twitter_id:
-                raise web.HTTPFound("/dashboard")
+                return redirect("/dashboard", code=302)
         except Exception as e:
             pass
 
@@ -500,7 +501,7 @@ def stripe_callback():
     # Recurring tip payment failed
     elif stripe_payload["type"] == "invoice.payment_failed":
         log(None, "stripe_callback: invoice.payment_failed")
-        log(None, json.dumps(data, indent=2))
+        log(None, json.dumps(stripe_payload, indent=2))
         message = "A recurring tip payment failed, look at docker logs and implement invoice.payment_failed"
 
     # Refund a charge
@@ -587,11 +588,7 @@ def api_user(current_user):
     can_switch = False
 
     # Are we the administrator impersonating another user?
-    impersonating_twitter_id = session.get("impersonating_twitter_id")
-    if (
-        current_user.twitter_screen_name == os.environ.get("ADMIN_USERNAME")
-        and impersonating_twitter_id
-    ):
+    if session.get("impersonating_twitter_id"):
         can_switch = True
         log(
             None,
@@ -599,11 +596,16 @@ def api_user(current_user):
         )
 
     api = tweepy_api_v1_1(current_user)
-    response = api.verify_credentials()
+    try:
+        response = api.verify_credentials()
+        profile_image_url_https = response.profile_image_url_https
+    except:
+        profile_image_url_https = "/images/egg.png"
+
     return jsonify(
         {
             "user_screen_name": current_user.twitter_screen_name,
-            "user_profile_url": response.profile_image_url_https,
+            "user_profile_url": profile_image_url_https,
             "last_fetch": current_user.last_fetch,
             "can_switch": can_switch,
         }
@@ -1136,7 +1138,8 @@ def api_dashboard(current_user):
                 .order_by(Like.created_at.desc())
             ).fetchall()
 
-            api = tweepy_api_v1_1(current_user)
+            # use the Semiphemeral API, so we don't need to authenticate with the blocked user's creds
+            api = tweepy_semiphemeral_api_1_1()
 
             for like in fascist_likes:
                 response = api.get_status(like.twitter_id)
@@ -1716,9 +1719,9 @@ def admin_api_users_user(current_user, user_id):
     )
 
 
-@app.route("/admin_api/users/impersonate")
+@app.route("/admin_api/users/impersonate", methods=["POST"])
 @admin_required
-def admin_api_users_impersonate(current_user, methods=["POST"]):
+def admin_api_users_impersonate(current_user):
     """
     Impersonate a user
     """
@@ -1729,18 +1732,25 @@ def admin_api_users_impersonate(current_user, methods=["POST"]):
         return jsonify({"error": True, "error_message": "Error parsing JSON"})
 
     # Validate
-    valid = ({"twitter_id": str}, data)
+    valid = _api_validate({"twitter_id": str}, data)
     if not valid["valid"]:
         return valid["message"], 400
 
     if data["twitter_id"] == "0":
         session["impersonating_twitter_id"] = None
+        log(
+            None,
+            f"Stopping impersonating user @{current_user.twitter_screen_name}",
+        )
     else:
         impersonating_user = db_session.scalar(
             select(User).where(User.twitter_id == data["twitter_id"])
         )
         if impersonating_user:
             session["impersonating_twitter_id"] = data["twitter_id"]
+            log(None, f"Impersonating user @{impersonating_user.twitter_screen_name}")
+        else:
+            log(None, f"Cannot find user to impersonate")
 
     return jsonify(True)
 
