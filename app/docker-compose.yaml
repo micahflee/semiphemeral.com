@@ -19,13 +19,13 @@ services:
       - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
       - DATABASE_URI=postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
-      - COOKIE_FERNET_KEY={{ cookie_fernet_key }}
       - STRIPE_PUBLISHABLE_KEY={{ stripe_publishable_key }}
       - STRIPE_SECRET_KEY={{ stripe_secret_key }}
       - MAINTENANCE_SECRET={{ maintenance_secret }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
       - DOMAIN={{ domain }}
+      - FLASK_SECRET_KEY={{ flask_secret_key }}
     expose:
       - "8080"
     volumes:
