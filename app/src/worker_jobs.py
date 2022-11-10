@@ -1,4 +1,3 @@
-import asyncio
 import jobs
 
 funcs = None
@@ -6,38 +5,38 @@ funcs = None
 
 def fetch(job_details_id):
     global funcs
-    asyncio.run(jobs.fetch(job_details_id, funcs))
+    jobs.fetch(job_details_id, funcs)
 
 
 def delete(job_details_id):
     global funcs
-    asyncio.run(jobs.fetch(job_details_id, funcs))
-    asyncio.run(jobs.delete(job_details_id, funcs))
+    jobs.fetch(job_details_id, funcs)
+    jobs.delete(job_details_id, funcs)
 
 
 def delete_dms(job_details_id):
     global funcs
-    asyncio.run(jobs.delete_dms(job_details_id, funcs))
+    jobs.delete_dms(job_details_id, funcs)
 
 
 def delete_dm_groups(job_details_id):
     global funcs
-    asyncio.run(jobs.delete_dm_groups(job_details_id, funcs))
+    jobs.delete_dm_groups(job_details_id, funcs)
 
 
 def block(job_details_id):
     global funcs
-    asyncio.run(jobs.block(job_details_id, funcs))
+    jobs.block(job_details_id, funcs)
 
 
 def unblock(job_details_id):
     global funcs
-    asyncio.run(jobs.unblock(job_details_id, funcs))
+    jobs.unblock(job_details_id, funcs)
 
 
 def dm(job_details_id):
     global funcs
-    asyncio.run(jobs.dm(job_details_id, funcs))
+    jobs.dm(job_details_id, funcs)
 
 
 funcs = {

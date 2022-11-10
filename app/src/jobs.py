@@ -1,4 +1,3 @@
-import asyncio
 import json
 import os
 from datetime import datetime, timedelta
@@ -40,7 +39,7 @@ class JobCanceled(Exception):
 # Exception helpers
 
 
-async def handle_tweepy_rate_limit(job_details, e, api_endpoint):
+def handle_tweepy_rate_limit(job_details, e, api_endpoint):
     reset_time = e.response.headers.get("x-rate-limit-reset")
     if reset_time is None:
         # wait 1 minute, if for some reason we don't get a x-rate-limit-reset header
@@ -53,19 +52,19 @@ async def handle_tweepy_rate_limit(job_details, e, api_endpoint):
             job_details,
             f"Rate limit on {api_endpoint}, sleeping {sleep_time}s",
         )
-        await asyncio.sleep(sleep_time + 1)  # sleep for extra sec
+        time.sleep(sleep_time + 1)  # sleep for extra sec
 
 
-async def handle_tweepy_exception(job_details, e, api_endpoint):
+def handle_tweepy_exception(job_details, e, api_endpoint):
     log(job_details, f"Error on {api_endpoint}, sleeping 120s: {e}")
-    await asyncio.sleep(120)
+    time.sleep(120)
 
 
 # Decorators
 
 
 def test_api_creds(func):
-    async def wrapper(job_details_id, funcs):
+    def wrapper(job_details_id, funcs):
         """
         Make sure the API creds work, and if not pause semiphemeral for the user
         """
@@ -92,7 +91,7 @@ def test_api_creds(func):
                 db_session.close()
                 return False
 
-        return await func(job_details_id, funcs)
+        return func(job_details_id, funcs)
 
     return wrapper
 
@@ -101,7 +100,7 @@ def test_api_creds(func):
 
 
 @test_api_creds
-async def fetch(job_details_id, funcs):
+def fetch(job_details_id, funcs):
     job_details = db_session.scalar(
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
@@ -249,7 +248,7 @@ async def fetch(job_details_id, funcs):
                 db_session.commit()
             break
         except tweepy.errors.TwitterServerError as e:
-            await handle_tweepy_exception(job_details, e, "api.user_timeline")
+            handle_tweepy_exception(job_details, e, "api.user_timeline")
 
     # Update progress
     if since_id:
@@ -303,7 +302,7 @@ async def fetch(job_details_id, funcs):
 
             break
         except tweepy.errors.TwitterServerError as e:
-            await handle_tweepy_exception(job_details, e, "api.user_timeline")
+            handle_tweepy_exception(job_details, e, "api.user_timeline")
 
     # All done, update the since_id
     with db_engine.connect() as conn:
@@ -417,7 +416,7 @@ async def fetch(job_details_id, funcs):
 
 
 @test_api_creds
-async def delete(job_details_id, funcs):
+def delete(job_details_id, funcs):
     job_details = db_session.scalar(
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
@@ -637,7 +636,7 @@ async def delete(job_details_id, funcs):
                         )
                         break
                     except Exception as e:
-                        await handle_tweepy_exception(
+                        handle_tweepy_exception(
                             job_details, e, "dm_client.get_direct_message_events"
                         )
 
@@ -802,18 +801,18 @@ async def delete(job_details_id, funcs):
 
 
 @test_api_creds
-async def delete_dms(job_details_id, funcs):
-    await delete_dms_job(job_details_id, "dms", funcs)
+def delete_dms(job_details_id, funcs):
+    delete_dms_job(job_details_id, "dms", funcs)
     db_session.close()
 
 
 @test_api_creds
-async def delete_dm_groups(job_details_id, funcs):
-    await delete_dms_job(job_details_id, "groups", funcs)
+def delete_dm_groups(job_details_id, funcs):
+    delete_dms_job(job_details_id, "groups", funcs)
     db_session.close()
 
 
-async def delete_dms_job(job_details_id, dm_type, funcs):
+def delete_dms_job(job_details_id, dm_type, funcs):
     job_details = db_session.scalar(
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
@@ -963,7 +962,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
 # Block job
 
 
-async def block(job_details_id, funcs):
+def block(job_details_id, funcs):
     job_details = db_session.scalar(
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
@@ -1019,7 +1018,7 @@ async def block(job_details_id, funcs):
             add_dm_job(funcs, user.twitter_id, message)
 
             # Wait 65 seconds before blocking, to ensure they receive the DM
-            await asyncio.sleep(65)
+            time.sleep(65)
 
             # Create the unblock job
             add_job(
@@ -1053,7 +1052,7 @@ async def block(job_details_id, funcs):
 # Unblock job
 
 
-async def unblock(job_details_id, funcs):
+def unblock(job_details_id, funcs):
     job_details = db_session.scalar(
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
@@ -1104,7 +1103,7 @@ async def unblock(job_details_id, funcs):
 # DM job
 
 
-async def dm(job_details_id, funcs):
+def dm(job_details_id, funcs):
     job_details = db_session.scalar(
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
@@ -1202,4 +1201,4 @@ async def dm(job_details_id, funcs):
 
     # Sleep a minute between sending each DM
     log(job_details, f"Sleeping 60s")
-    await asyncio.sleep(60)
+    time.sleep(60)
