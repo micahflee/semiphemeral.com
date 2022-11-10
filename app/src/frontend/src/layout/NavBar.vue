@@ -14,7 +14,9 @@ function switchBack() {
     }),
   })
     .then(function (response) {
-      window.location.reload(true)
+      if (confirm("Reload?")) {
+        window.location.reload(true)
+      }
     })
     .catch(function (err) {
       console.log("Error", err)
