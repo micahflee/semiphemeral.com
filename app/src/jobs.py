@@ -37,10 +37,6 @@ class JobCanceled(Exception):
     pass
 
 
-# Global variables
-
-gino_db = None
-
 # Exception helpers
 
 
@@ -53,7 +49,7 @@ async def handle_tweepy_rate_limit(job_details, e, api_endpoint):
         reset_time = int(reset_time)
     sleep_time = reset_time - int(time.time())
     if sleep_time > 0:
-        await log(
+        log(
             job_details,
             f"Rate limit on {api_endpoint}, sleeping {sleep_time}s",
         )
@@ -61,7 +57,7 @@ async def handle_tweepy_rate_limit(job_details, e, api_endpoint):
 
 
 async def handle_tweepy_exception(job_details, e, api_endpoint):
-    await log(job_details, f"Error on {api_endpoint}, sleeping 120s: {e}")
+    log(job_details, f"Error on {api_endpoint}, sleeping 120s: {e}")
     await asyncio.sleep(120)
 
 
@@ -114,7 +110,7 @@ async def fetch(job_details_id, funcs):
     disconnect = job_details.job_type == "fetch"
 
     if job_details.status == "canceled":
-        await log(job_details, "Job already canceled, quitting early")
+        log(job_details, "Job already canceled, quitting early")
         if disconnect:
             db_session.close()
         return
@@ -124,11 +120,11 @@ async def fetch(job_details_id, funcs):
     db_session.add(job_details)
     db_session.commit()
 
-    await log(job_details, str(job_details))
+    log(job_details, str(job_details))
 
     user = db_session.scalar(select(User).where(User.id == job_details.user_id))
     if not user:
-        await log(job_details, "User not found, canceling job")
+        log(job_details, "User not found, canceling job")
         job_details.status = "canceled"
         job_details.finished_timestamp = datetime.now()
         db_session.add(job_details)
@@ -140,7 +136,7 @@ async def fetch(job_details_id, funcs):
     api = tweepy_api_v1_1(user)
     since_id = user.since_id
 
-    await log(job_details, f"Fetch started")
+    log(job_details, f"Fetch started")
 
     # Start the data
     data = {"progress": {"tweets_fetched": 0, "likes_fetched": 0}}
@@ -150,7 +146,7 @@ async def fetch(job_details_id, funcs):
         data["progress"][
             "status"
         ] = "Downloading all tweets, this first run may take a long time"
-        await log(job_details, "since_id is None, so downloading everything")
+        log(job_details, "since_id is None, so downloading everything")
 
     job_details.data = json.dumps(data)
     db_session.add(job_details)
@@ -166,7 +162,7 @@ async def fetch(job_details_id, funcs):
             for page in tweepy.Cursor(
                 api.user_timeline, user_id=user.twitter_id, count=200, since_id=since_id
             ).pages():
-                await log(job_details, f"Importing {len(page)} tweets")
+                log(job_details, f"Importing {len(page)} tweets")
                 for status in page:
                     # Get the conversation_id of this tweet
                     conversation_id = status.id_str
@@ -272,7 +268,7 @@ async def fetch(job_details_id, funcs):
             for page in tweepy.Cursor(
                 api.get_favorites, user_id=user.twitter_id, count=200, since_id=since_id
             ).pages():
-                await log(job_details, f"Importing {len(page)} likes")
+                log(job_details, f"Importing {len(page)} likes")
                 for status in page:
                     # Is the like already saved?
                     like = db_session.scalar(
@@ -372,7 +368,7 @@ async def fetch(job_details_id, funcs):
     ).fetchall()
     if len(fascist_likes) > 4:
         # Create a block job
-        await add_job(
+        add_job(
             "block",
             None,
             funcs,
@@ -390,7 +386,7 @@ async def fetch(job_details_id, funcs):
         db_session.commit()
 
         # Don't send any DMs
-        await log(job_details, f"Blocking user")
+        log(job_details, f"Blocking user")
         if disconnect:
             db_session.close()
         return
@@ -406,14 +402,14 @@ async def fetch(job_details_id, funcs):
         message += f"The next step is look through your tweets and manually mark which ones you want to make sure never get deleted. Visit https://{os.environ.get('DOMAIN')}/tweets to finish.\n\nWhen you're done, you can start deleting your tweets from the dashboard."
 
         # Create DM job
-        await add_dm_job(funcs, user.twitter_id, message)
+        add_dm_job(funcs, user.twitter_id, message)
 
     job_details.status = "finished"
     job_details.finished_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
 
-    await log(job_details, f"Fetch finished")
+    log(job_details, f"Fetch finished")
     db_session.close()
 
 
@@ -426,7 +422,7 @@ async def delete(job_details_id, funcs):
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
     if job_details.status == "canceled":
-        await log(job_details, "Job already canceled, quitting early")
+        log(job_details, "Job already canceled, quitting early")
         db_session.close()
         return
 
@@ -434,11 +430,11 @@ async def delete(job_details_id, funcs):
     job_details.started_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
-    await log(job_details, str(job_details))
+    log(job_details, str(job_details))
 
     user = db_session.scalar(select(User).where(User.id == job_details.user_id))
     if not user:
-        await log(job_details, "User not found, canceling job")
+        log(job_details, "User not found, canceling job")
         job_details.status = "canceled"
         job_details.finished_timestamp = datetime.now()
         db_session.add(job_details)
@@ -447,7 +443,7 @@ async def delete(job_details_id, funcs):
         return
 
     api = tweepy_api_v1_1(user)
-    await log(job_details, "Delete started")
+    log(job_details, "Delete started")
 
     # Start the progress
     data = json.loads(job_details.data)
@@ -488,7 +484,7 @@ async def delete(job_details_id, funcs):
                     api.destroy_status(tweet.twitter_id)
                 except Exception as e:
                     pass
-                    # await log(
+                    # log(
                     #     job_details,
                     #     f"Error deleting retweet {tweet.twitter_id}: {e}",
                     # )
@@ -530,7 +526,7 @@ async def delete(job_details_id, funcs):
                     api.destroy_favorite(like.twitter_id)
                 except Exception as e:
                     pass
-                    # await log(
+                    # log(
                     #     job_details, f"Error deleting like {like.twitter_id}: {e}"
                     # )
 
@@ -587,7 +583,7 @@ async def delete(job_details_id, funcs):
                 api.destroy_status(tweet.twitter_id)
             except Exception as e:
                 pass
-                # await log(job_details, f"Error deleting tweet {tweet.twitter_id}: {e}")
+                # log(job_details, f"Error deleting tweet {tweet.twitter_id}: {e}")
 
             tweet.is_deleted = True
             db_session.add(tweet)
@@ -646,7 +642,7 @@ async def delete(job_details_id, funcs):
                         )
 
                 if response["meta"]["result_count"] == 0:
-                    await log(job_details, f"No new DMs")
+                    log(job_details, f"No new DMs")
                     break
 
                 dms.extend(response["data"])
@@ -665,7 +661,7 @@ async def delete(job_details_id, funcs):
                         dm_api.delete_direct_message(dm["id"])
                     except Exception as e:
                         pass
-                        # await log(job_details, f"Skipping DM {dm['id']}, {e}")
+                        # log(job_details, f"Skipping DM {dm['id']}, {e}")
 
                     data["progress"]["dms_deleted"] += 1
                     job_details.data = json.dumps(data)
@@ -678,13 +674,13 @@ async def delete(job_details_id, funcs):
     job_details.finished_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
-    await log(job_details, f"Delete finished")
+    log(job_details, f"Delete finished")
 
     # Delete is done!
 
     # Schedule the next delete job
     scheduled_timestamp = datetime.now() + timedelta(days=1)
-    await add_job("delete", user.id, funcs, scheduled_timestamp=scheduled_timestamp)
+    add_job("delete", user.id, funcs, scheduled_timestamp=scheduled_timestamp)
 
     # Has the user tipped in the last year?
     one_year = timedelta(days=365)
@@ -711,7 +707,7 @@ async def delete(job_details_id, funcs):
             should_nag = True
 
     if not last_nag:
-        await log(job_details, f"Nagging the user for the first time")
+        log(job_details, f"Nagging the user for the first time")
 
         # Create a nag
         nag = Nag(
@@ -723,14 +719,14 @@ async def delete(job_details_id, funcs):
 
         # The user has never been nagged, so this is the first delete
         message = f"Congratulations! Semiphemeral has deleted {data['progress']['tweets_deleted']:,} tweets, unretweeted {data['progress']['retweets_deleted']:,} tweets, and unliked {data['progress']['likes_deleted']:,} tweets. Doesn't that feel nice?\n\nEach day, I will download your latest tweets and likes and then delete the old ones based on your settings. You can sit back, relax, and enjoy the privacy.\n\nYou can always change your settings, mark new tweets to never delete, and pause Semiphemeral from the website https://{os.environ.get('DOMAIN')}/dashboard."
-        await add_dm_job(funcs, user.twitter_id, message)
+        add_dm_job(funcs, user.twitter_id, message)
 
         message = f"Semiphemeral is free, but running this service costs money. Care to chip in?\n\nIf you tip any amount, even just $1, I will stop nagging you for a year. Otherwise, I'll gently remind you once a month.\n\n(It's fine if you want to ignore these DMs. I won't care. I'm a bot, so I don't have feelings).\n\nVisit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
-        await add_dm_job(funcs, user.twitter_id, message)
+        add_dm_job(funcs, user.twitter_id, message)
 
     else:
         if should_nag:
-            await log(job_details, f"Nagging the user again")
+            log(job_details, f"Nagging the user again")
 
             # Create a nag
             nag = Nag(
@@ -797,7 +793,7 @@ async def delete(job_details_id, funcs):
                             ]["likes_deleted"]
 
             message = f"Since you've been using Semiphemeral, I have deleted {total_progress['tweets_deleted']:,} tweets, unretweeted {total_progress['retweets_deleted']:,} tweets, and unliked {total_progress['likes_deleted']:,} tweets for you.\n\nJust since last month, I've deleted {total_progress_since_last_nag['tweets_deleted']:,} tweets, unretweeted {total_progress_since_last_nag['retweets_deleted']:,} tweets, and unliked {total_progress_since_last_nag['likes_deleted']:,} tweets.\n\nSemiphemeral is free, but running this service costs money. Care to chip in? Visit here if you'd like to give a tip: https://{os.environ.get('DOMAIN')}/tip"
-            await add_dm_job(funcs, user.twitter_id, message)
+            add_dm_job(funcs, user.twitter_id, message)
 
     db_session.close()
 
@@ -822,7 +818,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
     if job_details.status == "canceled":
-        await log(job_details, "Job already canceled, quitting early")
+        log(job_details, "Job already canceled, quitting early")
         db_session.close()
         return
 
@@ -830,11 +826,11 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
     job_details.started_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
-    await log(job_details, str(job_details))
+    log(job_details, str(job_details))
 
     user = db_session.scalar(select(User).where(User.id == job_details.user_id))
     if not user:
-        await log(job_details, "User not found, canceling job")
+        log(job_details, "User not found, canceling job")
         job_details.statis = "canceled"
         job_details.finished_timestamp = datetime.now()
         db_session.add(job_details)
@@ -849,7 +845,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
         dm_client.get_me()
     except Exception as e:
         # It doesn't, so disable deleting direct messages
-        await log(job_details, f"DMs Twitter API creds don't work, canceling job")
+        log(job_details, f"DMs Twitter API creds don't work, canceling job")
         job_details.status = "canceled"
         job_details.started_timestamp = datetime.now()
         db_session.add(job_details)
@@ -857,9 +853,9 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
         return
 
     if dm_type == "dms":
-        await log(job_details, f"Delete DMs started")
+        log(job_details, f"Delete DMs started")
     elif dm_type == "groups":
-        await log(job_details, f"Delete group DMs started")
+        log(job_details, f"Delete group DMs started")
 
     # Start the progress
     data = {
@@ -875,7 +871,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
 
     # Make sure deleting DMs is enabled
     if not user.direct_messages:
-        await log(job_details, f"Deleting DMs is not enabled, canceling job")
+        log(job_details, f"Deleting DMs is not enabled, canceling job")
         job_details.status = "canceled"
         job_details.finished_timestamp = datetime.now()
         db_session.add(job_details)
@@ -888,7 +884,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
     elif dm_type == "groups":
         filename = os.path.join("/var/bulk_dms", f"groups-{user.id}.json")
     if not os.path.exists(filename):
-        await log(
+        log(
             job_details,
             f"Filename {filename} does not exist, canceling job",
         )
@@ -901,7 +897,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
         try:
             conversations = json.loads(f.read())
         except:
-            await log(job_details, f"Cannot decode JSON, canceling job")
+            log(job_details, f"Cannot decode JSON, canceling job")
             job_details.status = "canceled"
             job_details.finished_timestamp = datetime.now()
             db_session.add(job_details)
@@ -933,7 +929,7 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
                         dm_api.delete_direct_message(dm_id)
                         data["progress"]["dms_deleted"] += 1
                     except Exception as e:
-                        await log(job_details, f"Error deleting DM {dm_id}, {e}")
+                        log(job_details, f"Error deleting DM {dm_id}, {e}")
                         data["progress"]["dms_skipped"] += 1
 
                     job_details.data = json.dumps(data)
@@ -952,16 +948,16 @@ async def delete_dms_job(job_details_id, dm_type, funcs):
     job_details.finished_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
-    await log(job_details, f"Delete DMs finished")
+    log(job_details, f"Delete DMs finished")
 
     # Send a DM to the user
     if dm_type == "dms":
         message = f"Congratulations, Semiphemeral just finished deleting {data['progress']['dms_deleted']:,} of your old direct messages."
     elif dm_type == "groups":
         message = f"Congratulations, Semiphemeral just finished deleting {data['progress']['dms_deleted']:,} of your old group direct messages."
-    await add_dm_job(funcs, user.twitter_id, message)
+    add_dm_job(funcs, user.twitter_id, message)
 
-    await log(job_details, f"Delete DMs ({dm_type}) finished")
+    log(job_details, f"Delete DMs ({dm_type}) finished")
 
 
 # Block job
@@ -972,7 +968,7 @@ async def block(job_details_id, funcs):
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
     if job_details.status == "canceled":
-        await log(job_details, "Job already canceled, quitting early")
+        log(job_details, "Job already canceled, quitting early")
         db_session.close()
         return
 
@@ -980,7 +976,7 @@ async def block(job_details_id, funcs):
     job_details.started_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
-    await log(job_details, str(job_details))
+    log(job_details, str(job_details))
 
     data = json.loads(job_details.data)
 
@@ -1020,13 +1016,13 @@ async def block(job_details_id, funcs):
 
             # Send the DM
             message = f"You have liked {len(fascist_likes):,} tweets from a prominent fascist or fascist sympathizer within the last 6 months, so you have been blocked and your Semiphemeral account is deactivated.\n\nTo see which tweets you liked and learn how to get yourself unblocked, see https://{os.environ.get('DOMAIN')}/dashboard.\n\nOr you can wait until {unblock_timestamp_formatted} when you will get automatically unblocked, at which point you can login to reactivate your account so long as you've stop liking tweets from fascists."
-            await add_dm_job(funcs, user.twitter_id, message)
+            add_dm_job(funcs, user.twitter_id, message)
 
             # Wait 65 seconds before blocking, to ensure they receive the DM
             await asyncio.sleep(65)
 
             # Create the unblock job
-            await add_job(
+            add_job(
                 "unblock",
                 None,
                 funcs,
@@ -1043,16 +1039,14 @@ async def block(job_details_id, funcs):
         try:
             semiphemeral_client.block(data["twitter_id"], user_auth=True)
         except Exception as e:
-            await log(
-                job_details, f"Error blocking user @{data['twitter_username']}, {e}"
-            )
+            log(job_details, f"Error blocking user @{data['twitter_username']}, {e}")
 
     # Finished
     job_details.status = "finished"
     job_details.finished_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
-    await log(job_details, f"Block finished")
+    log(job_details, f"Block finished")
     db_session.close()
 
 
@@ -1064,7 +1058,7 @@ async def unblock(job_details_id, funcs):
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
     if job_details.status == "canceled":
-        await log(job_details, "Job already canceled, quitting early")
+        log(job_details, "Job already canceled, quitting early")
         db_session.close()
         return
 
@@ -1072,7 +1066,7 @@ async def unblock(job_details_id, funcs):
     job_details.started_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
-    await log(job_details, str(job_details))
+    log(job_details, str(job_details))
 
     data = json.loads(job_details.data)
 
@@ -1082,9 +1076,7 @@ async def unblock(job_details_id, funcs):
     try:
         semiphemeral_client.unblock(data["twitter_id"], user_auth=True)
     except Exception as e:
-        await log(
-            job_details, f"Error unblocking user @{data['twitter_username']}, {e}"
-        )
+        log(job_details, f"Error unblocking user @{data['twitter_username']}, {e}")
 
     # If we're unblocking a semiphemeral user
     if "user_id" in data:
@@ -1095,7 +1087,7 @@ async def unblock(job_details_id, funcs):
             user.blocked = False
             db_session.add(user)
             db_session.commit()
-            await log(
+            log(
                 job_details,
                 f"User @{data['twitter_username']} unblocked in semiphemeral db",
             )
@@ -1105,7 +1097,7 @@ async def unblock(job_details_id, funcs):
     job_details.finished_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
-    await log(job_details, f"Unblock finished")
+    log(job_details, f"Unblock finished")
     db_session.close()
 
 
@@ -1117,7 +1109,7 @@ async def dm(job_details_id, funcs):
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
     if job_details.status == "canceled":
-        await log(job_details, "Job already canceled, quitting early")
+        log(job_details, "Job already canceled, quitting early")
         db_session.close()
         return
 
@@ -1125,7 +1117,7 @@ async def dm(job_details_id, funcs):
     job_details.started_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
-    await log(job_details, str(job_details))
+    log(job_details, str(job_details))
 
     data = json.loads(job_details.data)
 
@@ -1141,7 +1133,7 @@ async def dm(job_details_id, funcs):
                 res = api.lookup_friendships(user_id=["1209344563589992448"])
             except tweepy.errors.Forbidden as e:
                 # User is suspended, canceling job and pausing using
-                await log(
+                log(
                     job_details,
                     f"User is suspended, pausing user and canceling job: {e}",
                 )
@@ -1164,17 +1156,17 @@ async def dm(job_details_id, funcs):
                         api.create_friendship(
                             user_id="1209344563589992448"  # @semiphemeral twitter ID
                         )
-                        await log(
+                        log(
                             job_details,
                             f"@{user.twitter_screen_name} followed @semiphemeral",
                         )
                     except Exception as e:
-                        await log(
+                        log(
                             job_details,
                             f"Error on api.create_friendship with v1.1 API, try again in an hour: {e}",
                         )
                         scheduled_timestamp = datetime.now() + timedelta(hours=1)
-                        await add_dm_job(
+                        add_dm_job(
                             funcs,
                             data["dest_twitter_id"],
                             data["message"],
@@ -1198,16 +1190,16 @@ async def dm(job_details_id, funcs):
         job_details.finished_timestamp = datetime.now()
         db_session.add(job_details)
         db_session.commit()
-        await log(job_details, f"DM sent")
+        log(job_details, f"DM sent")
     except Exception as e:
         job_details.status = "canceled"
         job_details.finished_timestamp = datetime.now()
         db_session.add(job_details)
         db_session.commit()
-        await log(job_details, f"Failed to send DM: {e}")
+        log(job_details, f"Failed to send DM: {e}")
 
     db_session.close()
 
     # Sleep a minute between sending each DM
-    await log(job_details, f"Sleeping 60s")
+    log(job_details, f"Sleeping 60s")
     await asyncio.sleep(60)

@@ -74,7 +74,7 @@ async def _send_reminders():
                 if remind:
                     reminded_users.append(user.twitter_screen_name)
                     print(f"Reminding @{user.twitter_screen_name}")
-                    await add_dm_job(
+                    add_dm_job(
                         worker_jobs.funcs, user.twitter_id, message, priority="low"
                     )
 
@@ -83,7 +83,7 @@ async def _send_reminders():
             f"Queued semiphemeral reminder DMs to {len(reminded_users)} users:\n\n"
             + "\n".join(reminded_users)
         )
-        await send_admin_notification(admin_message)
+        send_admin_notification(admin_message)
 
     await disconnect_db()
 
@@ -107,14 +107,14 @@ async def _cleanup_users():
             print(
                 f"\r[{i:,}/{count:,}, deleted {users_deleted:,}] deleting @{user.twitter_screen_name}"
             )
-            await delete_user(user)
+            delete_user(user)
             users_deleted += 1
 
         i += 1
 
     admin_message = f"Deleted {users_deleted} users and all their data"
     print(admin_message)
-    await send_admin_notification(admin_message)
+    send_admin_notification(admin_message)
     await disconnect_db()
 
 
@@ -146,7 +146,7 @@ async def _cleanup_dm_jobs():
 
     admin_message = f"Deleted {num_deleted} pending DM jobs from deleted users"
     print(admin_message)
-    await send_admin_notification(admin_message)
+    send_admin_notification(admin_message)
     await disconnect_db()
 
 
@@ -197,7 +197,7 @@ async def _fix_stalled_users():
             .gino.all()
         )
         if len(pending_delete_jobs) == 0:
-            await add_job("delete", user.id, worker_jobs.funcs)
+            add_job("delete", user.id, worker_jobs.funcs)
             print(f"[{i:,}/{count:,} @{user.twitter_screen_name} added delete job")
 
         i += 1
