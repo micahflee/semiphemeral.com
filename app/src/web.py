@@ -123,6 +123,8 @@ def _api_validate(expected_fields, json_data):
                 "message": f"Invalid type: {field} should be {expected_fields[field]}, not {type(json_data[field])}",
             }
 
+    return {"valid": True}
+
 
 def _api_validate_dms_authenticated(user):
     if (
@@ -414,7 +416,7 @@ def stripe_callback():
             db_session.add(tip)
             db_session.commit()
 
-            user = db_session.scalar(select(User).where(User.twitter_id == tip.user_id))
+            user = db_session.scalar(select(User).where(User.id == tip.user_id))
             if user:
                 message = f"https://twitter.com/{user.twitter_screen_name} tipped ${amount_dollars} with stripe"
             else:
@@ -869,7 +871,7 @@ def api_tip(current_user):
         valid = _api_validate(
             {
                 "amount": str,
-                "other_amount": [str, float],
+                "other_amount": [int, float],
                 "type": str,
             },
             data,
@@ -1048,7 +1050,7 @@ def api_tip_recent(current_user):
     Respond with the receipt_url for the most recent tip from this user
     """
     tip = db_session.scalar(
-        select(RecurringTip)
+        select(Tip)
         .where(Tip.user_id == current_user.id)
         .where(Tip.paid == True)
         .where(Tip.refunded == False)
