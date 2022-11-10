@@ -1422,12 +1422,6 @@ def api_dms(current_user):
         )
 
     elif request.method == "POST":
-        try:
-            data = json.loads(request.data)
-        except Exception as e:
-            log(None, f"Error parsing JSON: {e}")
-            return jsonify({"error": True, "error_message": "Error parsing JSON"})
-
         if not _api_validate_dms_authenticated(current_user):
             return jsonify(
                 {
@@ -1444,103 +1438,97 @@ def api_dms(current_user):
             )
 
         # Validate
-        valid = _api_validate({"status_id": str, "exclude": bool}, data)
-        if not valid["valid"]:
-            return valid["message"], 400
+        dms_file = request.files.get("file")
+        if not dms_file or dms_file.filename == "":
+            return jsonify(
+                {
+                    "error": True,
+                    "error_message": "Uploading file failed",
+                }
+            )
+
+        # Detect if this is direct-message-headers.js or direct-message-group-headers.js
+        content = dms_file.read()
+        expected_dm_start = b"window.YTD.direct_message_headers.part0 = "
+        expected_dm_group_start = b"window.YTD.direct_message_group_headers.part0 = "
+        if content.startswith(expected_dm_start):
+            dm_type = "dms"
+            json_string = content[len(expected_dm_start) :]
+        elif content.startswith(expected_dm_group_start):
+            dm_type = "groups"
+            json_string = content[len(expected_dm_group_start) :]
+        else:
+            return jsonify(
+                {
+                    "error": True,
+                    "error_message": "This does not appear to be a direct-message-headers.js or direct-message-group-headers.js file",
+                }
+            )
+
+        # Save to disk
+        if dm_type == "dms":
+            job_type = "delete_dms"
+            filename = os.path.join("/var/bulk_dms", f"dms-{current_user.id}.json")
+        elif dm_type == "groups":
+            job_type = "delete_dm_groups"
+            filename = os.path.join("/var/bulk_dms", f"groups-{current_user.id}.json")
+
+        with open(filename, "wb") as f:
+            f.write(json_string)
+
+        try:
+            conversations = json.loads(json_string)
+        except:
+            os.unlink(filename)
+            return jsonify(
+                {
+                    "error": True,
+                    "error_message": "Failed parsing JSON object",
+                }
+            )
+
+        if type(conversations) != list:
+            os.unlink(filename)
+            return jsonify(
+                {
+                    "error": True,
+                    "error_message": "JSON object expected to be a list",
+                }
+            )
+
+        for obj in conversations:
+            if type(obj) != dict:
+                os.unlink(filename)
+                return jsonify(
+                    {
+                        "error": True,
+                        "error_message": "JSON object expected to be a list of dicts",
+                    }
+                )
+            if "dmConversation" not in obj:
+                os.unlink(filename)
+                return jsonify(
+                    {
+                        "error": True,
+                        "error_message": "JSON object expected to be a list of dicts that contain 'dmConversation' fields",
+                    }
+                )
+            dm_conversation = obj["dmConversation"]
+            if "messages" not in dm_conversation:
+                os.unlink(filename)
+                return jsonify(
+                    {
+                        "error": True,
+                        "error_message": "JSON object expected to be a list of dicts that contain 'dmConversations' fields that contain 'messages' fields",
+                    }
+                )
+
+        # Create a new delete_dms job
+        add_job(job_type, current_user.id, worker_jobs.funcs)
+        return jsonify({"error": False})
 
     else:
         return "Bad request", 400
-
-    # Validate
-    dms_file = request.files.get("file")
-    if not dms_file or dms_file.filename == "":
-        return jsonify(
-            {
-                "error": True,
-                "error_message": "Uploading file failed",
-            }
-        )
-
-    # Save to disk
-    if dm_type == "dms":
-        job_type = "delete_dms"
-        filename = os.path.join("/var/bulk_dms", f"dms-{current_user.id}.json")
-    elif dm_type == "groups":
-        job_type = "delete_dm_groups"
-        filename = os.path.join("/var/bulk_dms", f"groups-{current_user.id}.json")
-
-    dms_file.save(filename)
-    with open(filename) as f:
-        content = f.read()
-
-    # Detect if this is direct-message-headers.js or direct-message-group-headers.js
-    expected_dm_start = b"window.YTD.direct_message_headers.part0 = "
-    expected_dm_group_start = b"window.YTD.direct_message_group_headers.part0 = "
-    if content.startswith(expected_dm_start):
-        dm_type = "dms"
-        json_string = content[len(expected_dm_start) :]
-    elif content.startswith(expected_dm_group_start):
-        dm_type = "groups"
-        json_string = content[len(expected_dm_group_start) :]
-    else:
-        os.unlink(filename)
-        return jsonify(
-            {
-                "error": True,
-                "error_message": "This does not appear to be a direct-message-headers.js or direct-message-group-headers.js file",
-            }
-        )
-
-    try:
-        conversations = json.loads(json_string)
-    except:
-        os.unlink(filename)
-        return jsonify(
-            {
-                "error": True,
-                "error_message": "Failed parsing JSON object",
-            }
-        )
-
-    if type(conversations) != list:
-        os.unlink(filename)
-        return jsonify(
-            {
-                "error": True,
-                "error_message": "JSON object expected to be a list",
-            }
-        )
-
-    for obj in conversations:
-        if type(obj) != dict:
-            os.unlink(filename)
-            return jsonify(
-                {
-                    "error": True,
-                    "error_message": "JSON object expected to be a list of dicts",
-                }
-            )
-        if "dmConversation" not in obj:
-            os.unlink(filename)
-            return jsonify(
-                {
-                    "error": True,
-                    "error_message": "JSON object expected to be a list of dicts that contain 'dmConversation' fields",
-                }
-            )
-        dm_conversation = obj["dmConversation"]
-        if "messages" not in dm_conversation:
-            os.unlink(filename)
-            return jsonify(
-                {
-                    "error": True,
-                    "error_message": "JSON object expected to be a list of dicts that contain 'dmConversations' fields that contain 'messages' fields",
-                }
-            )
-
-    # Create a new delete_dms job
-    add_job(job_type, current_user.id, worker_jobs.funcs)
-    return jsonify({"error": False})
 
 
 ## Admin API routes
