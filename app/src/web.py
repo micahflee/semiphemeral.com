@@ -1907,9 +1907,9 @@ def admin_api_tips(current_user):
     return jsonify({"tips": to_client(tips)})
 
 
-send_admin_notification(
-    f"Semiphemeral web container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
-)
+# send_admin_notification(
+#     f"Semiphemeral web container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
+# )
 
 # Loop forever logging redis job exceptions
 # with open("/var/web/exceptions.log", "a") as f:
