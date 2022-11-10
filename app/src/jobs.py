@@ -901,9 +901,10 @@ def delete_dms_job(job_details_id, dm_type, funcs):
         return
     with open(filename) as f:
         try:
-            conversations = json.loads(f.read())
+            json_data = f.read()
+            conversations = json.loads(json_data)
         except:
-            log(job_details, f"Cannot decode JSON, canceling job")
+            log(job_details, f"Cannot decode JSON, canceling job: {json_data}")
             job_details.status = "canceled"
             job_details.finished_timestamp = datetime.now()
             db_session.add(job_details)
