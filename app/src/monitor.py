@@ -1,8 +1,8 @@
-import asyncio
 import os
 
-import worker_jobs
+from flask import Flask
 
+import worker_jobs
 from common import log, jobs_q, dm_jobs_high_q, dm_jobs_low_q
 
 from sqlalchemy import select, update
@@ -12,10 +12,8 @@ from db import (
     session as db_session,
 )
 
-from flask import Flask
 
-
-async def enqueue_job(job_details, i, num_jobs):
+def enqueue_job(job_details, i, num_jobs):
     func = None
     job_id = None
     job_timeout = "10m"
@@ -72,7 +70,7 @@ async def enqueue_job(job_details, i, num_jobs):
     db_session.commit()
 
 
-async def main():
+def main():
     # Empty the queues
     jobs_q.empty()
     dm_jobs_high_q.empty()
@@ -111,7 +109,7 @@ async def main():
     log(None, f"Enqueing {num_jobs:,} jobs")
     i = 0
     for job_details in jobs:
-        await enqueue_job(job_details, i, num_jobs)
+        enqueue_job(job_details, i, num_jobs)
         i += 1
 
     # Disconnect
@@ -123,6 +121,14 @@ async def main():
     # # Start the rq-dashboard
     # subprocess.run(["rq-dashboard", "--redis-url", os.environ.get("REDIS_URL")])
 
+    app = Flask(__name__)
+
+    @app.route("/")
+    def hello_world():
+        return "<p>Some day we'll have rq-dashboard again maybe</p>"
+
+    app.run(host="0.0.0.0", port=9181)
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
