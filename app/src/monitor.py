@@ -1,6 +1,5 @@
 import asyncio
 import os
-import subprocess
 
 import worker_jobs
 
@@ -12,6 +11,8 @@ from db import (
     JobDetails,
     session as db_session,
 )
+
+from flask import Flask
 
 
 async def enqueue_job(job_details, i, num_jobs):
@@ -53,7 +54,7 @@ async def enqueue_job(job_details, i, num_jobs):
             job_timeout=job_timeout,
             # retry=RQRetry(max=3, interval=[60, 120, 240]),
         )
-        await log(
+        log(
             None,
             f"{i:,}/{num_jobs:,} Enqueued scheduled job for {job_details.scheduled_timestamp}",
         )
@@ -64,7 +65,7 @@ async def enqueue_job(job_details, i, num_jobs):
             job_timeout=job_timeout,
             # retry=RQRetry(max=3, interval=[60, 120, 240]),
         )
-        await log(None, f"{i:,}/{num_jobs:,} Enqueued job ASAP")
+        log(None, f"{i:,}/{num_jobs:,} Enqueued job ASAP")
 
     job_details.redis_id = redis_job.id
     db_session.add(job_details)
@@ -79,9 +80,7 @@ async def main():
 
     # If staging, start by pausing all users and cancel all pending jobs
     if os.environ.get("DEPLOY_ENVIRONMENT") == "staging":
-        await log(
-            None, "Staging environment, so pausing all users and canceling all jobs"
-        )
+        log(None, "Staging environment, so pausing all users and canceling all jobs")
         db_session.execute(update(User).values({"paused": True}))
         db_session.execute(
             update(JobDetails)
@@ -96,7 +95,7 @@ async def main():
         db_session.commit()
 
     # Mark active jobs pending
-    await log(None, "Make 'active' jobs 'pending'")
+    log(None, "Make 'active' jobs 'pending'")
     db_session.execute(
         update(JobDetails)
         .values({"status": "pending"})
@@ -109,7 +108,7 @@ async def main():
         select(JobDetails).where(JobDetails.status == "pending")
     ).fetchall()
     num_jobs = len(jobs)
-    await log(None, f"Enqueing {num_jobs:,} jobs")
+    log(None, f"Enqueing {num_jobs:,} jobs")
     i = 0
     for job_details in jobs:
         await enqueue_job(job_details, i, num_jobs)
@@ -118,8 +117,11 @@ async def main():
     # Disconnect
     db_session.close()
 
-    # Start the rq-dashboard
-    subprocess.run(["rq-dashboard", "--redis-url", os.environ.get("REDIS_URL")])
+    # There's an rq-dashboard issue where it's not compatible with the latest click
+    # so for now, we'll just replace it with a simple flask service
+
+    # # Start the rq-dashboard
+    # subprocess.run(["rq-dashboard", "--redis-url", os.environ.get("REDIS_URL")])
 
 
 if __name__ == "__main__":

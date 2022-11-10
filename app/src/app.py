@@ -7,13 +7,14 @@ import functools
 import csv
 import json
 from datetime import datetime, timedelta
+import stripe
+import tweepy
+
 from aiohttp import web
 from aiohttp_session import setup, get_session, new_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 import jinja2
 import aiohttp_jinja2
-import stripe
-import tweepy
 
 from sqlalchemy import select, delete, or_
 from sqlalchemy.sql import text
@@ -262,10 +263,10 @@ async def auth_twitter_callback(request):
         db_session.commit()
 
         # Create a new fetch job
-        await add_job("fetch", user.id, worker_jobs.funcs)
+        add_job("fetch", user.id, worker_jobs.funcs)
     else:
         # Make sure to update the user's twitter access token and secret
-        await log(None, f"Authenticating user @{user.twitter_screen_name}")
+        log(None, f"Authenticating user @{user.twitter_screen_name}")
         user.twitter_access_token = access_token
         user.twitter_access_token_secret = access_token_secret
         db_session.add(user)
@@ -323,10 +324,10 @@ async def auth_twitter_dms_callback(request):
     user = db_session.scalar(select(User).where(User.twitter_id == twitter_id))
     if user is None:
         # Uh, that's weird, there really should already be a user... so just ignore in that case
-        await log(None, f"Authenticating DMs: user is None, this should never happen")
+        log(None, f"Authenticating DMs: user is None, this should never happen")
     else:
         # Update the user's DM twitter access token and secret
-        await log(None, f"Authenticating DMs for user @{user.twitter_screen_name}")
+        log(None, f"Authenticating DMs for user @{user.twitter_screen_name}")
         user.twitter_dms_access_token = access_token
         user.twitter_dms_access_token_secret = access_token_secret
         db_session.add(user)
@@ -345,7 +346,7 @@ async def stripe_callback(request):
 
     # Charge succeeded
     if data["type"] == "charge.succeeded":
-        await log(None, "stripe_callback: charge.succeeded")
+        log(None, "stripe_callback: charge.succeeded")
         amount_dollars = data["data"]["object"]["amount"] / 100
 
         tip = db_session.scalar(
@@ -378,7 +379,7 @@ async def stripe_callback(request):
 
     # Recurring session has completed
     elif data["type"] == "checkout.session.completed":
-        await log(None, "stripe_callback: checkout.session.completed")
+        log(None, "stripe_callback: checkout.session.completed")
         amount_dollars = data["data"]["object"]["amount_total"] / 100
         recurring_tip = db_session.scalar(
             select(RecurringTip).where(
@@ -386,7 +387,7 @@ async def stripe_callback(request):
             )
         )
         if recurring_tip:
-            await log(None, "stripe_callback: updating recurring tip in database")
+            log(None, "stripe_callback: updating recurring tip in database")
 
             recurring_tip.stripe_customer_id = data["data"]["object"]["customer"]
             recurring_tip.stripe_subscription_id = data["data"]["object"][
@@ -405,11 +406,11 @@ async def stripe_callback(request):
             else:
                 message = f"invalid user (id={tip.user_id}) starting ${amount_dollars}/month tips with stripe"
         else:
-            await log(None, "stripe_callback: cannot find RecurringTip")
+            log(None, "stripe_callback: cannot find RecurringTip")
 
     # Recurring tip paid
     elif data["type"] == "invoice.paid":
-        await log(None, "stripe_callback: invoice.paid")
+        log(None, "stripe_callback: invoice.paid")
         amount_dollars = data["data"]["object"]["amount_paid"] / 100
         recurring_tip = db_session.scalar(
             select(RecurringTip).where(
@@ -444,13 +445,13 @@ async def stripe_callback(request):
 
     # Recurring tip payment failed
     elif data["type"] == "invoice.payment_failed":
-        await log(None, "stripe_callback: invoice.payment_failed")
-        await log(None, json.dumps(data, indent=2))
+        log(None, "stripe_callback: invoice.payment_failed")
+        log(None, json.dumps(data, indent=2))
         message = "A recurring tip payment failed, look at docker logs and implement invoice.payment_failed"
 
     # Refund a charge
     elif data["type"] == "charge.refunded":
-        await log(None, "stripe_callback: charge.refunded")
+        log(None, "stripe_callback: charge.refunded")
         charge_id = data["data"]["object"]["id"]
         tip = db_session.scalar(select(Tip).where(Tip.stripe_charge_id == charge_id))
         if tip:
@@ -460,12 +461,12 @@ async def stripe_callback(request):
 
     # All other callbacks
     else:
-        await log(None, f"stripe_callback: {data['type']} (not implemented)")
+        log(None, f"stripe_callback: {data['type']} (not implemented)")
 
     # Send notification to the admin
     if message:
-        await log(None, f"stripe_callback: {message}")
-        await send_admin_notification(message)
+        log(None, f"stripe_callback: {message}")
+        send_admin_notification(message)
 
     return web.HTTPOk()
 
@@ -489,7 +490,7 @@ async def api_get_user(request):
         and "impersonating_twitter_id" in session
     ):
         can_switch = True
-        await log(
+        log(
             None,
             f"Admin impersonating user @{user.twitter_screen_name}",
         )
@@ -553,7 +554,7 @@ async def api_post_settings(request):
     if data["action"] != "save" and data["action"] != "authenticate_dms":
         raise web.HTTPBadRequest(text="action must be 'save' or 'authenticate_dms'")
 
-    await log(
+    log(
         None,
         f"api_post_settings: user=@{user.twitter_screen_name}, action={data['action']}",
     )
@@ -638,16 +639,14 @@ async def api_post_settings_delete_account(request):
     session = await get_session(request)
     user = await _logged_in_user(session)
 
-    await log(
-        None, f"api_post_settings_delete_account: user=@{user.twitter_screen_name}"
-    )
+    log(None, f"api_post_settings_delete_account: user=@{user.twitter_screen_name}")
 
     # Log the user out
     session = await get_session(request)
     del session["twitter_id"]
 
     # Delete user and all associated data
-    await delete_user(user)
+    delete_user(user)
 
     return web.json_response(True)
 
@@ -1138,7 +1137,7 @@ async def api_post_dashboard(request):
             text="action must be 'start', 'pause', 'fetch', or 'reactivate'"
         )
 
-    await log(
+    log(
         None,
         f"api_post_dashboard: user=@{user.twitter_screen_name}, action={data['action']}",
     )
@@ -1152,7 +1151,7 @@ async def api_post_dashboard(request):
         try:
             semiphemeral_api.destroy_block(user_id=user.twitter_id)
         except Exception as e:
-            await log(
+            log(
                 None,
                 f"Error unblocking: {e}",
             )
@@ -1180,7 +1179,7 @@ async def api_post_dashboard(request):
         db_session.commit()
 
         # Create a new fetch job
-        await add_job("fetch", user.id, worker_jobs.funcs)
+        add_job("fetch", user.id, worker_jobs.funcs)
 
         return web.json_response({"unblocked": True})
 
@@ -1214,7 +1213,7 @@ async def api_post_dashboard(request):
             db_session.commit()
 
             # Create a new delete job
-            await add_job("delete", user.id, worker_jobs.funcs)
+            add_job("delete", user.id, worker_jobs.funcs)
 
         elif data["action"] == "pause":
             if user.paused:
@@ -1251,7 +1250,7 @@ async def api_post_dashboard(request):
                 )
 
             # Create a new fetch job
-            await add_job("fetch", user.id, worker_jobs.funcs)
+            add_job("fetch", user.id, worker_jobs.funcs)
 
         return web.json_response(True)
 
@@ -1456,7 +1455,7 @@ async def api_post_dms(request):
         f.write(json.dumps(conversations, indent=2))
 
     # Create a new delete_dms job
-    await add_job(job_type, user.id, worker_jobs.funcs)
+    add_job(job_type, user.id, worker_jobs.funcs)
     return web.json_response({"error": False})
 
 
@@ -1745,7 +1744,7 @@ async def admin_api_post_fascists(request):
         ).gino.status()
 
         # Make sure the fascist is blocked
-        await add_job(
+        add_job(
             "block", None, worker_jobs.funcs, {"twitter_username": data["username"]}
         )
         return web.json_response(True)
@@ -1824,7 +1823,7 @@ async def maintenance_refresh_logging(request=None):
 
 
 async def main():
-    await send_admin_notification(
+    send_admin_notification(
         f"Semiphemeral container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
     )
 
@@ -1933,7 +1932,7 @@ async def main():
                     logged_job_ids.append(job_id)
                     exceptions_logged += 1
             if exceptions_logged > 0:
-                await log(None, f"Logged {exceptions_logged} exceptions")
+                log(None, f"Logged {exceptions_logged} exceptions")
 
             await asyncio.sleep(20)
 

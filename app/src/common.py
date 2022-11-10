@@ -18,7 +18,7 @@ dm_jobs_high_q = Queue("dm_jobs_high", connection=conn)
 dm_jobs_low_q = Queue("dm_jobs_low", connection=conn)
 
 
-async def log(job_details, s):
+def log(job_details, s):
     # Print to stderr, so we can immediately see output in docker logs
     if job_details:
         print(
@@ -30,12 +30,12 @@ async def log(job_details, s):
 
 
 # Add a job
-async def add_job(
+def add_job(
     job_type, user_id, funcs, data={}, job_timeout="24h", scheduled_timestamp=None
 ):
     if not scheduled_timestamp:
         scheduled_timestamp = datetime.now()
-    await log(
+    log(
         None,
         f"add_job: job_type={job_type}, user_id={user_id}, data={data}, job_timeout={job_timeout}, scheduled_timestamp={scheduled_timestamp}",
     )
@@ -48,7 +48,7 @@ async def add_job(
         .where(JobDetails.status == "pending")
     )
     if existing_job_details:
-        await log(
+        log(
             None,
             f"Skipping adding {job_type} job for user_id={user_id}, job is already pending",
         )
@@ -77,12 +77,12 @@ async def add_job(
     db_session.commit()
 
 
-async def add_dm_job(
+def add_dm_job(
     funcs, dest_twitter_id, message, scheduled_timestamp=None, priority="high"
 ):
     if not scheduled_timestamp:
         scheduled_timestamp = datetime.now()
-    await log(
+    log(
         None,
         f"add_dm_job: dest_twitter_id={dest_twitter_id}, scheduled_timestamp={scheduled_timestamp}",
     )
@@ -206,7 +206,7 @@ def tweepy_dms_api_v1_1(user):
     )
 
 
-async def send_admin_notification(message):
+def send_admin_notification(message):
     # Webhook
     webhook_url = os.environ.get("ADMIN_WEBHOOK")
     try:
@@ -215,7 +215,7 @@ async def send_admin_notification(message):
         pass
 
 
-async def delete_user(user):
+def delete_user(user):
     db_session.execute(delete(Tip).where(Tip.user_id == user.id))
     db_session.execute(delete(Nag).where(Nag.user_id == user.id))
     db_session.execute(delete(JobDetails).where(JobDetails.user_id == user.id))
