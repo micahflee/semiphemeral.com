@@ -56,4 +56,4 @@ RUN cd admin-frontend && ./build.sh
 
 EXPOSE 8000
 # CMD ["python", "-m", "poetry", "run", "flask", "run", "-h", "0.0.0.0", "-p", "8080"]
-CMD ["python", "-m", "poetry", "run", "gunicorn", "--workers", "4", "--bind", "0.0.0.0:8000", "web:app", "--access-logfile=-"]
+CMD ["python", "-m", "poetry", "run", "gunicorn", "--workers", "4", "--bind", "0.0.0.0:8000", "web:app"]
