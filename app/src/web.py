@@ -528,7 +528,9 @@ def stripe_callback():
 
 @app.route("/")
 def web_index():
-    return render_template("index.html")
+    current_user = _logged_in_user()
+    logged_in = current_user is not None
+    return render_template("index.html", logged_in=logged_in)
 
 
 @app.route("/privacy")
@@ -614,11 +616,11 @@ def api_export_download(current_user):
     """
     # Create the CSV
     os.makedirs(
-        os.path.join("/tmp", "export", str(current_user.twitter_screen_name)),
+        os.path.join("tmp", "export", str(current_user.twitter_screen_name)),
         exist_ok=True,
     )
     download_filename = f"semiphemeral-export-{current_user.twitter_screen_name}-{datetime.now().strftime('%Y-%m-%d')}.csv"
-    csv_filename = os.path.join("/tmp", "export", download_filename)
+    csv_filename = os.path.join("tmp", "export", download_filename)
     with open(csv_filename, "w") as f:
         fieldnames = [
             "Tweet ID",  # twitter_id
@@ -654,7 +656,7 @@ def api_export_download(current_user):
                 }
             )
 
-    return send_from_directory("/tmp/export", csv_filename)
+    return send_from_directory("tmp/export", download_filename, as_attachment=True)
 
 
 @app.route("/api/settings", methods=["GET", "POST"])
