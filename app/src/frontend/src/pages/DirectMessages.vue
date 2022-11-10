@@ -35,11 +35,11 @@ function getDMInfo() {
 
 function onSubmit() {
   if (
-    file.value.files[0].name != "direct-message-headers.js" &&
-    file.value.files[0].name != "direct-message-group-headers.js"
+    file.value.files[0].name != "direct-messages.js" &&
+    file.value.files[0].name != "direct-messages-group.js"
   ) {
     alert(
-      'That\'s the wrong file. It should be named "direct-message-headers.js" or "direct-message-group-headers.js".'
+      'That\'s the wrong file. It should be named "direct-messages.js" or "direct-messages-group.js".'
     );
     return
   }
@@ -105,13 +105,16 @@ getDMInfo()
         <p>Unzip your Twitter archive. There should be a folder called "data", and inside there should be many files
           including:</p>
         <ul>
-          <li>"direct-message-headers.js", containing the metadata for all of your DMs</li>
-          <li>"direct-message-group-headers.js", containing the metadata for all of your group DMs</li>
+          <li>"direct-messages.js", containing all of your DMs</li>
+          <li>"direct-messages-group.js", containing all of your group DMs</li>
+          <li>"direct-message-headers.js", containing metadata of all of your DMs</li>
+          <li>"direct-message-group-headers.js", containing metadata of all of your group DMs</li>
         </ul>
         <p>
-          <strong>To delete your old DMs, upload your "direct-message-headers.js" or "direct-message-group-headers.js"
+          <strong>To delete your old DMs, upload your "direct-messages.js" or "direct-messages-group.js"
             file here.</strong> Semiphemeral will delete all of your old DMs listed in these files except for the most
-          recent ones as you've specified in your settings.
+          recent ones as you've specified in your settings. (Semiphemeral ignores the content of DMs and only looks at
+          their IDs. The file you uploaded is deleted as soon as the delete job is finished.)
         </p>
         <template v-if="!directMessages">
           <p>

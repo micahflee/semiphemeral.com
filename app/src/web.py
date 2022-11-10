@@ -1447,21 +1447,31 @@ def api_dms(current_user):
                 }
             )
 
-        # Detect if this is direct-message-headers.js or direct-message-group-headers.js
+        # Detect if this is direct-message.js or direct-message-group.js
         content = dms_file.read()
-        expected_dm_start = b"window.YTD.direct_message_headers.part0 = "
-        expected_dm_group_start = b"window.YTD.direct_message_group_headers.part0 = "
+        expected_dm_start = b"window.YTD.direct_messages.part0 = "
+        expected_dm_headers_start = b"window.YTD.direct_message_headers.part0 = "
+        expected_dm_group_start = b"window.YTD.direct_messages_group.part0 = "
+        expected_dm_group_headers_start = (
+            b"window.YTD.direct_message_group_headers.part0 = "
+        )
         if content.startswith(expected_dm_start):
             dm_type = "dms"
             json_string = content[len(expected_dm_start) :]
+        elif content.startswith(expected_dm_headers_start):
+            dm_type = "dms"
+            json_string = content[len(expected_dm_headers_start) :]
         elif content.startswith(expected_dm_group_start):
             dm_type = "groups"
             json_string = content[len(expected_dm_group_start) :]
+        elif content.startswith(expected_dm_group_headers_start):
+            dm_type = "groups"
+            json_string = content[len(expected_dm_group_headers_start) :]
         else:
             return jsonify(
                 {
                     "error": True,
-                    "error_message": "This does not appear to be a direct-message-headers.js or direct-message-group-headers.js file",
+                    "error_message": "This does not appear to be a direct-messages.js, direct-message-headers.js, direct-messages-group.js, or direct-message-group-headers.js file",
                 }
             )
 
