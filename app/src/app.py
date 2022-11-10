@@ -1548,7 +1548,7 @@ WHERE
         try:
             redis_job = RQJob.fetch(job.redis_id, connection=conn)
             redis_status = redis_job.get_status(refresh=True)
-        except rq.exceptions.NoSuchJobError:
+        except:
             redis_status = "N/A"
 
         return {
