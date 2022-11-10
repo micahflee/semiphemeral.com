@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 import os
-import base64
-import logging
-import asyncio
-import functools
 import csv
 import json
 from datetime import datetime, timedelta
@@ -915,7 +911,6 @@ def api_tip(current_user):
 
         try:
             # Create a checkout session
-            loop = asyncio.get_running_loop()
             domain = os.environ.get("DOMAIN")
             if recurring:
                 # Make sure this Price object exists
@@ -1037,7 +1032,6 @@ def api_tip_cancel_recurring(current_user):
         )
 
     # Cancel the recurring tip
-    loop = asyncio.get_running_loop()
     stripe.Subscription.delete(sid=recurring_tip.stripe_subscription_id)
     recurring_tip.status = "canceled"
     db_session.add(recurring_tip)
@@ -1400,7 +1394,7 @@ def api_dms(current_user):
     POST: Upload a direct-message-headers.js file to bulk delete old DMs
     """
     if request.method == "GET":
-        is_dm_app_authenticated = await _api_validate_dms_authenticated(user)
+        is_dm_app_authenticated = _api_validate_dms_authenticated(current_user)
 
         job = db_session.scalar(
             select(JobDetails)
@@ -1586,7 +1580,7 @@ WHERE
             )
         ).scalar()
 
-    async def to_client(job):
+    def to_client(job):
         if job.scheduled_timestamp:
             scheduled_timestamp = job.scheduled_timestamp.timestamp()
         else:
@@ -1625,7 +1619,7 @@ WHERE
 
     return jsonify(
         {
-            "active_jobs": [await to_client(job) for job in active_jobs],
+            "active_jobs": [to_client(job) for job in active_jobs],
             "pending_jobs_count": pending_jobs_count,
             "scheduled_jobs_count": scheduled_jobs_count,
         }
