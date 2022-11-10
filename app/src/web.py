@@ -1827,7 +1827,7 @@ def admin_api_fascists(current_user):
             return jsonify(True)
 
         elif data["action"] == "delete":
-            valid = _api_validate(_api_validate({"action": str, "username": str}, data))
+            valid = _api_validate({"action": str, "username": str}, data)
             if not valid["valid"]:
                 return valid["message"], 400
 
@@ -1897,28 +1897,3 @@ def admin_api_tips(current_user):
         return tips_json
 
     return jsonify({"tips": to_client(tips)})
-
-
-# send_admin_notification(
-#     f"Semiphemeral web container started ({os.environ.get('DEPLOY_ENVIRONMENT')})"
-# )
-
-# Loop forever logging redis job exceptions
-# with open("/var/web/exceptions.log", "a") as f:
-#     logged_job_ids = []
-#     while True:
-#         exceptions_logged = 0
-#         for job_id in jobs_registry.get_job_ids():
-#             if job_id not in logged_job_ids:
-#                 job = RQJob.fetch(job_id, connection=conn)
-#                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-#                 f.write(f"job_id is {job_id}, timestamp is {now}\n")
-#                 f.write(job.exc_info)
-#                 f.write("===\n")
-#                 f.flush()
-#                 logged_job_ids.append(job_id)
-#                 exceptions_logged += 1
-#         if exceptions_logged > 0:
-#             log(None, f"Logged {exceptions_logged} exceptions")
-
-#         time.sleep(20)
