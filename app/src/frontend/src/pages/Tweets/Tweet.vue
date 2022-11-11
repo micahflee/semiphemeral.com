@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from "vue"
+import { ref, watch, onMounted, onUpdated } from "vue"
 
 const props = defineProps({
   tweet: Object,
@@ -9,7 +9,7 @@ const props = defineProps({
 const emit = defineEmits(["exclude-true", "exclude-false"])
 
 const loading = ref(false)
-const exclude = ref(props.tweet.exclude)
+const exclude = ref(false)
 const excludeCheckbox = ref(null)
 const error = ref("")
 
@@ -58,6 +58,14 @@ watch(exclude, (newExclude, oldExclude) => {
       exclude.value = !oldExclude
       error.value = "Error toggling exclude"
     });
+})
+
+onMounted(() => {
+  exclude.value = props.tweet.exclude
+})
+
+onUpdated(() => {
+  exclude.value = props.tweet.exclude
 })
 </script>
 
