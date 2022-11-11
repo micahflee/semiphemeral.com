@@ -160,7 +160,7 @@ li .job-type {
   display: inline-block;
   vertical-align: middle;
   margin-right: 10px;
-  width: 60px;
+  width: 80px;
   font-size: 0.8em;
 }
 
@@ -168,7 +168,7 @@ li .job-date {
   display: inline-block;
   vertical-align: middle;
   margin-right: 10px;
-  width: 250px;
+  width: 100px;
   font-size: 0.8em;
   color: #666666;
 }

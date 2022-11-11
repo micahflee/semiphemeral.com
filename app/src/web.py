@@ -1549,7 +1549,9 @@ def admin_api_jobs(current_user):
     Get information about current jobs
     """
     active_jobs = db_session.scalars(
-        select(JobDetails).where(JobDetails.status == "active").order_by(JobDetails.id)
+        select(JobDetails)
+        .where(JobDetails.status == "active")
+        .order_by(JobDetails.started_timestamp)
     ).fetchall()
 
     with db_engine.connect() as conn:

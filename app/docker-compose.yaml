@@ -54,6 +54,8 @@ services:
       - DATABASE_URI=postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
       - ADMIN_USERNAME={{ admin_username }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
+    volumes:
+      - /opt/semiphemeral/data/web:/var/web
     networks:
       - default
       - host_private
