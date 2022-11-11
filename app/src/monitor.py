@@ -1,9 +1,9 @@
 import os
-
-from flask import Flask
+import time
+from datetime import datetime
 
 import worker_jobs
-from common import log, jobs_q, dm_jobs_high_q, dm_jobs_low_q
+from common import log, jobs_q, dm_jobs_high_q, dm_jobs_low_q, conn as redis_conn
 
 from sqlalchemy import select, update
 from db import (
@@ -11,6 +11,9 @@ from db import (
     JobDetails,
     session as db_session,
 )
+
+from rq.job import Job as RQJob
+from rq.registry import FailedJobRegistry
 
 
 def enqueue_job(job_details, i, num_jobs):
@@ -103,7 +106,9 @@ def main():
 
     # Add pending jobs to the worker queues
     jobs = db_session.scalars(
-        select(JobDetails).where(JobDetails.status == "pending")
+        select(JobDetails)
+        .where(JobDetails.status == "pending")
+        .order_by(JobDetails.scheduled_timestamp)
     ).fetchall()
     num_jobs = len(jobs)
     log(None, f"Enqueing {num_jobs:,} jobs")
@@ -115,19 +120,26 @@ def main():
     # Disconnect
     db_session.close()
 
-    # There's an rq-dashboard issue where it's not compatible with the latest click
-    # so for now, we'll just replace it with a simple flask service
+    # Loop forever logging redis job exceptions
+    jobs_registry = FailedJobRegistry(queue=jobs_q)
+    with open("/var/web/exceptions.log", "a") as f:
+        logged_job_ids = []
+        while True:
+            exceptions_logged = 0
+            for job_id in jobs_registry.get_job_ids():
+                if job_id not in logged_job_ids:
+                    job = RQJob.fetch(job_id, connection=redis_conn)
+                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    f.write(f"job_id is {job_id}, timestamp is {now}\n")
+                    f.write(job.exc_info)
+                    f.write("===\n")
+                    f.flush()
+                    logged_job_ids.append(job_id)
+                    exceptions_logged += 1
+            if exceptions_logged > 0:
+                log(None, f"Logged {exceptions_logged} exceptions")
 
-    # # Start the rq-dashboard
-    # subprocess.run(["rq-dashboard", "--redis-url", os.environ.get("REDIS_URL")])
-
-    app = Flask(__name__)
-
-    @app.route("/")
-    def hello_world():
-        return "<p>Some day we'll have rq-dashboard again maybe</p>"
-
-    app.run(host="0.0.0.0", port=9181)
+            time.sleep(20)
 
 
 if __name__ == "__main__":
