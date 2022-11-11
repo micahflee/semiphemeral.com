@@ -1586,14 +1586,8 @@ WHERE
         ).scalar()
 
     def to_client(job):
-        if job.scheduled_timestamp:
-            scheduled_timestamp = job.scheduled_timestamp.timestamp()
-        else:
-            scheduled_timestamp = None
-        if job.started_timestamp:
-            started_timestamp = job.started_timestamp.timestamp()
-        else:
-            started_timestamp = None
+        duration = datetime.now() - job.started_timestamp
+        duration = str(duration).split(".")[0]
 
         user = db_session.scalar(select(User).where(User.id == job.user_id))
         if user:
@@ -1617,8 +1611,7 @@ WHERE
             "job_type": job.job_type,
             "data": json.loads(job.data),
             "status": job.status,
-            "scheduled_timestamp": scheduled_timestamp,
-            "started_timestamp": started_timestamp,
+            "duration": duration,
             "redis_status": redis_status,
         }
 
