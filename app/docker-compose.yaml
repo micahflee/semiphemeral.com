@@ -57,10 +57,6 @@ services:
     networks:
       - default
       - host_private
-    ports:
-      - "9181:9181"
-    expose:
-      - "9181"
     depends_on:
       - redis
     command:

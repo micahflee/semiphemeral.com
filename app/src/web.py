@@ -52,11 +52,6 @@ import worker_jobs
 
 import rq
 from rq.job import Job as RQJob
-from rq.registry import FailedJobRegistry
-
-# Redis job registries
-jobs_registry = FailedJobRegistry(queue=jobs_q)
-dm_jobs_registry = FailedJobRegistry(queue=dm_jobs_high_q)
 
 # Init stripe
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")

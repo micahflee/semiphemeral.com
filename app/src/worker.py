@@ -8,15 +8,9 @@ import click
 @click.command()
 @click.option("--dms", is_flag=True, default=False)
 def main(dms):
-    # Wait for monitor port to be open
-    while True:
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect(("monitor", 9181))
-            break
-        except:
-            print("Waiting for monitor to finish initializing...", file=sys.stderr)
-            time.sleep(30)
+    # Wait 30s to ensure redis jobs have been flushed
+    print("Waiting 30s for jobs to be flushed ...", file=sys.stderr)
+    time.sleep(30)
 
     # Start the worker
     print("Starting worker", file=sys.stderr)
