@@ -108,7 +108,7 @@ fetchJobs()
             </span>
             <span class="job-user" v-else></span>
             <span class="job-type">{{ job.job_type }}</span>
-            <span class="job-date">duration {{ duration }}</span>
+            <span class="job-date">duration {{ job.duration }}</span>
             <span class="job-data">{{ job.data }}</span>
           </li>
         </ul>
