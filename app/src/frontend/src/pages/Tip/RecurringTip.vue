@@ -18,7 +18,7 @@ function cancel() {
     .then(function (response) {
       if (response.status !== 200) {
         alert(
-          "Error canceling recurring tip, please contact hi@semiphemeral.com: " +
+          "Error canceling recurring tip, please contact semiphemeral@micahflee.com: " +
           response.status
         )
         return
