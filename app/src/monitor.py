@@ -1,6 +1,6 @@
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import worker_jobs
 from common import log, jobs_q, dm_jobs_high_q, dm_jobs_low_q, conn as redis_conn
@@ -16,7 +16,7 @@ from rq.job import Job as RQJob
 from rq.registry import FailedJobRegistry
 
 
-def enqueue_job(job_details, i, num_jobs):
+def enqueue_job(job_details, i=0, num_jobs=0):
     func = None
     job_id = None
     job_timeout = "10m"
@@ -117,14 +117,11 @@ def main():
         enqueue_job(job_details, i, num_jobs)
         i += 1
 
-    # Disconnect
-    db_session.close()
-
-    # Loop forever logging redis job exceptions
     jobs_registry = FailedJobRegistry(queue=jobs_q)
     with open("/var/web/exceptions.log", "a") as f:
         logged_job_ids = []
         while True:
+            # Log exceptions
             exceptions_logged = 0
             for job_id in jobs_registry.get_job_ids():
                 if job_id not in logged_job_ids:
@@ -139,7 +136,24 @@ def main():
             if exceptions_logged > 0:
                 log(None, f"Logged {exceptions_logged} exceptions")
 
-            time.sleep(20)
+            # Retry failed jobs
+            active_jobs = db_session.scalars(
+                select(JobDetails).where(JobDetails.status == "active")
+            ).fetchall()
+            for job in active_jobs:
+                redis_job = RQJob.fetch(job.redis_id, connection=redis_conn)
+                if redis_job.get_status() in ["failed", "failed", "canceled"]:
+                    log(
+                        None,
+                        f"job {job.job_type} job_id={job.id} {redis_job.get_status()}: {redis_job.exc_info} (trying again in 5m)",
+                    )
+                    job.status = "pending"
+                    job.scheduled_timestamp = datetime.now() + timedelta(minutes=5)
+                    db_session.add(job)
+                    db_session.commit()
+                    enqueue_job(job)
+
+            time.sleep(300)
 
 
 if __name__ == "__main__":
