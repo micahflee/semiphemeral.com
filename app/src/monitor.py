@@ -114,7 +114,10 @@ def main():
     log(None, f"Enqueing {num_jobs:,} jobs")
     i = 0
     for job_details in jobs:
-        enqueue_job(job_details, i, num_jobs)
+        try:
+            enqueue_job(job_details, i, num_jobs)
+        except:
+            pass
         i += 1
 
     jobs_registry = FailedJobRegistry(queue=jobs_q)
