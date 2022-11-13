@@ -868,7 +868,6 @@ def api_tip(current_user):
         valid = _api_validate(
             {
                 "amount": str,
-                "other_amount": [int, float],
                 "type": str,
             },
             data,
