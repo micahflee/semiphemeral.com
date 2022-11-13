@@ -1,6 +1,6 @@
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import worker_jobs
 from common import log, jobs_q, dm_jobs_high_q, dm_jobs_low_q, conn as redis_conn
@@ -142,13 +142,12 @@ def main():
             ).fetchall()
             for job in active_jobs:
                 redis_job = RQJob.fetch(job.redis_id, connection=redis_conn)
-                if redis_job.get_status() in ["failed", "failed", "canceled"]:
+                if redis_job.get_status() in ["failed", "canceled"]:
                     log(
                         None,
-                        f"job {job.job_type} job_id={job.id} {redis_job.get_status()}: {redis_job.exc_info} (trying again in 5m)",
+                        f"job {job.job_type} job_id={job.id} {redis_job.get_status()}: {redis_job.exc_info} (trying again)",
                     )
                     job.status = "pending"
-                    job.scheduled_timestamp = datetime.now() + timedelta(minutes=5)
                     db_session.add(job)
                     db_session.commit()
                     enqueue_job(job)
