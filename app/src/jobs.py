@@ -6,7 +6,7 @@ import time
 import tweepy
 
 import psycopg2
-from sqlalchemy import select, update
+from sqlalchemy import select, update, or_
 from sqlalchemy.sql import text
 from db import (
     JobDetails,
@@ -72,6 +72,7 @@ def test_api_creds(func):
         job_details = db_session.scalar(
             select(JobDetails).where(JobDetails.id == job_details_id)
         )
+        disconnect = job_details.job_type == "fetch"
         user = db_session.scalar(select(User).where(User.id == job_details.user_id))
         if user:
             api = tweepy_api_v1_1(user)
@@ -89,10 +90,60 @@ def test_api_creds(func):
                 db_session.add(job_details)
 
                 db_session.commit()
-                db_session.close()
+                if disconnect:
+                    db_session.close()
                 return False
+        else:
+            log(job_details, "User not found, canceling job")
+            job_details.status = "canceled"
+            job_details.finished_timestamp = datetime.now()
+            db_session.add(job_details)
+            db_session.commit()
+            if disconnect:
+                db_session.close()
+            return False
 
-        return func(job_details_id, funcs)
+        return func(user, job_details_id, funcs)
+
+    return wrapper
+
+
+def validate_job(func):
+    def wrapper(user, job_details_id, funcs):
+        """
+        Make sure the API creds work, and if not pause semiphemeral for the user
+        """
+        job_details = db_session.scalar(
+            select(JobDetails).where(JobDetails.id == job_details_id)
+        )
+
+        disconnect = job_details.job_type == "fetch"
+
+        # If job doesn't exist, or is already canceled, quit early
+        if not job_details or job_details.status == "canceled":
+            log(job_details, "Job already canceled, quitting early")
+            if disconnect:
+                db_session.close()
+            return False
+
+        # Make sure this isn't a duplicate job
+        duplicate_jobs = db_session.scalars(
+            select(JobDetails)
+            .where(JobDetails.user_id == job_details.user_id)
+            .where(JobDetails.job_type == job_details.job_type)
+            .where(or_(JobDetails.status == "pending", JobDetails.status == "active"))
+            .where(JobDetails.id != job_details_id)
+        ).fetchall()
+        if len(duplicate_jobs) > 0:
+            job_details.status = "canceled"
+            db_session.add(job_details)
+            db_session.commit()
+            log(job_details, "Duplicate job, quitting early")
+            if disconnect:
+                db_session.close()
+            return False
+
+        return func(job_details, user, funcs)
 
     return wrapper
 
@@ -101,19 +152,9 @@ def test_api_creds(func):
 
 
 @test_api_creds
-def fetch(job_details_id, funcs):
-    job_details = db_session.scalar(
-        select(JobDetails).where(JobDetails.id == job_details_id)
-    )
-
-    # Don't disconnect from the db if this is a delete job
+@validate_job
+def fetch(job_details, user, funcs):
     disconnect = job_details.job_type == "fetch"
-
-    if job_details.status == "canceled":
-        log(job_details, "Job already canceled, quitting early")
-        if disconnect:
-            db_session.close()
-        return
 
     job_details.status = "active"
     job_details.started_timestamp = datetime.now()
@@ -121,17 +162,6 @@ def fetch(job_details_id, funcs):
     db_session.commit()
 
     log(job_details, str(job_details))
-
-    user = db_session.scalar(select(User).where(User.id == job_details.user_id))
-    if not user:
-        log(job_details, "User not found, canceling job")
-        job_details.status = "canceled"
-        job_details.finished_timestamp = datetime.now()
-        db_session.add(job_details)
-        db_session.commit()
-        if disconnect:
-            db_session.close()
-        return
 
     api = tweepy_api_v1_1(user)
     since_id = user.since_id
@@ -423,30 +453,12 @@ def fetch(job_details_id, funcs):
 
 
 @test_api_creds
-def delete(job_details_id, funcs):
-    job_details = db_session.scalar(
-        select(JobDetails).where(JobDetails.id == job_details_id)
-    )
-    if job_details.status == "canceled":
-        log(job_details, "Job already canceled, quitting early")
-        db_session.close()
-        return
-
+@validate_job
+def delete(job_details, user, funcs):
     job_details.status = "active"
-    job_details.started_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
     log(job_details, str(job_details))
-
-    user = db_session.scalar(select(User).where(User.id == job_details.user_id))
-    if not user:
-        log(job_details, "User not found, canceling job")
-        job_details.status = "canceled"
-        job_details.finished_timestamp = datetime.now()
-        db_session.add(job_details)
-        db_session.commit()
-        db_session.close()
-        return
 
     api = tweepy_api_v1_1(user)
     log(job_details, "Delete started")
@@ -490,10 +502,6 @@ def delete(job_details_id, funcs):
                     api.destroy_status(tweet.twitter_id)
                 except Exception as e:
                     pass
-                    # log(
-                    #     job_details,
-                    #     f"Error deleting retweet {tweet.twitter_id}: {e}",
-                    # )
 
                 tweet.is_deleted = True
                 db_session.add(tweet)
@@ -532,9 +540,6 @@ def delete(job_details_id, funcs):
                     api.destroy_favorite(like.twitter_id)
                 except Exception as e:
                     pass
-                    # log(
-                    #     job_details, f"Error deleting like {like.twitter_id}: {e}"
-                    # )
 
                 like.is_deleted = True
                 db_session.add(like)
@@ -808,40 +813,25 @@ def delete(job_details_id, funcs):
 
 
 @test_api_creds
-def delete_dms(job_details_id, funcs):
-    delete_dms_job(job_details_id, "dms", funcs)
+@validate_job
+def delete_dms(job_details, user, funcs):
+    delete_dms_job(job_details, user, "dms", funcs)
     db_session.close()
 
 
 @test_api_creds
-def delete_dm_groups(job_details_id, funcs):
-    delete_dms_job(job_details_id, "groups", funcs)
+@validate_job
+def delete_dm_groups(job_details, user, funcs):
+    delete_dms_job(job_details, user, "groups", funcs)
     db_session.close()
 
 
-def delete_dms_job(job_details_id, dm_type, funcs):
-    job_details = db_session.scalar(
-        select(JobDetails).where(JobDetails.id == job_details_id)
-    )
-    if job_details.status == "canceled":
-        log(job_details, "Job already canceled, quitting early")
-        db_session.close()
-        return
-
+def delete_dms_job(job_details, user, dm_type, funcs):
     job_details.status = "active"
     job_details.started_timestamp = datetime.now()
     db_session.add(job_details)
     db_session.commit()
     log(job_details, str(job_details))
-
-    user = db_session.scalar(select(User).where(User.id == job_details.user_id))
-    if not user:
-        log(job_details, "User not found, canceling job")
-        job_details.statis = "canceled"
-        job_details.finished_timestamp = datetime.now()
-        db_session.add(job_details)
-        db_session.commit()
-        return
 
     dm_client = tweepy_client(user, dms=True)
     dm_api = tweepy_dms_api_v1_1(user)
@@ -974,7 +964,7 @@ def block(job_details_id, funcs):
     job_details = db_session.scalar(
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
-    if job_details.status == "canceled":
+    if not job_details or job_details.status == "canceled":
         log(job_details, "Job already canceled, quitting early")
         db_session.close()
         return
@@ -1064,7 +1054,7 @@ def unblock(job_details_id, funcs):
     job_details = db_session.scalar(
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
-    if job_details.status == "canceled":
+    if not job_details or job_details.status == "canceled":
         log(job_details, "Job already canceled, quitting early")
         db_session.close()
         return
@@ -1115,7 +1105,7 @@ def dm(job_details_id, funcs):
     job_details = db_session.scalar(
         select(JobDetails).where(JobDetails.id == job_details_id)
     )
-    if job_details.status == "canceled":
+    if not job_details or job_details.status == "canceled":
         log(job_details, "Job already canceled, quitting early")
         db_session.close()
         return
