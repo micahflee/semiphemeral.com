@@ -1,8 +1,9 @@
-import socket
 import time
-import subprocess
 import sys
 import click
+
+from rq import Worker
+from common import conn as redis_conn, jobs_q, dm_jobs_high_q, dm_jobs_low_q
 
 
 @click.command()
@@ -12,21 +13,15 @@ def main(dms):
     print("Waiting 30s for jobs to be flushed ...", file=sys.stderr)
     time.sleep(30)
 
+    if dms:
+        queues = [dm_jobs_high_q, dm_jobs_low_q]
+    else:
+        queues = [jobs_q]
+
     # Start the worker
     print("Starting worker", file=sys.stderr)
-    args = [
-        "rq",
-        "worker",
-        "--url",
-        "redis://redis:6379",
-        "--with-scheduler",
-    ]
-    if dms:
-        args.append("dm_jobs_high")
-        args.append("dm_jobs_low")
-    else:
-        args.append("jobs")
-    subprocess.run(args)
+    worker = Worker(queues, connection=redis_conn)
+    worker.work(with_scheduler=True)
 
 
 if __name__ == "__main__":
