@@ -42,7 +42,7 @@ def main():
 def send_reminders():
     # Do we need to send reminders?
     print("Checking if we need to send reminders")
-    message = f"Hello! Just in case you forgot about me, your Semiphemeral account has been paused for several months. You can login at https://{os.environ.get('DOMAIN')}/ to unpause your account and start automatically deleting your old tweets and likes, except for the ones you want to keep. You can also use it to delete your DMs. With Twitter's new ownership, perhaps this is prudent."
+    message = f"Hello! Just in case you forgot about me, your Semiphemeral account has been paused for several months. You can login at https://{os.environ.get('DOMAIN')}/ to unpause your account and start automatically deleting your old tweets and likes, except for the ones you want to keep. You can also use it to delete your DMs. (Considering Twitter's new owner, perhaps this is prudent.) And if you're not interested, you can login, go to Settings, and delete your account."
     three_months_ago = datetime.now() - timedelta(days=90)
     reminded_users = []
 
