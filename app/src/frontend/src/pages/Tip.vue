@@ -138,6 +138,12 @@ fetch("/api/tip")
           </label>
         </li>
         <li>
+          <label :class="amount == '800' ? 'selected' : ''">
+            <input type="radio" name="amount" value="800" v-model="amount" />
+            $8
+          </label>
+        </li>
+        <li>
           <label :class="amount == '1337' ? 'selected' : ''">
             <input type="radio" name="amount" value="1337" v-model="amount" />
             $13.37

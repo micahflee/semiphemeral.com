@@ -879,6 +879,7 @@ def api_tip(current_user):
             data["amount"] != "100"
             and data["amount"] != "200"
             and data["amount"] != "500"
+            and data["amount"] != "800"
             and data["amount"] != "1337"
             and data["amount"] != "2000"
             and data["amount"] != "10000"
