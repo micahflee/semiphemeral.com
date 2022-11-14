@@ -128,14 +128,17 @@ def main():
             exceptions_logged = 0
             for job_id in jobs_registry.get_job_ids():
                 if job_id not in logged_job_ids:
-                    job = RQJob.fetch(job_id, connection=redis_conn)
-                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    f.write(f"job_id is {job_id}, timestamp is {now}\n")
-                    f.write(job.exc_info)
-                    f.write("===\n")
-                    f.flush()
-                    logged_job_ids.append(job_id)
-                    exceptions_logged += 1
+                    try:
+                        job = RQJob.fetch(job_id, connection=redis_conn)
+                        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        f.write(f"job_id is {job_id}, timestamp is {now}\n")
+                        f.write(job.exc_info)
+                        f.write("===\n")
+                        f.flush()
+                        logged_job_ids.append(job_id)
+                        exceptions_logged += 1
+                    except:
+                        pass
             if exceptions_logged > 0:
                 log(None, f"Logged {exceptions_logged} exceptions")
 

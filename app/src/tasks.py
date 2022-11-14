@@ -279,5 +279,30 @@ def cancel_dupe_jobs():
     db_session.close()
 
 
+@main.command(
+    "count-deletes",
+    short_help="Count total things deleted from twitter",
+)
+def count_deletes():
+    fields = ["tweets_deleted", "retweets_deleted", "likes_deleted", "dms_deleted"]
+    count = {}
+    for field in fields:
+        count[field] = 0
+
+    jobs = db_session.scalars(
+        select(JobDetails).where(JobDetails.status == "finished")
+    ).fetchall()
+    for job in jobs:
+        data = json.loads(job.data)
+        if "progress" in data:
+            for field in fields:
+                if field in data["progress"]:
+                    count[field] += data["progress"][field]
+
+    print(
+        f"Since I hatched in 2020, I have deleted {count['tweets_deleted']:,} tweets, {count['retweets_deleted']:,} retweets, {count['likes_deleted']:,} likes, and {count['dms_deleted']:,} direct messages from Twitter"
+    )
+
+
 if __name__ == "__main__":
     main()
