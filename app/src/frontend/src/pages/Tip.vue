@@ -141,6 +141,7 @@ fetch("/api/tip")
           <label :class="amount == '800' ? 'selected' : ''">
             <input type="radio" name="amount" value="800" v-model="amount" />
             $8
+            <img :src="amount == '800' ? '/images/verified-black.png' : '/images/verified.png'" class="verified" />
           </label>
         </li>
         <li>
@@ -248,7 +249,7 @@ fieldset label {
 }
 
 fieldset label.selected {
-  background-color: #5d8fad;
+  background-color: #1da1f2;
   color: #ffffff;
   border: 1px solid #adc6d6;
   padding: 5px 10px;
@@ -271,6 +272,11 @@ button {
   font-weight: bold;
   border-radius: 5px;
   margin: 0 0 5px 0;
+}
+
+img.verified {
+  width: 20px;
+  vertical-align: middle;
 }
 
 .tips-history {
