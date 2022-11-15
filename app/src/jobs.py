@@ -166,7 +166,7 @@ def fetch(job_details, user, funcs):
     api = tweepy_api_v1_1(user)
     since_id = user.since_id
 
-    log(job_details, f"Fetch started")
+    log(job_details, "Fetch started")
 
     # Start the data
     data = {"progress": {"tweets_fetched": 0, "likes_fetched": 0}}
@@ -278,6 +278,14 @@ def fetch(job_details, user, funcs):
                 db_session.add(job_details)
                 db_session.commit()
             break
+        except tweepy.errors.Forbidden as e:
+            log(job_details, f"Forbidden error, pausing user and canceling job: {e}")
+            user.paused = True
+            db_session.add(user)
+            job_details.status = "canceled"
+            db_session.add(job_details)
+            db_session.commit()
+            return False
         except tweepy.errors.TwitterServerError as e:
             handle_tweepy_exception(job_details, e, "api.user_timeline")
 
@@ -425,7 +433,7 @@ def fetch(job_details, user, funcs):
         log(job_details, f"Blocking user")
         if disconnect:
             db_session.close()
-        return
+        return False
 
     # Fetch is done! If semiphemeral is paused, send a DM
     # (If it's not paused, then this should actually be a delete job, and delete will run next)

@@ -10,8 +10,8 @@ def fetch(job_details_id):
 
 def delete(job_details_id):
     global funcs
-    jobs.fetch(job_details_id, funcs)
-    jobs.delete(job_details_id, funcs)
+    if jobs.fetch(job_details_id, funcs) != False:
+        jobs.delete(job_details_id, funcs)
 
 
 def delete_dms(job_details_id):
