@@ -231,7 +231,7 @@ def fix_stalled_users():
             .where(JobDetails.user_id == user.id)
             .where(JobDetails.status == "pending")
             .where(JobDetails.job_type == "delete")
-        )
+        ).fetchall()
         if len(pending_delete_jobs) == 0:
             add_job("delete", user.id, worker_jobs.funcs)
             print(f"[{i:,}/{count:,} @{user.twitter_screen_name} added delete job")
@@ -299,8 +299,16 @@ def count_deletes():
                 if field in data["progress"]:
                     count[field] += data["progress"][field]
 
+    def to_mil(n):
+        n_mils = round(n / 100000) / 10
+        return f"{n_mils:,}M"
+
     print(
-        f"Since I hatched in 2020, I have deleted {count['tweets_deleted']:,} tweets, {count['retweets_deleted']:,} retweets, {count['likes_deleted']:,} likes, and {count['dms_deleted']:,} direct messages from Twitter"
+        f"As of today I've deleted {count['tweets_deleted']:,} tweets, {count['retweets_deleted']:,} retweets, {count['likes_deleted']:,} likes, and {count['dms_deleted']:,} direct messages from Twitter"
+    )
+
+    print(
+        f"As of today I've deleted {to_mil(count['tweets_deleted'])} tweets, {to_mil(count['retweets_deleted'])} retweets, {to_mil(count['likes_deleted'])} likes, and {to_mil(count['dms_deleted'])} direct messages from Twitter"
     )
 
 
