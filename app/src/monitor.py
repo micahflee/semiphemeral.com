@@ -147,16 +147,21 @@ def main():
                 select(JobDetails).where(JobDetails.status == "active")
             ).fetchall()
             for job in active_jobs:
-                redis_job = RQJob.fetch(job.redis_id, connection=redis_conn)
-                if redis_job.get_status() in ["failed", "canceled"]:
-                    log(
-                        None,
-                        f"job {job.job_type} job_id={job.id} {redis_job.get_status()}: {redis_job.exc_info} (trying again)",
-                    )
-                    job.status = "pending"
+                try:
+                    redis_job = RQJob.fetch(job.redis_id, connection=redis_conn)
+                    if redis_job.get_status() in ["failed", "canceled"]:
+                        log(
+                            None,
+                            f"job {job.job_type} job_id={job.id} {redis_job.get_status()}: {redis_job.exc_info} (trying again)",
+                        )
+                        job.status = "pending"
+                        db_session.add(job)
+                        db_session.commit()
+                        enqueue_job(job)
+                except:
+                    job.status = "canceled"
                     db_session.add(job)
                     db_session.commit()
-                    enqueue_job(job)
 
             time.sleep(300)
 
