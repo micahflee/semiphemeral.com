@@ -286,8 +286,12 @@ def cancel_dupe_jobs():
 def count_deletes():
     fields = ["tweets_deleted", "retweets_deleted", "likes_deleted", "dms_deleted"]
     count = {}
+    elon_count = {}
     for field in fields:
         count[field] = 0
+        elon_count[field] = 0
+
+    elon_acquisition_date = datetime(year=2022, month=10, day=27)
 
     jobs = db_session.scalars(
         select(JobDetails).where(JobDetails.status == "finished")
@@ -298,17 +302,19 @@ def count_deletes():
             for field in fields:
                 if field in data["progress"]:
                     count[field] += data["progress"][field]
+                    if job.finished_timestamp >= elon_acquisition_date:
+                        elon_count[field] += data["progress"][field]
 
     def to_mil(n):
         n_mils = round(n / 100000) / 10
         return f"{n_mils:,}M"
 
     print(
-        f"As of today I've deleted {count['tweets_deleted']:,} tweets, {count['retweets_deleted']:,} retweets, {count['likes_deleted']:,} likes, and {count['dms_deleted']:,} direct messages from Twitter"
+        f"As of today I've deleted {to_mil(count['tweets_deleted'])} tweets, {to_mil(count['retweets_deleted'])} retweets, {to_mil(count['likes_deleted'])} likes, and {to_mil(count['dms_deleted'])} direct messages from Twitter"
     )
 
     print(
-        f"As of today I've deleted {to_mil(count['tweets_deleted'])} tweets, {to_mil(count['retweets_deleted'])} retweets, {to_mil(count['likes_deleted'])} likes, and {to_mil(count['dms_deleted'])} direct messages from Twitter"
+        f"Since @elonmusk acquired Twitter on October 27, 2022, I've deleted {to_mil(elon_count['tweets_deleted'])} tweets, {to_mil(elon_count['retweets_deleted'])} retweets, {to_mil(elon_count['likes_deleted'])} likes, and {to_mil(elon_count['dms_deleted'])} direct messages from Twitter"
     )
 
 
