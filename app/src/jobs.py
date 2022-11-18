@@ -1205,6 +1205,6 @@ def dm(job_details_id, funcs):
 
     db_session.close()
 
-    # Sleep a minute between sending each DM
-    log(job_details, f"Sleeping 60s")
-    time.sleep(60)
+    # Sleep two minutes between sending each DM
+    log(job_details, f"Sleeping 2m")
+    time.sleep(120)
