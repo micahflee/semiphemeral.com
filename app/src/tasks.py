@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import os
 import json
+import csv
+import sys
 import click
 from datetime import datetime, timedelta
 import tweepy
@@ -316,6 +318,52 @@ def count_deletes():
     print(
         f"Since @elonmusk acquired Twitter on October 27, 2022, I've deleted {to_mil(elon_count['tweets_deleted'])} tweets, {to_mil(elon_count['retweets_deleted'])} retweets, {to_mil(elon_count['likes_deleted'])} likes, and {to_mil(elon_count['dms_deleted'])} direct messages from Twitter"
     )
+
+
+@main.command(
+    "users-over-time-csv",
+    short_help="Make a CSV of user signup dates",
+)
+def users_over_time_csv():
+    headers = ["Month", "Count"]
+
+    count = {}
+    now = datetime.now()
+    current_year = now.strftime("%Y")
+    current_month = now.strftime("%m")
+    for year in range(2020, int(current_year) + 1):
+        for month in range(1, 13):
+            month_str = f"{year}-{month:02d}"
+            if month_str not in count:
+                if year == 2020 and month < 2:
+                    pass
+                elif year == int(current_year) and month > int(current_month):
+                    pass
+                else:
+                    count[month_str] = 0
+
+    users = db_session.scalars(select(User)).fetchall()
+    for user in users:
+        job = db_session.scalar(
+            select(JobDetails)
+            .where(JobDetails.user_id == user.id)
+            .where(JobDetails.status == "finished")
+            .order_by(JobDetails.finished_timestamp.asc())
+            .limit(1)
+        )
+        if job:
+            month = job.finished_timestamp.strftime("%Y-%m")
+            count[month] += 1
+
+    filename = "/tmp/users_over_time.csv"
+    with open(filename, "w") as f:
+        writer = csv.DictWriter(f, fieldnames=headers)
+        writer.writeheader()
+        for month in sorted(count.keys()):
+            writer.writerow({"Month": month, "Count": count[month]})
+
+    with open(filename) as f:
+        print(f.read())
 
 
 if __name__ == "__main__":
