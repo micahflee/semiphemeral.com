@@ -235,7 +235,7 @@ def fix_stalled_users():
             .where(JobDetails.job_type == "delete")
         ).fetchall()
         if len(pending_delete_jobs) == 0:
-            add_job("delete", user.id, worker_jobs.funcs)
+            # add_job("delete", user.id, worker_jobs.funcs)
             print(f"[{i:,}/{count:,} @{user.twitter_screen_name} added delete job")
 
         i += 1
@@ -298,6 +298,8 @@ def count_deletes():
     jobs = db_session.scalars(
         select(JobDetails).where(JobDetails.status == "finished")
     ).fetchall()
+    i = 0
+    total_jobs = len(jobs)
     for job in jobs:
         data = json.loads(job.data)
         if "progress" in data:
@@ -306,6 +308,11 @@ def count_deletes():
                     count[field] += data["progress"][field]
                     if job.finished_timestamp >= elon_acquisition_date:
                         elon_count[field] += data["progress"][field]
+
+        print(f"\rcounting job {i:,}/{total_jobs:,}", end="")
+        i += 1
+
+    print()
 
     def to_mil(n):
         n_mils = round(n / 100000) / 10
