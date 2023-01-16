@@ -28,9 +28,6 @@
 
 - name: mount everything
   command: mount -a
-  args:
-    warn: no
-  become: true
 
 - name: /root/.pgpass template
   template:

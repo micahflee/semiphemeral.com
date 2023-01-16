@@ -43,16 +43,14 @@ Commands:
   forward-postgres        Forward the postgres port to localhost, using SSH
   ssh-app                 SSH to app server
   ssh-db                  SSH to db server
-  terraform               Re-apply terraform (uses current IP for devops IP)
 ```
 
 When you run deploy, it will use terraform to deploy/update DigitalOcean infrastructure, and then use ansible to ensure the server is configured.
 
-It also detects your current IP address, and configures the firewall to only allow SSHing from this IP address (so if you need to SSH from another IP, you must re-run deploy). Likewise, only your current IP will be able to connect to the staging server (except during the deploy, when all IPs are allowed, to make Let's Encrypt work).
-
 ## Deploy staging
 
 ```
+poetry shell
 ./devops.py staging-create
 ./devops.py ansible-db staging
 ./devops.py ansible-app staging
