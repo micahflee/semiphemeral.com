@@ -323,22 +323,6 @@ def ansible_app_update(deploy_environment):
 
 
 @main.command()
-@click.argument("deploy_environment", nargs=1)
-@click.option(
-    "--open-firewall",
-    is_flag=True,
-    default=False,
-    help="Allow any IPs to connect, even if this is staging",
-)
-def terraform(deploy_environment, open_firewall):
-    """Re-apply terraform (uses current IP for devops IP)"""
-    if not _validate_env(deploy_environment):
-        return
-
-    _terraform_apply(deploy_environment)
-
-
-@main.command()
 def staging_create():
     """Create staging infrastructure"""
     snapshot_name = "backup-for-staging"
