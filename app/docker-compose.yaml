@@ -22,7 +22,7 @@ services:
       - STRIPE_PUBLISHABLE_KEY={{ stripe_publishable_key }}
       - STRIPE_SECRET_KEY={{ stripe_secret_key }}
       - MAINTENANCE_SECRET={{ maintenance_secret }}
-      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_USERNAMES={{ admin_usernames }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
       - DOMAIN={{ domain }}
       - FLASK_SECRET_KEY={{ flask_secret_key }}
@@ -52,7 +52,7 @@ services:
       - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
       - DATABASE_URI=postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
-      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_USERNAMES={{ admin_usernames }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
     volumes:
       - /opt/semiphemeral/data/web:/var/web
@@ -100,7 +100,7 @@ services:
       - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
       - DATABASE_URI=postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
-      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_USERNAMES={{ admin_usernames }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
     networks:
       - default
@@ -137,7 +137,7 @@ services:
       - TWITTER_DM_CONSUMER_TOKEN={{ twitter_dm_consumer_token }}
       - TWITTER_DM_CONSUMER_KEY={{ twitter_dm_consumer_secret }}
       - DATABASE_URI=postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ db_private_ip }}:5432/{{ postgres_db }}
-      - ADMIN_USERNAME={{ admin_username }}
+      - ADMIN_USERNAMES={{ admin_usernames }}
       - ADMIN_WEBHOOK={{ admin_webhook }}
     networks:
       - default
