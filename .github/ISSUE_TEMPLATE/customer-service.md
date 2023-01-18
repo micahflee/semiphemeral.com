@@ -11,6 +11,14 @@ assignees: ''
 
 **Date First Discovered:**
 
-**Description:** 
+**Browser:**
+
+**OS:**
+
+**App Version:**
+
+**Steps to Reproduce:**
+
+**Description:**
 
 **Screenshots:**
