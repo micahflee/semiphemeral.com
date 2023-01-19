@@ -228,7 +228,7 @@ fetchJobs()
             fascists, you don't have the option to automatically unblock
             yourself. If you oppose fascism and think that you've been blocked
             unfairly or by mistake, you can appeal by writing an email to
-            semiphemeral@micahflee.com (make sure to mention your Twitter username in
+            semiphemeral@scidsg.org (make sure to mention your Twitter username in
             the email).
           </p>
 

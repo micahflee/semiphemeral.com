@@ -11,7 +11,7 @@ const props = defineProps({
     <h2>What if something is broken?</h2>
     <p>
       Semiphemeral is an after-work volunteer project in my free time. If something isn't working like it should, or is
-      confusing, please report it. You can email semiphemeral@micahflee.com. I will make an effort to respond, again in
+      confusing, please report it. You can email semiphemeral@scidsg.org. I will make an effort to respond, again in
       my free time. Make sure to include your Twitter username
       in your report!
     </p>
