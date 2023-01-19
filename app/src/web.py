@@ -69,6 +69,11 @@ Session(app)
 # Helpers
 
 
+def _is_admin(user):
+    admin_usernames = os.environ.get("ADMIN_USERNAMES").split(",")
+    return user.twitter_screen_name in admin_usernames
+
+
 def _logged_in_user():
     """
     Return the currently logged in user
@@ -82,9 +87,7 @@ def _logged_in_user():
             return None
 
         # Are we the administrator impersonating another user?
-        if user.twitter_screen_name == os.environ.get("ADMIN_USERNAME") and session.get(
-            "impersonating_twitter_id"
-        ):
+        if _is_admin(user) and session.get("impersonating_twitter_id"):
             impersonating_user = db_session.scalar(
                 select(User).where(
                     User.twitter_id == session.get("impersonating_twitter_id")
@@ -164,12 +167,10 @@ def admin_required(f):
             user = db_session.scalar(
                 select(User).where(User.twitter_id == session.get("twitter_id"))
             )
-            if not user or user.twitter_screen_name != os.environ.get("ADMIN_USERNAME"):
+            if not user or not _is_admin(user):
                 return redirect("/", 302)
         else:
-            if not current_user or current_user.twitter_screen_name != os.environ.get(
-                "ADMIN_USERNAME"
-            ):
+            if not current_user or not _is_admin(current_user):
                 return redirect("/", 302)
 
         return f(current_user, *args, **kwargs)
